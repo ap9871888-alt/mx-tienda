@@ -78,3 +78,11 @@ function wavToFloat32(bytes) {
   }
   throw new Error('No se encontró el audio en el archivo convertido')
 }
+
+// Convierte un audio (Blob) a MP3 o WAV usando ffmpeg
+export async function convertAudio(blob, format, bitrate = '192k') {
+  const file = new File([blob], 'input.wav', { type: blob.type })
+  const codec = format === 'mp3' ? ['-c:a', 'libmp3lame', '-b:a', bitrate] : ['-c:a', 'pcm_s16le']
+  const data = await run(file, ['-vn', ...codec], `output.${format}`)
+  return new Blob([data], { type: format === 'mp3' ? 'audio/mpeg' : 'audio/wav' })
+}

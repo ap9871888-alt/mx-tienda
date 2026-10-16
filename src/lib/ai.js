@@ -1,6 +1,3 @@
-import { pipeline } from '@huggingface/transformers'
-import { CreateMLCEngine } from '@mlc-ai/web-llm'
-
 // Modelos abiertos que corren en el navegador. La primera vez se descargan y quedan en caché.
 export const WHISPER_MODELS = {
   tiny: { id: 'onnx-community/whisper-tiny', label: 'Rápido (tiny, ~40 MB)' },
@@ -25,6 +22,7 @@ function getTranscriber(modelKey, onProgress) {
   if (!asrCache.has(modelKey)) {
     const id = WHISPER_MODELS[modelKey].id
     const load = (async () => {
+      const { pipeline } = await import('@huggingface/transformers')
       if (navigator.gpu) {
         try {
           return await pipeline('automatic-speech-recognition', id, { device: 'webgpu', progress_callback: onProgress })
@@ -81,9 +79,11 @@ export function getWriter(onProgress) {
   if (!navigator.gpu) {
     throw new Error('Tu navegador no tiene WebGPU. Usa Chrome o Edge de escritorio para generar guiones, o pega tu propia transcripción.')
   }
-  llmPromise ??= CreateMLCEngine(LLM_MODEL, {
-    initProgressCallback: r => onProgress?.(r.text),
-  }).catch(e => {
+  llmPromise ??= import('@mlc-ai/web-llm')
+    .then(({ CreateMLCEngine }) =>
+      CreateMLCEngine(LLM_MODEL, { initProgressCallback: r => onProgress?.(r.text) }),
+    )
+    .catch(e => {
     llmPromise = null
     throw e
   })

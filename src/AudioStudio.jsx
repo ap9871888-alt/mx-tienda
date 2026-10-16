@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { extractAudio, toSpeechSamples } from './lib/media'
+import { extractAudio, toSpeechSamples, convertAudio } from './lib/media'
 import { transcribe, writeScript, STYLES, WHISPER_MODELS, LANGUAGES } from './lib/ai'
+import { speak, VOICES, previewWithSystemVoice, stopSystemVoice } from './lib/tts'
 import { toSRT, toVTT, download } from './lib/export'
 import './AudioStudio.css'
 
@@ -41,6 +42,10 @@ function AudioStudio() {
   const [style, setStyle] = useState('youtube')
   const [notes, setNotes] = useState('')
   const [script, setScript] = useState(draft.script || '')
+  const [voiceText, setVoiceText] = useState('')
+  const [voice, setVoice] = useState('ef_dora')
+  const [speed, setSpeed] = useState(1)
+  const [voiceAudio, setVoiceAudio] = useState(null) // { url, wav }
   const [busy, setBusy] = useState('')
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
@@ -100,6 +105,25 @@ function AudioStudio() {
     run('Generando guion… (la primera vez descarga el modelo, ~1 GB)', async () => {
       setScript(await writeScript({ transcript, style, notes }, setProgress))
     })
+
+  const makeVoice = () =>
+    run('Generando voz… (la primera vez descarga el modelo de voz, ~80 MB)', async () => {
+      stopSystemVoice()
+      const wav = await speak(voiceText, { voice, speed }, p => setProgress(p))
+      if (voiceAudio) URL.revokeObjectURL(voiceAudio.url)
+      setVoiceAudio({ wav, url: URL.createObjectURL(wav) })
+    })
+
+  const downloadVoice = format => {
+    run(`Convirtiendo a ${format.toUpperCase()}…`, async () => {
+      const blob = format === 'wav' ? voiceAudio.wav : await convertAudio(voiceAudio.wav, 'mp3')
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `${name}-voz.${format}`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+    })
+  }
 
   const name = file ? baseName(file.name) : 'transcripcion'
 
@@ -217,6 +241,48 @@ function AudioStudio() {
                 <button onClick={() => download(script, `${name}-guion.txt`)}>⬇ Descargar guion</button>
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {(script || transcript) && (
+        <div className="studio-card">
+          <h3>5. Convierte el texto en voz</h3>
+          <p className="muted">Escribe o pega un texto, o usa el guion o la transcripción.</p>
+          <div className="row">
+            <button onClick={() => setVoiceText(script)} disabled={!script}>Usar guion</button>
+            <button onClick={() => setVoiceText(transcript)} disabled={!transcript}>Usar transcripción</button>
+          </div>
+          <textarea
+            placeholder="Texto que quieres escuchar"
+            value={voiceText}
+            onChange={e => setVoiceText(e.target.value)}
+            rows={6}
+          />
+          <div className="row">
+            <label>
+              Voz
+              <select value={voice} onChange={e => setVoice(e.target.value)}>
+                {Object.entries(VOICES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </label>
+            <label>
+              Velocidad: {speed.toFixed(1)}×
+              <input type="range" min="0.7" max="1.3" step="0.1" value={speed} onChange={e => setSpeed(Number(e.target.value))} />
+            </label>
+            <button className="primary" onClick={makeVoice} disabled={!voiceText.trim() || !!busy}>
+              🎙 Generar audio
+            </button>
+            <button onClick={() => previewWithSystemVoice(voiceText)} disabled={!voiceText.trim()}>
+              🔊 Vista previa (voz del sistema)
+            </button>
+          </div>
+          {voiceAudio && (
+            <div className="download">
+              <audio controls src={voiceAudio.url} />
+              <button className="primary" onClick={() => downloadVoice('mp3')} disabled={!!busy}>⬇ MP3</button>
+              <button onClick={() => downloadVoice('wav')} disabled={!!busy}>⬇ WAV</button>
+            </div>
           )}
         </div>
       )}
