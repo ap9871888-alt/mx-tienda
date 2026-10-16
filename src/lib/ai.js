@@ -42,9 +42,13 @@ function getTranscriber(modelKey, onProgress) {
   return asrCache.get(modelKey)
 }
 
+// Ventanas de 4 minutos: cada una se transcribe aparte para poder mostrar avance en videos largos
+const WINDOW_S = 240
+const SAMPLE_RATE = 16000
+
 // Devuelve { text, segments: [{ start, end, text }] } con tiempos en segundos
 export async function transcribe(samples, { model = 'base', language = 'spanish' } = {}, onProgress) {
-  const asr = await getTranscriber(model, p => p.status === 'progress' && onProgress?.(`${Math.round(p.progress)}%`))
+  const asr = await getTranscriber(model, p => p.status === 'progress' && onProgress?.(`descargando modelo ${Math.round(p.progress)}%`))
   const options = {
     task: 'transcribe',
     chunk_length_s: 30,
@@ -52,13 +56,25 @@ export async function transcribe(samples, { model = 'base', language = 'spanish'
     return_timestamps: true,
   }
   if (language !== 'auto') options.language = language
-  const out = await asr(samples, options)
-  const segments = (out.chunks || []).map(c => ({
-    start: c.timestamp[0] ?? 0,
-    end: c.timestamp[1] ?? c.timestamp[0] ?? 0,
-    text: c.text.trim(),
-  }))
-  return { text: out.text.trim(), segments }
+
+  const size = WINDOW_S * SAMPLE_RATE
+  const parts = Math.max(1, Math.ceil(samples.length / size))
+  const texts = []
+  const segments = []
+  for (let i = 0; i < parts; i++) {
+    const offset = i * WINDOW_S
+    onProgress?.(`parte ${i + 1} de ${parts}`)
+    const out = await asr(samples.subarray(i * size, (i + 1) * size), options)
+    for (const c of out.chunks || []) {
+      segments.push({
+        start: offset + (c.timestamp[0] ?? 0),
+        end: offset + (c.timestamp[1] ?? c.timestamp[0] ?? 0),
+        text: c.text.trim(),
+      })
+    }
+    texts.push(out.text.trim())
+  }
+  return { text: texts.join(' ').trim(), segments }
 }
 
 export function getWriter(onProgress) {

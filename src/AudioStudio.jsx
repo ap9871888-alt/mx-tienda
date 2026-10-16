@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { extractAudio, toSpeechSamples } from './lib/media'
 import { transcribe, writeScript, STYLES, WHISPER_MODELS, LANGUAGES } from './lib/ai'
 import { toSRT, toVTT, download } from './lib/export'
@@ -17,21 +17,41 @@ const STYLE_NAMES = {
 const mb = bytes => `${(bytes / 1024 / 1024).toFixed(2)} MB`
 const baseName = name => name.replace(/\.[^.]+$/, '') || 'audio'
 
+// El borrador se guarda en el navegador para no perderlo al recargar; si no hay localStorage, la app sigue funcionando
+const DRAFT_KEY = 'audio-studio:draft'
+function loadDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFT_KEY)) || {}
+  } catch {
+    return {}
+  }
+}
+
 function AudioStudio() {
+  const [draft] = useState(loadDraft)
   const [file, setFile] = useState(null)
   const [format, setFormat] = useState('mp3')
   const [bitrate, setBitrate] = useState('192k')
   const [audio, setAudio] = useState(null) // { url, filename, size }
   const [model, setModel] = useState('base')
   const [language, setLanguage] = useState('spanish')
-  const [transcript, setTranscript] = useState('')
+  const [transcript, setTranscript] = useState(draft.transcript || '')
+  const [autoText, setAutoText] = useState('') // lo que devolvió Whisper; los subtítulos salen de aquí
   const [segments, setSegments] = useState([]) // [{ start, end, text }] para subtítulos
   const [style, setStyle] = useState('youtube')
   const [notes, setNotes] = useState('')
-  const [script, setScript] = useState('')
+  const [script, setScript] = useState(draft.script || '')
   const [busy, setBusy] = useState('')
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ transcript, script }))
+    } catch {
+      // Sin almacenamiento disponible, el borrador solo vive mientras la pestaña esté abierta
+    }
+  }, [transcript, script])
 
   const run = async (label, fn) => {
     setBusy(label)
@@ -51,9 +71,9 @@ function AudioStudio() {
     if (audio) URL.revokeObjectURL(audio.url)
     setFile(f)
     setAudio(null)
-    setTranscript('')
+    // La transcripción y el guion del borrador se conservan; los subtítulos sí se reinician porque eran del video anterior
+    setAutoText('')
     setSegments([])
-    setScript('')
     setError('')
   }
 
@@ -72,6 +92,7 @@ function AudioStudio() {
       const samples = await toSpeechSamples(file, p => setProgress(`${p}%`))
       const result = await transcribe(samples, { model, language }, setProgress)
       setTranscript(result.text)
+      setAutoText(result.text)
       setSegments(result.segments)
     })
 
@@ -155,6 +176,9 @@ function AudioStudio() {
           />
           {transcript && (
             <div className="row">
+              {segments.length > 0 && transcript !== autoText && (
+                <p className="muted">Editaste el texto: los subtítulos usan la transcripción original de Whisper.</p>
+              )}
               <button onClick={() => download(transcript, `${name}.txt`)}>⬇ TXT</button>
               <button onClick={() => download(toSRT(segments), `${name}.srt`)} disabled={!segments.length}>
                 ⬇ Subtítulos SRT
