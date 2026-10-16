@@ -1,37 +1,24 @@
 import { useState } from 'react'
+import { extractAudio, toSpeechSamples } from './lib/media'
+import { transcribe, writeScript, STYLES } from './lib/ai'
 import './AudioStudio.css'
 
-const FORMATS = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac']
-const LOSSLESS = ['wav', 'flac']
-const STYLES = {
+const FORMATS = ['mp3', 'wav']
+const STYLE_NAMES = {
   youtube: 'Video de YouTube',
   short: 'Video corto (Reels/TikTok)',
   podcast: 'Podcast',
-  resumen: 'Resumen ejecutivo',
+  resumen: 'Resumen',
   articulo: 'Artículo de blog',
 }
 
-// En producción apunta al backend (VITE_API_URL); en local usa el proxy de Vite
-const API = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
-
 const mb = bytes => `${(bytes / 1024 / 1024).toFixed(2)} MB`
-
-async function api(url, options) {
-  const res = await fetch(url, options)
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `Error ${res.status}`)
-  return data
-}
-
-const postJson = (url, body) =>
-  api(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
 function AudioStudio() {
   const [file, setFile] = useState(null)
   const [format, setFormat] = useState('mp3')
   const [bitrate, setBitrate] = useState('192k')
-  const [job, setJob] = useState(null) // { id }
-  const [results, setResults] = useState([]) // [{ format, filename, size }]
+  const [audio, setAudio] = useState(null) // { url, filename, size }
   const [transcript, setTranscript] = useState('')
   const [style, setStyle] = useState('youtube')
   const [notes, setNotes] = useState('')
@@ -51,50 +38,44 @@ function AudioStudio() {
     }
   }
 
-  const addResult = r => setResults(prev => [...prev.filter(x => x.format !== r.format), r])
-
-  const convert = () =>
-    run('Convirtiendo…', async () => {
-      if (job) {
-        addResult(await postJson(`${API}/audio/${job.id}/convert`, { format, bitrate }))
-        return
-      }
-      const body = new FormData()
-      body.append('video', file)
-      body.append('format', format)
-      body.append('bitrate', bitrate)
-      const r = await api(`${API}/audio/convert`, { method: 'POST', body })
-      setJob({ id: r.id })
-      setResults([r])
-    })
-
-  const transcribe = () =>
-    run('Transcribiendo…', async () => {
-      const r = await postJson(`${API}/audio/${job.id}/transcribe`, {})
-      setTranscript(r.transcript)
-    })
-
-  const generate = () =>
-    run('Generando guion…', async () => {
-      const r = await postJson(`${API}/script`, { transcript, style, notes })
-      setScript(r.script)
-    })
-
   const onFile = f => {
+    if (audio) URL.revokeObjectURL(audio.url)
     setFile(f)
-    setJob(null)
-    setResults([])
+    setAudio(null)
     setTranscript('')
     setScript('')
     setError('')
   }
 
+  const extract = () =>
+    run('Extrayendo audio… (la primera vez carga el conversor, ~30 MB)', async () => {
+      const blob = await extractAudio(file, format, bitrate)
+      const base = file.name.replace(/\.[^.]+$/, '') || 'audio'
+      setAudio({
+        url: URL.createObjectURL(blob),
+        filename: `${base}.${format}`,
+        size: blob.size,
+      })
+    })
+
+  const doTranscribe = () =>
+    run('Transcribiendo… (la primera vez descarga el modelo, ~80 MB; los videos largos tardan)', async () => {
+      const samples = await toSpeechSamples(file)
+      setTranscript(await transcribe(samples))
+    })
+
+  const generate = () =>
+    run('Generando guion… (la primera vez descarga el modelo, ~1 GB)', async () => {
+      setScript(await writeScript({ transcript, style, notes }))
+    })
+
   return (
     <section className="studio">
       <h2>🎬 Video → Audio → Guion</h2>
+      <p className="intro">Todo corre en tu navegador: no se sube nada a ningún servidor y no necesitas llaves.</p>
 
       <div className="studio-card">
-        <h3>1. Sube tu video</h3>
+        <h3>1. Elige tu video</h3>
         <input
           type="file"
           accept="video/*,audio/*"
@@ -111,45 +92,36 @@ function AudioStudio() {
           </label>
           <label>
             Calidad
-            <select
-              value={bitrate}
-              onChange={e => setBitrate(e.target.value)}
-              disabled={LOSSLESS.includes(format)}
-            >
+            <select value={bitrate} onChange={e => setBitrate(e.target.value)} disabled={format === 'wav'}>
               {['64k', '96k', '128k', '192k', '256k', '320k'].map(b => <option key={b}>{b}</option>)}
             </select>
           </label>
-          <button className="primary" onClick={convert} disabled={!file || busy}>
-            {job ? 'Convertir a este formato' : 'Extraer audio'}
+          <button className="primary" onClick={extract} disabled={!file || !!busy}>
+            Extraer audio
           </button>
         </div>
       </div>
 
-      {results.length > 0 && (
+      {audio && (
         <div className="studio-card">
           <h3>2. Descarga</h3>
-          <ul className="downloads">
-            {results.map(r => (
-              <li key={r.format}>
-                <span>{r.filename} <span className="muted">· {mb(r.size)}</span></span>
-                <a className="primary" href={`${API}/audio/${job.id}/download/${r.format}`} download>
-                  ⬇ Descargar
-                </a>
-              </li>
-            ))}
-          </ul>
-          <p className="muted">Puedes elegir otro formato arriba y convertir sin volver a subir el video.</p>
+          <div className="download">
+            <audio controls src={audio.url} />
+            <a className="primary" href={audio.url} download={audio.filename}>
+              ⬇ Descargar {audio.filename} ({mb(audio.size)})
+            </a>
+          </div>
         </div>
       )}
 
-      {job && (
+      {file && (
         <div className="studio-card">
           <h3>3. Transcribe y crea el guion</h3>
-          <button className="primary" onClick={transcribe} disabled={busy}>
+          <button onClick={doTranscribe} disabled={!!busy}>
             📝 Transcribir audio
           </button>
           <textarea
-            placeholder="La transcripción aparecerá aquí (puedes editarla o pegar la tuya)"
+            placeholder="La transcripción aparecerá aquí. También puedes pegar la tuya."
             value={transcript}
             onChange={e => setTranscript(e.target.value)}
             rows={8}
@@ -158,18 +130,14 @@ function AudioStudio() {
             <label>
               Tipo de guion
               <select value={style} onChange={e => setStyle(e.target.value)}>
-                {Object.entries(STYLES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                {Object.keys(STYLES).map(k => <option key={k} value={k}>{STYLE_NAMES[k]}</option>)}
               </select>
             </label>
             <label className="grow">
               Indicaciones (opcional)
-              <input
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Tono, duración, público…"
-              />
+              <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Tono, duración, público…" />
             </label>
-            <button className="primary" onClick={generate} disabled={!transcript.trim() || busy}>
+            <button className="primary" onClick={generate} disabled={!transcript.trim() || !!busy}>
               ✨ Generar guion
             </button>
           </div>

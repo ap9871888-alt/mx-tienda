@@ -111,3 +111,20 @@
 .status.error {
   color: #c0392b;
 }
+
+.studio .intro {
+  color: white;
+  opacity: 0.9;
+  margin: -8px 0 16px;
+}
+
+.studio .download {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.studio audio {
+  max-width: 100%;
+}

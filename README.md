@@ -1,24 +1,29 @@
 # 🎬 Audio Studio
 
-Sube un video → extrae el audio (MP3, WAV, M4A, AAC, OGG, Opus, FLAC) → descárgalo → transcríbelo → genera un guion.
+Sube un video, extrae el audio (MP3 o WAV), descárgalo, transcríbelo y genera un guion.
 
-## Requisitos
-- Node.js 18+
-- `ffmpeg` instalado en el sistema
+**100% gratis y sin llaves.** Todo corre en el navegador: el video no sale de tu computadora. Los modelos son abiertos y se descargan una vez.
 
-## Uso
+## Uso local
 ```bash
 npm install
-cp .env.example .env   # y completa las llaves
-npm run server         # http://localhost:5001
-npm run dev            # http://localhost:3001 (otra terminal)
+npm run dev   # http://localhost:5173
 ```
 
-- Transcripción: `OPENAI_API_KEY` (Whisper, límite 25 MB de audio comprimido ≈ 70 min).
-- Guiones: `ANTHROPIC_API_KEY` (Claude).
-- Sin llaves, la conversión y descarga funcionan igual.
-- Los archivos temporales se borran tras 1 hora. `MAX_UPLOAD_MB` limita la subida (500 por defecto).
+## Requisitos del navegador
+- Extraer audio y transcribir: cualquier navegador moderno.
+- Generar guion: **WebGPU**, es decir Chrome o Edge de escritorio. Si no está disponible, pega tu transcripción.
+
+## Descargas por primera vez
+- Conversor ffmpeg: ~30 MB
+- Transcripción (Whisper base): ~80 MB
+- Modelo de guion (Qwen2.5 1.5B): ~1 GB
+
+Se guardan en caché del navegador, así que la siguiente vez son inmediatas.
+
+## Límites
+- Videos largos tardan mucho en transcribirse, porque corren en la computadora de quien los usa.
+- El modelo de guion es pequeño: para transcripciones muy largas usa solo la primera parte (~9000 caracteres).
 
 ## Despliegue
-- **Backend** (Render, Docker con ffmpeg): crea un Web Service desde este repo (usa `render.yaml`/`Dockerfile`) y define `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` y `CORS_ORIGIN` (la URL de Vercel). El plan gratis de Render tiene disco efímero y se duerme tras inactividad.
-- **Frontend** (Vercel): importa el repo y define `VITE_API_URL` con la URL del backend de Render.
+Sitio estático: Vercel lo despliega automáticamente con cada push a `main` (build: `npm run build`, salida: `dist`).
