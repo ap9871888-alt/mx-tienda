@@ -2,37 +2,63 @@ import { pipeline } from '@huggingface/transformers'
 import { CreateMLCEngine } from '@mlc-ai/web-llm'
 
 // Modelos abiertos que corren en el navegador. La primera vez se descargan y quedan en caché.
-const WHISPER_MODEL = 'onnx-community/whisper-base'
+export const WHISPER_MODELS = {
+  tiny: { id: 'onnx-community/whisper-tiny', label: 'Rápido (tiny, ~40 MB)' },
+  base: { id: 'onnx-community/whisper-base', label: 'Equilibrado (base, ~80 MB)' },
+  small: { id: 'onnx-community/whisper-small', label: 'Mejor calidad (small, ~250 MB)' },
+}
+export const LANGUAGES = {
+  spanish: 'Español',
+  english: 'Inglés',
+  auto: 'Detectar automáticamente',
+}
 const LLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC'
 
 // Textos muy largos no caben en el contexto del modelo pequeño
 const MAX_TRANSCRIPT_CHARS = 9000
 
-let asrPromise
+const asrCache = new Map() // un pipeline por modelo
 let llmPromise
 
-export function getTranscriber(onProgress) {
-  asrPromise ??= pipeline('automatic-speech-recognition', WHISPER_MODEL, {
-    device: 'wasm',
-    dtype: 'q8',
-    progress_callback: onProgress,
-  }).catch(e => {
-    asrPromise = null
-    throw e
-  })
-  return asrPromise
+// WebGPU es más rápido; si el navegador no lo tiene o no arranca, se usa WASM
+function getTranscriber(modelKey, onProgress) {
+  if (!asrCache.has(modelKey)) {
+    const id = WHISPER_MODELS[modelKey].id
+    const load = (async () => {
+      if (navigator.gpu) {
+        try {
+          return await pipeline('automatic-speech-recognition', id, { device: 'webgpu', progress_callback: onProgress })
+        } catch {
+          // Sin WebGPU utilizable: seguimos con WASM
+        }
+      }
+      return pipeline('automatic-speech-recognition', id, { device: 'wasm', dtype: 'q8', progress_callback: onProgress })
+    })()
+    asrCache.set(modelKey, load.catch(e => {
+      asrCache.delete(modelKey)
+      throw e
+    }))
+  }
+  return asrCache.get(modelKey)
 }
 
-// Whisper reporta { status, progress (0-100), file } al descargar cada archivo del modelo
-export async function transcribe(samples, onProgress) {
-  const asr = await getTranscriber(p => p.status === 'progress' && onProgress?.(`${Math.round(p.progress)}%`))
-  const out = await asr(samples, {
-    language: 'spanish',
+// Devuelve { text, segments: [{ start, end, text }] } con tiempos en segundos
+export async function transcribe(samples, { model = 'base', language = 'spanish' } = {}, onProgress) {
+  const asr = await getTranscriber(model, p => p.status === 'progress' && onProgress?.(`${Math.round(p.progress)}%`))
+  const options = {
     task: 'transcribe',
     chunk_length_s: 30,
     stride_length_s: 5,
-  })
-  return out.text.trim()
+    return_timestamps: true,
+  }
+  if (language !== 'auto') options.language = language
+  const out = await asr(samples, options)
+  const segments = (out.chunks || []).map(c => ({
+    start: c.timestamp[0] ?? 0,
+    end: c.timestamp[1] ?? c.timestamp[0] ?? 0,
+    text: c.text.trim(),
+  }))
+  return { text: out.text.trim(), segments }
 }
 
 export function getWriter(onProgress) {

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { extractAudio, toSpeechSamples } from './lib/media'
-import { transcribe, writeScript, STYLES } from './lib/ai'
+import { transcribe, writeScript, STYLES, WHISPER_MODELS, LANGUAGES } from './lib/ai'
+import { toSRT, toVTT, download } from './lib/export'
 import './AudioStudio.css'
 
 const FORMATS = ['mp3', 'wav']
+const BITRATES = ['64k', '96k', '128k', '192k', '256k', '320k']
 const STYLE_NAMES = {
   youtube: 'Video de YouTube',
   short: 'Video corto (Reels/TikTok)',
@@ -13,13 +15,17 @@ const STYLE_NAMES = {
 }
 
 const mb = bytes => `${(bytes / 1024 / 1024).toFixed(2)} MB`
+const baseName = name => name.replace(/\.[^.]+$/, '') || 'audio'
 
 function AudioStudio() {
   const [file, setFile] = useState(null)
   const [format, setFormat] = useState('mp3')
   const [bitrate, setBitrate] = useState('192k')
   const [audio, setAudio] = useState(null) // { url, filename, size }
+  const [model, setModel] = useState('base')
+  const [language, setLanguage] = useState('spanish')
   const [transcript, setTranscript] = useState('')
+  const [segments, setSegments] = useState([]) // [{ start, end, text }] para subtítulos
   const [style, setStyle] = useState('youtube')
   const [notes, setNotes] = useState('')
   const [script, setScript] = useState('')
@@ -46,6 +52,7 @@ function AudioStudio() {
     setFile(f)
     setAudio(null)
     setTranscript('')
+    setSegments([])
     setScript('')
     setError('')
   }
@@ -53,24 +60,27 @@ function AudioStudio() {
   const extract = () =>
     run('Extrayendo audio… (la primera vez carga el conversor, ~30 MB)', async () => {
       const blob = await extractAudio(file, format, bitrate, p => setProgress(`${p}%`))
-      const base = file.name.replace(/\.[^.]+$/, '') || 'audio'
       setAudio({
         url: URL.createObjectURL(blob),
-        filename: `${base}.${format}`,
+        filename: `${baseName(file.name)}.${format}`,
         size: blob.size,
       })
     })
 
   const doTranscribe = () =>
-    run('Transcribiendo… (la primera vez descarga el modelo, ~80 MB; los videos largos tardan)', async () => {
+    run(`Transcribiendo… (la primera vez descarga el modelo ${WHISPER_MODELS[model].label}; los videos largos tardan)`, async () => {
       const samples = await toSpeechSamples(file, p => setProgress(`${p}%`))
-      setTranscript(await transcribe(samples, setProgress))
+      const result = await transcribe(samples, { model, language }, setProgress)
+      setTranscript(result.text)
+      setSegments(result.segments)
     })
 
   const generate = () =>
     run('Generando guion… (la primera vez descarga el modelo, ~1 GB)', async () => {
       setScript(await writeScript({ transcript, style, notes }, setProgress))
     })
+
+  const name = file ? baseName(file.name) : 'transcripcion'
 
   return (
     <section className="studio">
@@ -96,7 +106,7 @@ function AudioStudio() {
           <label>
             Calidad
             <select value={bitrate} onChange={e => setBitrate(e.target.value)} disabled={format === 'wav'}>
-              {['64k', '96k', '128k', '192k', '256k', '320k'].map(b => <option key={b}>{b}</option>)}
+              {BITRATES.map(b => <option key={b}>{b}</option>)}
             </select>
           </label>
           <button className="primary" onClick={extract} disabled={!file || !!busy}>
@@ -119,16 +129,47 @@ function AudioStudio() {
 
       {file && (
         <div className="studio-card">
-          <h3>3. Transcribe y crea el guion</h3>
-          <button onClick={doTranscribe} disabled={!!busy}>
-            📝 Transcribir audio
-          </button>
+          <h3>3. Transcribe</h3>
+          <div className="row">
+            <label>
+              Modelo
+              <select value={model} onChange={e => setModel(e.target.value)}>
+                {Object.entries(WHISPER_MODELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </label>
+            <label>
+              Idioma del audio
+              <select value={language} onChange={e => setLanguage(e.target.value)}>
+                {Object.entries(LANGUAGES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </label>
+            <button onClick={doTranscribe} disabled={!!busy}>
+              📝 Transcribir audio
+            </button>
+          </div>
           <textarea
             placeholder="La transcripción aparecerá aquí. También puedes pegar la tuya."
             value={transcript}
             onChange={e => setTranscript(e.target.value)}
             rows={8}
           />
+          {transcript && (
+            <div className="row">
+              <button onClick={() => download(transcript, `${name}.txt`)}>⬇ TXT</button>
+              <button onClick={() => download(toSRT(segments), `${name}.srt`)} disabled={!segments.length}>
+                ⬇ Subtítulos SRT
+              </button>
+              <button onClick={() => download(toVTT(segments), `${name}.vtt`, 'text/vtt;charset=utf-8')} disabled={!segments.length}>
+                ⬇ Subtítulos VTT
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {transcript && (
+        <div className="studio-card">
+          <h3>4. Crea el guion</h3>
           <div className="row">
             <label>
               Tipo de guion
@@ -147,7 +188,10 @@ function AudioStudio() {
           {script && (
             <>
               <textarea value={script} onChange={e => setScript(e.target.value)} rows={14} />
-              <button onClick={() => navigator.clipboard?.writeText(script)}>📋 Copiar guion</button>
+              <div className="row">
+                <button onClick={() => navigator.clipboard?.writeText(script)}>📋 Copiar guion</button>
+                <button onClick={() => download(script, `${name}-guion.txt`)}>⬇ Descargar guion</button>
+              </div>
             </>
           )}
         </div>
