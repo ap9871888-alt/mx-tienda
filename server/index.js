@@ -5,7 +5,7 @@ import audioRoutes from './audio.js'
 const app = express()
 const PORT = process.env.PORT || 5001
 
-app.use(cors())
+app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }))
 app.use(express.json({ limit: '2mb' }))
 app.use(audioRoutes)
 

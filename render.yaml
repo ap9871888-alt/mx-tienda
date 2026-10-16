@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: audio-studio-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false   # URL de Vercel, p. ej. https://audio-studio.vercel.app
+      - key: MAX_UPLOAD_MB
+        value: "200"

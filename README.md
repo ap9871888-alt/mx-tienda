@@ -18,3 +18,7 @@ npm run dev            # http://localhost:3001 (otra terminal)
 - Guiones: `ANTHROPIC_API_KEY` (Claude).
 - Sin llaves, la conversión y descarga funcionan igual.
 - Los archivos temporales se borran tras 1 hora. `MAX_UPLOAD_MB` limita la subida (500 por defecto).
+
+## Despliegue
+- **Backend** (Render, Docker con ffmpeg): crea un Web Service desde este repo (usa `render.yaml`/`Dockerfile`) y define `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` y `CORS_ORIGIN` (la URL de Vercel). El plan gratis de Render tiene disco efímero y se duerme tras inactividad.
+- **Frontend** (Vercel): importa el repo y define `VITE_API_URL` con la URL del backend de Render.

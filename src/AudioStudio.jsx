@@ -11,6 +11,9 @@ const STYLES = {
   articulo: 'Artículo de blog',
 }
 
+// En producción apunta al backend (VITE_API_URL); en local usa el proxy de Vite
+const API = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '')
+
 const mb = bytes => `${(bytes / 1024 / 1024).toFixed(2)} MB`
 
 async function api(url, options) {
@@ -53,27 +56,27 @@ function AudioStudio() {
   const convert = () =>
     run('Convirtiendo…', async () => {
       if (job) {
-        addResult(await postJson(`/api/audio/${job.id}/convert`, { format, bitrate }))
+        addResult(await postJson(`${API}/audio/${job.id}/convert`, { format, bitrate }))
         return
       }
       const body = new FormData()
       body.append('video', file)
       body.append('format', format)
       body.append('bitrate', bitrate)
-      const r = await api('/api/audio/convert', { method: 'POST', body })
+      const r = await api(`${API}/audio/convert`, { method: 'POST', body })
       setJob({ id: r.id })
       setResults([r])
     })
 
   const transcribe = () =>
     run('Transcribiendo…', async () => {
-      const r = await postJson(`/api/audio/${job.id}/transcribe`, {})
+      const r = await postJson(`${API}/audio/${job.id}/transcribe`, {})
       setTranscript(r.transcript)
     })
 
   const generate = () =>
     run('Generando guion…', async () => {
-      const r = await postJson('/api/script', { transcript, style, notes })
+      const r = await postJson(`${API}/script`, { transcript, style, notes })
       setScript(r.script)
     })
 
@@ -129,7 +132,7 @@ function AudioStudio() {
             {results.map(r => (
               <li key={r.format}>
                 <span>{r.filename} <span className="muted">· {mb(r.size)}</span></span>
-                <a className="primary" href={`/api/audio/${job.id}/download/${r.format}`} download>
+                <a className="primary" href={`${API}/audio/${job.id}/download/${r.format}`} download>
                   ⬇ Descargar
                 </a>
               </li>
