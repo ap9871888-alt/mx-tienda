@@ -23,8 +23,9 @@ export function getTranscriber(onProgress) {
   return asrPromise
 }
 
+// Whisper reporta { status, progress (0-100), file } al descargar cada archivo del modelo
 export async function transcribe(samples, onProgress) {
-  const asr = await getTranscriber(onProgress)
+  const asr = await getTranscriber(p => p.status === 'progress' && onProgress?.(`${Math.round(p.progress)}%`))
   const out = await asr(samples, {
     language: 'spanish',
     task: 'transcribe',
@@ -56,7 +57,7 @@ export const STYLES = {
 }
 
 export async function writeScript({ transcript, style, notes }, onProgress) {
-  const engine = await getWriter(onProgress)
+  const engine = await getWriter(r => onProgress?.(r))
   const text = transcript.slice(0, MAX_TRANSCRIPT_CHARS)
   const reply = await engine.chat.completions.create({
     messages: [

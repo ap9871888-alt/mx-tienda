@@ -24,10 +24,12 @@ function AudioStudio() {
   const [notes, setNotes] = useState('')
   const [script, setScript] = useState('')
   const [busy, setBusy] = useState('')
+  const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
 
   const run = async (label, fn) => {
     setBusy(label)
+    setProgress('')
     setError('')
     try {
       await fn()
@@ -35,6 +37,7 @@ function AudioStudio() {
       setError(e.message)
     } finally {
       setBusy('')
+      setProgress('')
     }
   }
 
@@ -49,7 +52,7 @@ function AudioStudio() {
 
   const extract = () =>
     run('Extrayendo audio… (la primera vez carga el conversor, ~30 MB)', async () => {
-      const blob = await extractAudio(file, format, bitrate)
+      const blob = await extractAudio(file, format, bitrate, p => setProgress(`${p}%`))
       const base = file.name.replace(/\.[^.]+$/, '') || 'audio'
       setAudio({
         url: URL.createObjectURL(blob),
@@ -60,13 +63,13 @@ function AudioStudio() {
 
   const doTranscribe = () =>
     run('Transcribiendo… (la primera vez descarga el modelo, ~80 MB; los videos largos tardan)', async () => {
-      const samples = await toSpeechSamples(file)
-      setTranscript(await transcribe(samples))
+      const samples = await toSpeechSamples(file, p => setProgress(`${p}%`))
+      setTranscript(await transcribe(samples, setProgress))
     })
 
   const generate = () =>
     run('Generando guion… (la primera vez descarga el modelo, ~1 GB)', async () => {
-      setScript(await writeScript({ transcript, style, notes }))
+      setScript(await writeScript({ transcript, style, notes }, setProgress))
     })
 
   return (
@@ -150,7 +153,7 @@ function AudioStudio() {
         </div>
       )}
 
-      {busy && <p className="status">{busy}</p>}
+      {busy && <p className="status">{busy} {progress}</p>}
       {error && <p className="status error">⚠️ {error}</p>}
     </section>
   )
