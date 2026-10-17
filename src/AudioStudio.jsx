@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { extractAudio, toSpeechSamples, convertAudio } from './lib/media'
 import { transcribe, writeScript, STYLES, WHISPER_MODELS, LANGUAGES } from './lib/ai'
 import { speak, VOICES, previewWithSystemVoice, stopSystemVoice } from './lib/tts'
@@ -48,7 +48,9 @@ function AudioStudio() {
   const [voiceAudio, setVoiceAudio] = useState(null) // { url, wav }
   const [busy, setBusy] = useState('')
   const [progress, setProgress] = useState('')
+  const [cancelable, setCancelable] = useState(false)
   const [error, setError] = useState('')
+  const abortRef = useRef(null)
 
   useEffect(() => {
     try {
@@ -58,19 +60,27 @@ function AudioStudio() {
     }
   }, [transcript, script])
 
-  const run = async (label, fn) => {
+  // fn recibe una señal para cancelar; los pasos que no se pueden cancelar (ffmpeg) ignoran la señal
+  const run = async (label, fn, { cancellable = false } = {}) => {
+    const controller = new AbortController()
+    abortRef.current = controller
     setBusy(label)
     setProgress('')
+    setCancelable(cancellable)
     setError('')
     try {
-      await fn()
+      await fn(controller.signal)
     } catch (e) {
-      setError(e.message)
+      if (e.name !== 'AbortError') setError(e.message)
     } finally {
+      abortRef.current = null
       setBusy('')
       setProgress('')
+      setCancelable(false)
     }
   }
+
+  const cancel = () => abortRef.current?.abort()
 
   const onFile = f => {
     if (audio) URL.revokeObjectURL(audio.url)
@@ -93,13 +103,17 @@ function AudioStudio() {
     })
 
   const doTranscribe = () =>
-    run(`Transcribiendo… (la primera vez descarga el modelo ${WHISPER_MODELS[model].label}; los videos largos tardan)`, async () => {
-      const samples = await toSpeechSamples(file, p => setProgress(`${p}%`))
-      const result = await transcribe(samples, { model, language }, setProgress)
-      setTranscript(result.text)
-      setAutoText(result.text)
-      setSegments(result.segments)
-    })
+    run(
+      `Transcribiendo… (la primera vez descarga el modelo ${WHISPER_MODELS[model].label}; los videos largos tardan)`,
+      async signal => {
+        const samples = await toSpeechSamples(file, p => setProgress(`${p}%`))
+        const result = await transcribe(samples, { model, language }, setProgress, signal)
+        setTranscript(result.text)
+        setAutoText(result.text)
+        setSegments(result.segments)
+      },
+      { cancellable: true },
+    )
 
   const generate = () =>
     run('Generando guion… (la primera vez descarga el modelo, ~1 GB)', async () => {
@@ -107,12 +121,16 @@ function AudioStudio() {
     })
 
   const makeVoice = () =>
-    run('Generando voz… (la primera vez descarga el modelo de voz, ~80 MB)', async () => {
-      stopSystemVoice()
-      const wav = await speak(voiceText, { voice, speed }, p => setProgress(p))
-      if (voiceAudio) URL.revokeObjectURL(voiceAudio.url)
-      setVoiceAudio({ wav, url: URL.createObjectURL(wav) })
-    })
+    run(
+      'Generando voz… (la primera vez descarga el modelo de voz, ~80 MB)',
+      async signal => {
+        stopSystemVoice()
+        const wav = await speak(voiceText, { voice, speed }, p => setProgress(p), signal)
+        if (voiceAudio) URL.revokeObjectURL(voiceAudio.url)
+        setVoiceAudio({ wav, url: URL.createObjectURL(wav) })
+      },
+      { cancellable: true },
+    )
 
   const downloadVoice = format => {
     run(`Convirtiendo a ${format.toUpperCase()}…`, async () => {
@@ -287,7 +305,16 @@ function AudioStudio() {
         </div>
       )}
 
-      {busy && <p className="status">{busy} {progress}</p>}
+      {busy && (
+        <p className="status">
+          {busy} {progress}
+          {cancelable && (
+            <button className="cancel" onClick={cancel}>
+              Cancelar
+            </button>
+          )}
+        </p>
+      )}
       {error && <p className="status error">⚠️ {error}</p>}
     </section>
   )

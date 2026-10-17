@@ -45,7 +45,7 @@ const WINDOW_S = 240
 const SAMPLE_RATE = 16000
 
 // Devuelve { text, segments: [{ start, end, text }] } con tiempos en segundos
-export async function transcribe(samples, { model = 'base', language = 'spanish' } = {}, onProgress) {
+export async function transcribe(samples, { model = 'base', language = 'spanish' } = {}, onProgress, signal) {
   const asr = await getTranscriber(model, p => p.status === 'progress' && onProgress?.(`descargando modelo ${Math.round(p.progress)}%`))
   const options = {
     task: 'transcribe',
@@ -60,6 +60,8 @@ export async function transcribe(samples, { model = 'base', language = 'spanish'
   const texts = []
   const segments = []
   for (let i = 0; i < parts; i++) {
+    // Se revisa entre ventanas: el modelo no se puede interrumpir a mitad de una
+    if (signal?.aborted) throw new DOMException('Transcripción cancelada', 'AbortError')
     const offset = i * WINDOW_S
     onProgress?.(`parte ${i + 1} de ${parts}`)
     const out = await asr(samples.subarray(i * size, (i + 1) * size), options)

@@ -128,3 +128,10 @@
 .studio audio {
   max-width: 100%;
 }
+
+.studio .status .cancel {
+  margin-left: 10px;
+  padding: 4px 10px;
+  border-color: #c0392b;
+  color: #c0392b;
+}

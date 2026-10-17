@@ -41,7 +41,7 @@ export function splitText(text, max = MAX_CHARS) {
 }
 
 // Genera el audio completo y lo devuelve como WAV (Blob)
-export async function speak(text, { voice = 'ef_dora', speed = 1 } = {}, onProgress) {
+export async function speak(text, { voice = 'ef_dora', speed = 1 } = {}, onProgress, signal) {
   const tts = await getTTS()
   const parts = splitText(text)
   if (!parts.length) throw new Error('No hay texto para convertir en audio')
@@ -49,6 +49,7 @@ export async function speak(text, { voice = 'ef_dora', speed = 1 } = {}, onProgr
   const pieces = []
   let rate = 24000
   for (let i = 0; i < parts.length; i++) {
+    if (signal?.aborted) throw new DOMException('Generación de voz cancelada', 'AbortError')
     onProgress?.(`parte ${i + 1} de ${parts.length}`)
     const out = await tts.generate(parts[i], { voice, speed })
     rate = out.sampling_rate
