@@ -17,6 +17,12 @@ npm run check:ffmpeg # verifica en Node que el núcleo de ffmpeg extrae MP3, WAV
 ```
 `check:ffmpeg` usa `@ffmpeg/core` (solo para desarrollo) y genera su propio tono, así que no necesita videos.
 
+## Arquitectura
+- `src/workers/ai.worker.js`: Whisper (transcripción) y Kokoro (voz) corren en un Web Worker, así la página no se congela.
+- `src/lib/worker.js`: cliente del worker (trabajos, progreso y cancelación).
+- `src/lib/script.js`: WebLLM para los guiones (hilo principal).
+- `src/lib/audioFormat.js`: funciones puras de formato, con pruebas.
+
 ## Requisitos del navegador
 - Extraer audio y transcribir: cualquier navegador moderno.
 - Generar guion: **WebGPU**, es decir Chrome o Edge de escritorio. Si no está disponible, pega tu transcripción.
