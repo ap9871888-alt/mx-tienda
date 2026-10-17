@@ -172,3 +172,10 @@
   background: #fdecea;
   color: #c0392b;
 }
+
+.studio .check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}

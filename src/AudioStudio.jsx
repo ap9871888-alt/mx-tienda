@@ -40,6 +40,7 @@ function AudioStudio() {
   const [audio, setAudio] = useState(null) // { url, filename, size }
   const [model, setModel] = useState('base')
   const [language, setLanguage] = useState('spanish')
+  const [wordTimes, setWordTimes] = useState(false)
   const [transcript, setTranscript] = useState(draft.transcript || '')
   const [autoText, setAutoText] = useState('') // lo que devolvió Whisper; los subtítulos salen de aquí
   const [segments, setSegments] = useState([]) // [{ start, end, text }] para subtítulos
@@ -111,7 +112,7 @@ function AudioStudio() {
       `Transcribiendo… (la primera vez descarga el modelo ${WHISPER_MODELS[model].label}; los videos largos tardan)`,
       async signal => {
         const samples = await toSpeechSamples(file, p => setProgress(`${p}%`))
-        const result = await transcribe(samples, { model, language }, setProgress, signal)
+        const result = await transcribe(samples, { model, language, words: wordTimes }, setProgress, signal)
         setTranscript(result.text)
         setAutoText(result.text)
         setSegments(result.segments)
@@ -211,6 +212,10 @@ function AudioStudio() {
                 {Object.entries(LANGUAGES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </label>
+            <label className="check">
+              <input type="checkbox" checked={wordTimes} onChange={e => setWordTimes(e.target.checked)} />
+              Tiempos por palabra
+            </label>
             <button onClick={doTranscribe} disabled={!!busy}>
               📝 Transcribir audio
             </button>
@@ -227,6 +232,9 @@ function AudioStudio() {
                 <p className="muted">Editaste el texto: los subtítulos usan la transcripción original de Whisper.</p>
               )}
               <button onClick={() => download(transcript, `${name}.txt`)}>⬇ TXT</button>
+              <button onClick={() => download(JSON.stringify(segments, null, 2), `${name}-tiempos.json`, 'application/json')} disabled={!segments.length}>
+                ⬇ Tiempos JSON
+              </button>
               <button onClick={() => download(toSRT(segments), `${name}.srt`)} disabled={!segments.length}>
                 ⬇ Subtítulos SRT
               </button>

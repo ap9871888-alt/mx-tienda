@@ -1,0 +1,11 @@
+{
+  "name": "Audio Studio",
+  "short_name": "Audio Studio",
+  "description": "Video a audio, transcripción y guiones en tu navegador, sin llaves",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#667eea",
+  "theme_color": "#667eea",
+  "lang": "es",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

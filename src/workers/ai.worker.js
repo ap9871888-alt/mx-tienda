@@ -33,10 +33,11 @@ function getTranscriber(modelKey, report) {
   return asrCache.get(modelKey)
 }
 
-async function transcribe({ id, samples, model, language }) {
+async function transcribe({ id, samples, model, language, words }) {
   const report = p => p.status === 'progress' && post(id, 'progress', { text: `descargando modelo ${Math.round(p.progress)}%` })
   const asr = await getTranscriber(model, report)
-  const options = { task: 'transcribe', chunk_length_s: 30, stride_length_s: 5, return_timestamps: true }
+  // 'word' da un tiempo por palabra; true da un tiempo por frase
+  const options = { task: 'transcribe', chunk_length_s: 30, stride_length_s: 5, return_timestamps: words ? 'word' : true }
   if (language !== 'auto') options.language = language
 
   const windows = splitWindows(samples)
