@@ -50,6 +50,13 @@ Marca **Tiempos por palabra** antes de transcribir. Descarga **Tiempos JSON** pa
 ## Sin conexión (PWA)
 La app se puede instalar desde el navegador (menú "Instalar aplicación"). Después de la primera visita, la página abre sin conexión. Los modelos de IA ya descargados también quedan guardados en el navegador. El service worker solo funciona en la versión de producción, no en `npm run dev`.
 
+## Modelo del guion (opcional, mejor calidad)
+En **Modelo del guion** puedes elegir un modelo grande con una llave gratuita de **Groq** o **Gemini**. La llave se guarda solo en tu navegador (localStorage) y las peticiones van directo al proveedor; esta app no tiene servidor. Si no hay llave, se usa el modelo local.
+
+Si el proveedor rechaza la llave, el mensaje lo dice y puedes volver a **Local**. Los nombres de modelo (`llama-3.3-70b-versatile`, `gemini-2.5-flash`) están en `src/lib/script.js` (`PROVIDERS`) y se pueden cambiar si el proveedor los retira.
+
+**Limitación sin verificar:** no pude probar la llamada desde el navegador porque este entorno bloquea esos servicios. Si el proveedor no permite peticiones desde páginas web (CORS), verás un error de red; en ese caso usa **Local**.
+
 ## Lista de pruebas manuales
 Con un video de 1–2 minutos:
 1. Elige el video y extrae el audio en MP3. Debe aparecer el reproductor y el botón de descarga.
@@ -60,6 +67,7 @@ Con un video de 1–2 minutos:
 6. Pulsa **Cancelar** durante una transcripción: no debe aparecer ningún error.
 7. Recarga la página: la transcripción y el guion deben seguir ahí.
 9. Marca **Tiempos por palabra**, transcribe y descarga **Tiempos JSON**.
+10. Con una llave gratuita de Groq o Gemini, genera un guion; luego borra la llave y confirma que vuelve al modelo local.
 8. Elige dos videos en **Lote**: los dos deben terminar en Listo, o el segundo en Error sin detener al primero.
 
 Plan de trabajo completo: https://claude.ai/artifact/YSE3aoN92Fyp3WVZVE3Ucq

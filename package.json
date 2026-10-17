@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "server": "node server/index.js",
-    "test": "node --test src/lib/audioFormat.test.js src/lib/batch.test.js",
+    "test": "node --test src/lib/audioFormat.test.js src/lib/batch.test.js src/lib/script.test.js",
     "check:ffmpeg": "node scripts/check-ffmpeg.mjs"
   },
   "dependencies": {

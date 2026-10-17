@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { extractAudio, toSpeechSamples, convertAudio } from './lib/media'
 import { transcribe } from './lib/transcribe'
-import { writeScript, STYLES } from './lib/script'
+import { writeScript, STYLES, PROVIDERS } from './lib/script'
 import { speak, VOICES, previewWithSystemVoice, stopSystemVoice } from './lib/voice'
 import { WHISPER_MODELS, LANGUAGES } from './lib/models'
 import BatchPanel from './BatchPanel'
@@ -24,6 +24,14 @@ const baseName = name => name.replace(/\.[^.]+$/, '') || 'audio'
 
 // El borrador se guarda en el navegador para no perderlo al recargar; si no hay localStorage, la app sigue funcionando
 const DRAFT_KEY = 'audio-studio:draft'
+const LLM_KEY = 'audio-studio:llm'
+function loadLlm() {
+  try {
+    return JSON.parse(localStorage.getItem(LLM_KEY)) || { provider: 'local', key: '' }
+  } catch {
+    return { provider: 'local', key: '' }
+  }
+}
 function loadDraft() {
   try {
     return JSON.parse(localStorage.getItem(DRAFT_KEY)) || {}
@@ -45,6 +53,7 @@ function AudioStudio() {
   const [autoText, setAutoText] = useState('') // lo que devolvió Whisper; los subtítulos salen de aquí
   const [segments, setSegments] = useState([]) // [{ start, end, text }] para subtítulos
   const [style, setStyle] = useState('youtube')
+  const [llm, setLlm] = useState(loadLlm) // { provider, key }: la llave queda solo en este navegador
   const [notes, setNotes] = useState('')
   const [script, setScript] = useState(draft.script || '')
   const [voiceText, setVoiceText] = useState('')
@@ -56,6 +65,14 @@ function AudioStudio() {
   const [cancelable, setCancelable] = useState(false)
   const [error, setError] = useState('')
   const abortRef = useRef(null)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LLM_KEY, JSON.stringify(llm))
+    } catch {
+      // Sin almacenamiento, la llave solo dura mientras la página esté abierta
+    }
+  }, [llm])
 
   useEffect(() => {
     try {
@@ -122,7 +139,7 @@ function AudioStudio() {
 
   const generate = () =>
     run('Generando guion… (la primera vez descarga el modelo, ~1 GB)', async () => {
-      setScript(await writeScript({ transcript, style, notes }, setProgress))
+      setScript(await writeScript({ transcript, style, notes, llm }, setProgress))
     })
 
   const makeVoice = () =>
@@ -249,6 +266,26 @@ function AudioStudio() {
       {transcript && (
         <div className="studio-card">
           <h3>4. Crea el guion</h3>
+          <div className="row">
+            <label>
+              Modelo del guion
+              <select value={llm.provider} onChange={e => setLlm({ ...llm, provider: e.target.value })}>
+                {Object.entries(PROVIDERS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </label>
+            {llm.provider !== 'local' && (
+              <label className="grow">
+                Tu llave gratuita (solo se guarda en este navegador)
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={llm.key}
+                  onChange={e => setLlm({ ...llm, key: e.target.value })}
+                  placeholder="Pega aquí tu llave"
+                />
+              </label>
+            )}
+          </div>
           <div className="row">
             <label>
               Tipo de guion

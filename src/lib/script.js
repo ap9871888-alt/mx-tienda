@@ -29,22 +29,53 @@ export function getWriter(onProgress) {
   return llmPromise
 }
 
-export async function writeScript({ transcript, style, notes }, onProgress) {
-  const engine = await getWriter(r => onProgress?.(r))
+// Proveedores con API compatible con OpenAI y plan gratuito. La llave se guarda solo en tu navegador.
+export const PROVIDERS = {
+  local: { label: 'Local (gratis, sin llave)' },
+  groq: { label: 'Groq (llave gratuita)', url: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile' },
+  gemini: { label: 'Gemini (llave gratuita)', url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.5-flash' },
+}
+
+const SYSTEM = 'Eres un guionista profesional. Escribes en el mismo idioma que la transcripción. Usas solo la información de la transcripción; no inventas datos.'
+
+function buildUserPrompt({ transcript, style, notes }) {
   const text = transcript.slice(0, MAX_TRANSCRIPT_CHARS)
+  return `Con base en esta transcripción, escribe ${STYLES[style]}.${
+    notes ? `\n\nIndicaciones adicionales: ${notes}` : ''
+  }\n\n<transcripcion>\n${text}\n</transcripcion>`
+}
+
+async function writeWithProvider({ transcript, style, notes }, { provider, key }) {
+  const config = PROVIDERS[provider]
+  const res = await fetch(config.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        { role: 'system', content: SYSTEM },
+        { role: 'user', content: buildUserPrompt({ transcript, style, notes }) },
+      ],
+      temperature: 0.7,
+      max_tokens: 1500,
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const msg = data.error?.message || `error ${res.status}`
+    throw new Error(`${config.label}: ${msg}. Revisa tu llave o cambia a Local.`)
+  }
+  return data.choices[0].message.content
+}
+
+export async function writeScript({ transcript, style, notes, llm = { provider: 'local' } }, onProgress) {
+  if (llm.provider !== 'local' && llm.key) return writeWithProvider({ transcript, style, notes }, llm)
+
+  const engine = await getWriter(r => onProgress?.(r))
   const reply = await engine.chat.completions.create({
     messages: [
-      {
-        role: 'system',
-        content:
-          'Eres un guionista profesional. Escribes en el mismo idioma que la transcripción. Usas solo la información de la transcripción; no inventas datos.',
-      },
-      {
-        role: 'user',
-        content: `Con base en esta transcripción, escribe ${STYLES[style]}.${
-          notes ? `\n\nIndicaciones adicionales: ${notes}` : ''
-        }\n\n<transcripcion>\n${text}\n</transcripcion>`,
-      },
+      { role: 'system', content: SYSTEM },
+      { role: 'user', content: buildUserPrompt({ transcript, style, notes }) },
     ],
     temperature: 0.7,
     max_tokens: 1500,
