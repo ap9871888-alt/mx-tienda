@@ -10,6 +10,13 @@ npm install
 npm run dev   # http://localhost:5173
 ```
 
+## Pruebas
+```bash
+npm test             # lógica de formato: fragmentos de texto, ventanas, WAV, subtítulos SRT/VTT
+npm run check:ffmpeg # verifica en Node que el núcleo de ffmpeg extrae MP3, WAV y audio de 16 kHz
+```
+`check:ffmpeg` usa `@ffmpeg/core` (solo para desarrollo) y genera su propio tono, así que no necesita videos.
+
 ## Requisitos del navegador
 - Extraer audio y transcribir: cualquier navegador moderno.
 - Generar guion: **WebGPU**, es decir Chrome o Edge de escritorio. Si no está disponible, pega tu transcripción.
@@ -27,3 +34,15 @@ Se guardan en caché del navegador, así que la siguiente vez son inmediatas.
 
 ## Despliegue
 Sitio estático: Vercel lo despliega automáticamente con cada push a `main` (build: `npm run build`, salida: `dist`).
+
+## Lista de pruebas manuales
+Con un video de 1–2 minutos:
+1. Elige el video y extrae el audio en MP3. Debe aparecer el reproductor y el botón de descarga.
+2. Transcribe con el modelo **tiny** y revisa el tiempo. Los subtítulos SRT y VTT deben descargarse.
+3. Edita el texto y confirma el aviso de que los subtítulos usan la transcripción original.
+4. Genera un guion en Chrome de escritorio. En Safari o celular debe aparecer el aviso de WebGPU.
+5. Usa **Usar guion**, elige la voz Dora y genera el audio. Descarga MP3 y WAV.
+6. Pulsa **Cancelar** durante una transcripción: no debe aparecer ningún error.
+7. Recarga la página: la transcripción y el guion deben seguir ahí.
+
+Plan de trabajo completo: https://claude.ai/artifact/YSE3aoN92Fyp3WVZVE3Ucq

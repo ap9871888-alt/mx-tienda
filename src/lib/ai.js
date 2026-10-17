@@ -1,3 +1,4 @@
+import { splitWindows, WINDOW_S } from './audioFormat'
 // Modelos abiertos que corren en el navegador. La primera vez se descargan y quedan en caché.
 export const WHISPER_MODELS = {
   tiny: { id: 'onnx-community/whisper-tiny', label: 'Rápido (tiny, ~40 MB)' },
@@ -40,10 +41,6 @@ function getTranscriber(modelKey, onProgress) {
   return asrCache.get(modelKey)
 }
 
-// Ventanas de 4 minutos: cada una se transcribe aparte para poder mostrar avance en videos largos
-const WINDOW_S = 240
-const SAMPLE_RATE = 16000
-
 // Devuelve { text, segments: [{ start, end, text }] } con tiempos en segundos
 export async function transcribe(samples, { model = 'base', language = 'spanish' } = {}, onProgress, signal) {
   const asr = await getTranscriber(model, p => p.status === 'progress' && onProgress?.(`descargando modelo ${Math.round(p.progress)}%`))
@@ -55,8 +52,9 @@ export async function transcribe(samples, { model = 'base', language = 'spanish'
   }
   if (language !== 'auto') options.language = language
 
-  const size = WINDOW_S * SAMPLE_RATE
-  const parts = Math.max(1, Math.ceil(samples.length / size))
+  // Cada ventana de 4 minutos se transcribe aparte para poder mostrar avance en videos largos
+  const windows = splitWindows(samples)
+  const parts = windows.length
   const texts = []
   const segments = []
   for (let i = 0; i < parts; i++) {
@@ -64,7 +62,7 @@ export async function transcribe(samples, { model = 'base', language = 'spanish'
     if (signal?.aborted) throw new DOMException('Transcripción cancelada', 'AbortError')
     const offset = i * WINDOW_S
     onProgress?.(`parte ${i + 1} de ${parts}`)
-    const out = await asr(samples.subarray(i * size, (i + 1) * size), options)
+    const out = await asr(windows[i], options)
     for (const c of out.chunks || []) {
       segments.push({
         start: offset + (c.timestamp[0] ?? 0),

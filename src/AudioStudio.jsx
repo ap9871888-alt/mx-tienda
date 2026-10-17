@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { extractAudio, toSpeechSamples, convertAudio } from './lib/media'
 import { transcribe, writeScript, STYLES, WHISPER_MODELS, LANGUAGES } from './lib/ai'
 import { speak, VOICES, previewWithSystemVoice, stopSystemVoice } from './lib/tts'
-import { toSRT, toVTT, download } from './lib/export'
+import { download } from './lib/export'
+import { toSRT, toVTT } from './lib/audioFormat'
 import './AudioStudio.css'
 
 const FORMATS = ['mp3', 'wav']
@@ -154,6 +155,7 @@ function AudioStudio() {
         <h3>1. Elige tu video</h3>
         <input
           type="file"
+          aria-label="Elegir video o audio"
           accept="video/*,audio/*"
           onChange={e => e.target.files[0] && onFile(e.target.files[0])}
         />
@@ -306,7 +308,7 @@ function AudioStudio() {
       )}
 
       {busy && (
-        <p className="status">
+        <p className="status" role="status" aria-live="polite">
           {busy} {progress}
           {cancelable && (
             <button className="cancel" onClick={cancel}>
@@ -315,7 +317,7 @@ function AudioStudio() {
           )}
         </p>
       )}
-      {error && <p className="status error">⚠️ {error}</p>}
+      {error && <p className="status error" role="alert">⚠️ {error}</p>}
     </section>
   )
 }

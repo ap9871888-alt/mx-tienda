@@ -1,5 +1,6 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import { wavToFloat32 } from './audioFormat'
 
 // Núcleo de ffmpeg de un solo hilo: no necesita cabeceras COOP/COEP, así que funciona en Vercel sin configuración extra
 const CORE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm'
@@ -58,25 +59,6 @@ export async function extractAudio(file, format, bitrate = '192k', onProgress) {
 export async function toSpeechSamples(file, onProgress) {
   const data = await run(file, ['-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le'], 'speech.wav', onProgress)
   return wavToFloat32(data)
-}
-
-// Lee el chunk "data" de un WAV PCM 16 bits y lo convierte a -1..1
-function wavToFloat32(bytes) {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  let offset = 12
-  while (offset + 8 <= view.byteLength) {
-    const id = String.fromCharCode(...bytes.subarray(offset, offset + 4))
-    const size = view.getUint32(offset + 4, true)
-    if (id === 'data') {
-      const start = offset + 8
-      const count = Math.min(size, view.byteLength - start) >> 1
-      const samples = new Float32Array(count)
-      for (let i = 0; i < count; i++) samples[i] = view.getInt16(start + i * 2, true) / 32768
-      return samples
-    }
-    offset += 8 + size + (size % 2)
-  }
-  throw new Error('No se encontró el audio en el archivo convertido')
 }
 
 // Convierte un audio (Blob) a MP3 o WAV usando ffmpeg
