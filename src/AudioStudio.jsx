@@ -4,6 +4,7 @@ import { transcribe } from './lib/transcribe'
 import { writeScript, STYLES } from './lib/script'
 import { speak, VOICES, previewWithSystemVoice, stopSystemVoice } from './lib/voice'
 import { WHISPER_MODELS, LANGUAGES } from './lib/models'
+import BatchPanel from './BatchPanel'
 import { download } from './lib/export'
 import { toSRT, toVTT } from './lib/audioFormat'
 import './AudioStudio.css'
@@ -308,6 +309,19 @@ function AudioStudio() {
           )}
         </div>
       )}
+
+      <BatchPanel
+        format={format}
+        bitrate={bitrate}
+        model={model}
+        language={language}
+        onUse={item => {
+          setTranscript(item.transcript)
+          setAutoText(item.transcript)
+          setSegments(item.segments)
+          setScript('')
+        }}
+      />
 
       {busy && (
         <p className="status" role="status" aria-live="polite">

@@ -135,3 +135,40 @@
   border-color: #c0392b;
   color: #c0392b;
 }
+
+.studio .batch {
+  list-style: none;
+  margin-top: 14px;
+}
+
+.studio .batch li {
+  border-top: 1px solid #eee;
+  padding: 12px 0;
+}
+
+.studio .batch-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.studio .badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eef0ff;
+  color: #667eea;
+}
+
+.studio .badge.listo {
+  background: #e8f8ee;
+  color: #1e8449;
+}
+
+.studio .badge.error {
+  background: #fdecea;
+  color: #c0392b;
+}

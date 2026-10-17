@@ -41,6 +41,9 @@ Se guardan en caché del navegador, así que la siguiente vez son inmediatas.
 ## Despliegue
 Sitio estático: Vercel lo despliega automáticamente con cada push a `main` (build: `npm run build`, salida: `dist`).
 
+## Lote de videos
+En la sección **Lote: varios videos** elige varios archivos. Se procesan uno por uno: cada uno queda con su audio, su transcripción y sus subtítulos. Si uno falla, los demás siguen. **Usar para el guion** pasa la transcripción de ese video al guion.
+
 ## Lista de pruebas manuales
 Con un video de 1–2 minutos:
 1. Elige el video y extrae el audio en MP3. Debe aparecer el reproductor y el botón de descarga.
@@ -50,5 +53,6 @@ Con un video de 1–2 minutos:
 5. Usa **Usar guion**, elige la voz Dora y genera el audio. Descarga MP3 y WAV.
 6. Pulsa **Cancelar** durante una transcripción: no debe aparecer ningún error.
 7. Recarga la página: la transcripción y el guion deben seguir ahí.
+8. Elige dos videos en **Lote**: los dos deben terminar en Listo, o el segundo en Error sin detener al primero.
 
 Plan de trabajo completo: https://claude.ai/artifact/YSE3aoN92Fyp3WVZVE3Ucq
