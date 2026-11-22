@@ -6,13 +6,14 @@ import { ECONOMY } from '../data/economy'
 import { FIRST_NAMES, LAST_NAMES } from '../data/names'
 import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/logistics'
 import { nextRandom, pick, poisson, randInt } from './rng'
+import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel } from './time'
 import {
   defaultMargins, unitCost, unitPrice, priceFactor, arrivalsPerHour, serviceRate, shelfCapacity, salaryFor, monthlyRent, priceIndex, purchaseCost
 } from './pricing'
 import type { GameState, Store, Result, GameEvent, DayStats, DayReport, Candidate, BasketLine, CatMap, LogEntry } from './types'
 
-export const SAVE_VERSION = 4
+export const SAVE_VERSION = 5
 const ok = <T>(msg = '', data?: T): Result<T> => ({ ok: true, msg, data })
 const fail = (msg: string): Result<never> => ({ ok: false, msg })
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
@@ -22,8 +23,10 @@ export function newGame (seed: number, company = 'Tienda MX Inc.'): GameState {
   const s: GameState = {
     version: SAVE_VERSION, seed: seed >>> 0, rng: seed >>> 0, company,
     minute: 6 * 60 + 30, carry: 0, cash: ECONOMY.startCash, loan: 0,
-    stores: [], candidates: [], nextId: 1, log: [], reports: [], todayFees: 0, cedis: null, labels: [], tripsToday: 0
+    stores: [], candidates: [], nextId: 1, log: [], reports: [], todayFees: 0, cedis: null, labels: [], tripsToday: 0,
+    market: null as unknown as GameState['market']
   }
+  s.market = generateMarket(s)
   refreshCandidates(s)
   log(s, `¡Bienvenido a ${company}! Abre tu tienda piloto en la Ciudad de México.`, 'info')
   return s
@@ -244,9 +247,9 @@ export function repayLoan (s: GameState, amount: number): Result {
 // ---------- simulación ----------
 function makeBasket (s: GameState, st: Store): BasketLine[] {
   const f = formatOf(st.formatId); const basket: BasketLine[] = []
-  const spend = Math.sqrt(colonyOf(st.cityId, st.colonyId).wealth) // en colonias de más ingreso se lleva más
+  const spend = Math.sqrt(effectiveWealth(s, st.cityId, st.colonyId)) // en colonias de más ingreso se lleva más
   for (const c of CATEGORIES) {
-    if (nextRandom(s) < c.basketProb * spend * priceFactor(st, c.id)) {
+    if (nextRandom(s) < c.basketProb * spend * priceFactor(st, c.id, s)) {
       const qty = Math.max(1, Math.round(randInt(s, c.qty[0], c.qty[1]) * (c.service ? 1 : f.basketMult)))
       basket.push({ cat: c.id, qty })
     }
@@ -380,6 +383,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   s.cash -= company.interest + company.logistics
   company.profit -= company.interest + company.logistics
   s.tripsToday = 0
+  dailyMarket(s, (t, k) => log(s, t, k, events))
   company.satisfaction = s.stores.length ? s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length : 0
   s.reports.push(company); if (s.reports.length > 90) s.reports.shift()
   events.push({ type: 'dayEnd', report: company })
@@ -387,6 +391,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   // cada lunes: nuevos candidatos y algo de rotación de personal
   if ((day + 1) % 7 === 0) {
     refreshCandidates(s)
+    weeklyMarketAI(s, events, (t, k) => log(s, t, k, events))
     for (const st of s.stores) {
       const chance = st.bonus ? ECONOMY.quitChanceWeeklyBonus : ECONOMY.quitChanceWeekly
       for (const c of [...st.cashiers]) {
@@ -415,7 +420,7 @@ export function netWorth (s: GameState) {
   const stores = s.stores.reduce((a, st) => a + formatOf(st.formatId).capex * 0.6 +
     PRODUCT_CATEGORIES.reduce((b, c) => b + st.inventory[c.id] * unitCost(c.id), 0), 0)
   const cedis = s.cedis ? (CEDIS.cost + CEDIS.upgradeCost.slice(0, s.cedis.level).reduce((a, b) => a + b, 0) + s.cedis.trucks * CEDIS.truckCost) * 0.6 : 0
-  return Math.round(s.cash + stores + cedis - s.loan)
+  return Math.round(s.cash + stores + cedis + fundValue(s) - s.loan)
 }
 export function phaseInfo (s: GameState) {
   const n = s.stores.length
@@ -432,12 +437,13 @@ export function migrateGame (s: GameState & { version: number }): GameState {
     s.cedis = null; s.labels = []; s.tripsToday = 0
     for (const r of s.reports) r.logistics = r.logistics ?? 0
     for (const st of s.stores) { for (const r of st.history) r.logistics = r.logistics ?? 0; for (const o of st.orders) o.via = o.via ?? 'mayorista' }
-    s.version = SAVE_VERSION
+    s.version = 4
   }
+  if (s.version === 4) { s.market = generateMarket(s); s.version = SAVE_VERSION }
   return s
 }
 export function deserialize (text: string): GameState {
   const s = JSON.parse(text)
-  if (!s || !Array.isArray(s.stores) || (s.version !== SAVE_VERSION && s.version !== 3)) throw new Error('Partida incompatible con esta versión')
+  if (!s || !Array.isArray(s.stores) || (s.version !== SAVE_VERSION && s.version !== 3 && s.version !== 4)) throw new Error('Partida incompatible con esta versión')
   return migrateGame(s)
 }

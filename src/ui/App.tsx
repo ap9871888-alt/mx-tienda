@@ -21,10 +21,10 @@ function TopBar () {
   return (
     <header className='sticky top-0 z-30 bg-rojo text-white pt-[calc(8px+env(safe-area-inset-top))] pb-2 px-3 flex flex-col gap-1.5 shadow-md'>
       <div className='flex items-center gap-2'>
-        <div className={`num font-bold text-[17px] px-3 py-1 rounded-full border-[1.5px] border-oferta ${game.cash < 0 ? 'bg-urbano' : 'bg-black/15'}`}>{fmt(game.cash)}<small className='text-[11px] opacity-80 ml-1'>MXN</small></div>
-        <div className='flex-1 text-right leading-tight'>
-          <div className='text-[12px] font-semibold num'>{d.date} · {E.clockLabel(game.minute)}</div>
-          <div className='text-[11px] opacity-85'>{d.weekday}{tags.length ? ` · ${tags.join(' · ')}` : ''}</div>
+        <div className={`num font-bold text-[17px] px-3 py-1 rounded-full border-[1.5px] border-oferta whitespace-nowrap min-w-[150px] text-center ${game.cash < 0 ? 'bg-urbano' : 'bg-black/15'}`}>{fmt(game.cash)}<small className='text-[11px] opacity-80 ml-1'>MXN</small></div>
+        <div className='flex-1 min-w-0 text-right leading-tight h-[30px] overflow-hidden'>
+          <div className='text-[12px] font-semibold num whitespace-nowrap'>{d.date.replace(/ \d{4}$/, '')} · {E.clockLabel(game.minute)}</div>
+          <div className='text-[11px] opacity-85 truncate'>{d.weekday}{tags.length ? ` · ${tags.join(' · ')}` : ''}</div>
         </div>
         <div className='flex bg-black/15 rounded-xl p-0.5' role='group' aria-label='Velocidad'>
           {SPEEDS.map(([v, Icon, l]) => (
@@ -35,7 +35,7 @@ function TopBar () {
           ))}
         </div>
       </div>
-      <div className='text-[12px] bg-black/15 rounded-lg px-2.5 py-1 truncate'>{game.log[0]?.text ?? ''}</div>
+      <div className='text-[12px] bg-black/15 rounded-lg px-2.5 py-1 truncate h-[26px]'>{game.log[0]?.text ?? ''}</div>
     </header>
   )
 }
@@ -78,7 +78,7 @@ export function App () {
     <div className='max-w-[620px] mx-auto min-h-full flex flex-col'>
       <TopBar />
       <main className='flex-1 px-4 pt-3 pb-[calc(92px+env(safe-area-inset-bottom))]'><Screen /></main>
-      <nav aria-label='Secciones' className='fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[620px] z-30 bg-white border-t border-borde grid grid-cols-5 px-1 pt-1 pb-[calc(4px+env(safe-area-inset-bottom))]'>
+      <nav aria-label='Secciones' className='fixed bottom-0 inset-x-0 mx-auto w-full max-w-[620px] z-30 [transform:translateZ(0)] bg-white border-t border-borde grid grid-cols-5 px-1 pt-1 pb-[calc(4px+env(safe-area-inset-bottom))]'>
         {TABS.map(([t, l, Icon]) => (
           <button key={t} onClick={() => { useApp.getState().setTab(t); window.scrollTo(0, 0) }} aria-current={tab === t ? 'page' : undefined}
             className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10.5px] font-semibold ${tab === t ? 'text-rojo bg-rojo/5' : 'text-tenue'}`}>

@@ -1,4 +1,4 @@
-import { Truck, Lock, Package, Warehouse, Tag, Plus, Minus } from 'lucide-react'
+import { Truck, Lock, Package, Plus, Minus } from 'lucide-react'
 import * as E from '../../engine'
 import { PRODUCT_CATEGORIES, categoryOf } from '../../data/categories'
 import { ECONOMY } from '../../data/economy'
@@ -6,7 +6,7 @@ import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT } from '../../data/logistics'
 import { colonyOf } from '../../data/cities'
 import { formatOf } from '../../data/formats'
 import { useApp, fmt, fmtK } from '../../state/store'
-import { Card, Btn, Bar, Pill, Kpi } from '../components/kit'
+import { Card, Btn, Bar, Pill, Kpi, Advisor, Icon } from '../components/kit'
 import { NoStore } from './Tienda'
 
 export function Logistica () {
@@ -21,6 +21,7 @@ export function Logistica () {
   return (
     <div className='flex flex-col gap-3'>
       <h1 className='font-display text-2xl uppercase'>Logística y marca</h1>
+      <Advisor who='logistica'>{!game.cedis ? (req.ok ? '¡Ya podemos construir el CEDIS! Bajamos el costo de mercancía y se acaba el flete del mayorista.' : `Con ${CEDIS.requiredStores} tiendas o ${fmtK(CEDIS.requiredNetWorth)} de patrimonio construimos el CEDIS. Mientras, que no falte el pedido automático.`) : sat >= 1 ? 'La flotilla ya no da: compra otro camión o habrá desabasto mañana.' : `La flotilla va al ${Math.round(sat * 100)} % hoy.`}</Advisor>
 
       <div className='grid grid-cols-3 gap-2'>
         <Kpi label='Ahorro en compras' value={`${discount} %`} tone={discount ? 'good' : undefined} />
@@ -32,7 +33,7 @@ export function Logistica () {
         <Card title='Compra a mayoristas'>
           <p className='text-sm text-tenue'>El mayorista surte en 6 horas y cobra {fmt(ECONOMY.restockFee)} de flete por pedido. {game.stores.length >= VOLUME_DISCOUNT.minStores ? 'Con 4 o más tiendas ya te da 8 % de descuento por volumen.' : `Con ${VOLUME_DISCOUNT.minStores} tiendas te da 8 % de descuento por volumen.`}</p>
           <div className='flex items-start gap-3 bg-arena border border-borde rounded-xl p-3'>
-            <Warehouse className='text-corp shrink-0' size={28} />
+            <Icon name='cedis' size={40} />
             <div className='flex-1 min-w-0'>
               <b>{CEDIS.name}</b>
               <p className='text-xs text-tenue'>Inventario {Math.round(CEDIS.savings[0] * 100)}–{Math.round(CEDIS.savings[2] * 100)} % más barato, sin flete del mayorista, resurtido en 3 h con {CEDIS.startingTrucks} camiones propios y la puerta a la Marca Propia. Operación: {fmt(CEDIS.monthly)}/mes + {fmt(CEDIS.truckMonthly)}/mes por camión.</p>
@@ -63,7 +64,7 @@ export function Logistica () {
           const on = game.labels.includes(l.id)
           return (
             <div key={l.id} className='flex items-center gap-3 py-1.5 border-t border-borde first:border-t-0'>
-              <div className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 ${on ? 'bg-oferta text-urbano' : 'bg-arena text-tenue'}`}><Tag size={17} /></div>
+              <Icon name='etiqueta' size={34} className={on ? '' : 'grayscale opacity-60'} />
               <div className='flex-1 min-w-0'><b className='text-sm'>{l.name}</b><p className='text-xs text-tenue'>{l.desc} Costo de {categoryOf(l.cat).name} −15 %. Más lealtad, sobre todo en Hard Discount.</p></div>
               {on ? <Pill tone='good'>En anaquel</Pill> : <Btn small kind='gold' disabled={!game.cedis || game.cash < l.cost} onClick={() => run(g => E.launchLabel(g, l.id))}>{fmtK(l.cost)}</Btn>}
             </div>

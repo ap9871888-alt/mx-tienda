@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react'
-import { Lock, MapPin, Store as StoreIcon } from 'lucide-react'
-import { CITIES, HOUR_PROFILE, type Colony } from '../../data/cities'
+import { MapPin } from 'lucide-react'
+import { CITIES, HOUR_PROFILE } from '../../data/cities'
 import { FORMATS, formatOf, type FormatId } from '../../data/formats'
+import { RIVAL_STYLES } from '../../data/market'
 import * as E from '../../engine'
 import { useApp, fmt, fmtK } from '../../state/store'
-import { Card, Btn, Pill, Modal, Kpi, BarChart } from '../components/kit'
+import { assetUrl } from '../../renderer/assets'
+import { Card, Btn, Pill, Modal, Kpi, BarChart, Icon, AnalystCard } from '../components/kit'
 
 const CITY = CITIES[0]
-const maxTraffic = Math.max(...CITY.colonies.map(c => c.traffic))
 
-// puntos estables dentro del polígono para los pines rivales
-function pinsFor (col: Colony, n: number) {
-  const pts = col.shape.split(' ').map(p => p.split(',').map(Number))
-  const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length; const cy = pts.reduce((a, p) => a + p[1], 0) / pts.length
-  return Array.from({ length: n }, (_, i) => [cx + Math.cos(i * 2.4 + col.traffic) * 11, cy + Math.sin(i * 2.4 + col.traffic) * 10])
+// qué colonia hay en un punto del mapa (usa la máscara de colores de tu lámina)
+function colonyAt (px: number, py: number) {
+  const { grid, n, ids } = CITY.map
+  const gx = Math.min(n - 1, Math.max(0, Math.floor(px * n))); const gy = Math.min(n - 1, Math.max(0, Math.floor(py * n)))
+  const v = +grid[gy * n + gx]
+  return v ? ids[v - 1] : null
 }
 
 export function Mapa () {
@@ -22,11 +24,20 @@ export function Mapa () {
   const [sel, setSel] = useState<string>('roma')
   const [confirm, setConfirm] = useState<FormatId | null>(null)
   const col = CITY.colonies.find(c => c.id === sel)!
+  const day = E.dayOf(game.minute)
   const estimates = useMemo(() => Object.fromEntries(FORMATS.filter(f => f.available).map(f => [f.id, E.estimateStore(CITY.id, col.id, f.id, game)])) as Record<FormatId, E.Estimate>,
+    // se recalcula al cambiar de colonia, de día o de número de tiendas
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [col.id, game.stores.length, !!game.cedis, game.labels.length])
+    [col.id, day, game.stores.length, !!game.cedis, game.labels.length])
+  const insights = useMemo(() => E.analyzeMarket(game).filter(i => i.kind !== 'precio'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [day, game.stores.length, Math.floor(game.cash / 250000)])
   const est = estimates[confirm ?? 'tiendita']
-  const mine = game.stores.filter(s => s.colonyId === col.id)
+  const traffic = Math.round(E.effectiveTraffic(game, CITY.id, col.id))
+  const wealth = E.effectiveWealth(game, CITY.id, col.id)
+  const comp = E.effectiveCompetition(game, CITY.id, col.id)
+  const cm = game.market?.colonies[col.id]
+  const maxT = Math.max(...CITY.colonies.map(c => E.effectiveTraffic(game, CITY.id, c.id)))
 
   const open = () => {
     const fid = confirm!
@@ -34,50 +45,65 @@ export function Mapa () {
     setConfirm(null)
     if (r?.ok && r.data) { useApp.getState().selectStore(r.data.id); useApp.getState().setTab('tienda') }
   }
+  const onMap = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const id = colonyAt((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
+    if (id) setSel(id)
+  }
 
   return (
     <div className='flex flex-col gap-3'>
-      <div className='flex items-baseline justify-between'><h1 className='font-display text-2xl uppercase'>{CITY.name}</h1><span className='text-xs text-tenue'>Más ciudades en el Hito 3</span></div>
-      <Card>
-        <svg viewBox='0 0 100 100' className='w-full h-auto rounded-xl bg-[#EDE8DC]' role='img' aria-label='Mapa de colonias con tráfico peatonal'>
-          <defs>
-            <radialGradient id='heat'><stop offset='0' stopColor='#D63B2F' stopOpacity='.65' /><stop offset='.55' stopColor='#F2B705' stopOpacity='.35' /><stop offset='1' stopColor='#F2B705' stopOpacity='0' /></radialGradient>
-            <pattern id='calles' width='8' height='8' patternUnits='userSpaceOnUse' patternTransform='rotate(12)'><path d='M0 0H8M0 0V8' stroke='#fff' strokeWidth='.8' /></pattern>
-          </defs>
-          {CITY.colonies.map(c => {
-            const [lx, ly] = c.label; const r = 10 + (c.traffic / maxTraffic) * 16
-            return (
-              <g key={c.id} onClick={() => setSel(c.id)} style={{ cursor: 'pointer' }}>
-                <polygon points={c.shape} fill={c.id === sel ? '#FFFFFF' : '#F7F5F0'} stroke={c.id === sel ? '#1B4D8F' : '#D6CFC0'} strokeWidth={c.id === sel ? 1.2 : 0.6} />
-                <polygon points={c.shape} fill='url(#calles)' opacity='.8' pointerEvents='none' />
-                <circle cx={lx} cy={ly} r={r} fill='url(#heat)' pointerEvents='none' />
-                <text x={lx} y={ly - 1} textAnchor='middle' fontSize='4' fontWeight='700' fill='#2B2D33'>{c.name}</text>
-                <text x={lx} y={ly + 4.5} textAnchor='middle' fontSize='3' fill='#6E6A63'>{fmtK(E.estimateStore(CITY.id, c.id, 'tiendita').rent)}/mes</text>
-                {pinsFor(c, c.rivals).map(([x, y], i) => <circle key={i} cx={x} cy={y} r='1.6' fill='#6E6A63' stroke='#fff' strokeWidth='.5' />)}
-                {game.stores.filter(s => s.colonyId === c.id).map((s, i) => (
-                  <g key={s.id} transform={`translate(${lx + 8 + i * 4} ${ly - 8})`}><path d='M0 0 l-2.6 -4 a3 3 0 1 1 5.2 0 z' fill='#D63B2F' stroke='#fff' strokeWidth='.5' /></g>
-                ))}
-              </g>
-            )
-          })}
-        </svg>
-        <div className='flex flex-wrap gap-3 text-[11.5px] text-tenue'>
-          <span className='inline-flex items-center gap-1'><span className='w-3 h-3 rounded-full' style={{ background: 'radial-gradient(#D63B2F,#F2B705)' }} /> Tráfico peatonal</span>
-          <span className='inline-flex items-center gap-1'><MapPin size={12} className='text-rojo' /> Tu tienda</span>
-          <span className='inline-flex items-center gap-1'><span className='w-2.5 h-2.5 rounded-full bg-tenue' /> Competencia</span>
-        </div>
-      </Card>
+      <div className='flex items-baseline justify-between'><h1 className='font-display text-2xl uppercase'>{CITY.name}</h1><span className='text-xs text-tenue'>Toca una colonia</span></div>
+      <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#EDE8DC] aspect-square select-none' onClick={onMap} role='img' aria-label='Mapa de la Ciudad de México con colonias, tráfico y tiendas'>
+        <img src={assetUrl('map/cdmx.webp')} alt='' className='absolute inset-0 w-full h-full' draggable={false} />
+        {CITY.colonies.map(c => (
+          <img key={c.id} src={assetUrl(`map/zona-${c.id}.png`)} alt='' draggable={false}
+            className='absolute inset-0 w-full h-full pointer-events-none transition-opacity'
+            style={{ opacity: c.id === sel ? 0.55 : 0, filter: 'brightness(0) saturate(100%) invert(22%) sepia(60%) saturate(2400%) hue-rotate(205deg)' }} />
+        ))}
+        {CITY.colonies.map(c => {
+          const t = E.effectiveTraffic(game, CITY.id, c.id) / maxT
+          return <div key={c.id} className='absolute rounded-full pointer-events-none' style={{ left: `${c.x}%`, top: `${c.y}%`, width: `${10 + t * 14}%`, height: `${10 + t * 14}%`, transform: 'translate(-50%,-50%)', background: 'radial-gradient(closest-side, rgba(214,59,47,.5), rgba(242,183,5,.25) 60%, rgba(242,183,5,0))' }} />
+        })}
+        {CITY.colonies.map(c => {
+          const mine = game.stores.filter(s => s.colonyId === c.id).length
+          const rivals = E.rivalStoresIn(game, c.id)
+          return (
+            <div key={c.id} className='absolute pointer-events-none flex flex-col items-center' style={{ left: `${c.x}%`, top: `${c.y}%`, transform: 'translate(-50%,-50%)' }}>
+              <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded-md shadow whitespace-nowrap ${c.id === sel ? 'bg-corp text-white' : 'bg-white/95 text-urbano'}`}>{c.name}</span>
+              <span className='flex gap-0.5 mt-0.5'>
+                {Array.from({ length: mine }).map((_, i) => <MapPin key={`m${i}`} size={14} className='text-rojo fill-white drop-shadow' />)}
+                {Array.from({ length: Math.min(5, rivals) }).map((_, i) => <span key={`r${i}`} className='w-2 h-2 mt-1 rounded-full bg-urbano/70 border border-white' />)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+      <div className='flex flex-wrap gap-3 text-[11.5px] text-tenue -mt-1'>
+        <span className='inline-flex items-center gap-1'><span className='w-3 h-3 rounded-full' style={{ background: 'radial-gradient(#D63B2F,#F2B705)' }} /> Tráfico peatonal</span>
+        <span className='inline-flex items-center gap-1'><MapPin size={12} className='text-rojo' /> Tus tiendas</span>
+        <span className='inline-flex items-center gap-1'><span className='w-2.5 h-2.5 rounded-full bg-urbano/70' /> Tiendas rivales</span>
+      </div>
 
-      <Card title={col.name} right={mine.length ? <Pill tone='good'>Tienes {mine.length}</Pill> : undefined}>
+      <Card title={col.name} right={game.stores.some(s => s.colonyId === col.id) ? <Pill tone='good'>Tienes {game.stores.filter(s => s.colonyId === col.id).length}</Pill> : undefined}>
         <p className='text-sm text-tenue -mt-1'>{col.blurb}</p>
         <div className='grid grid-cols-3 gap-2'>
-          <Kpi label='Peatones/h' value={col.traffic} />
-          <Kpi label='Poder adq.' value={`×${col.wealth.toFixed(2)}`} />
-          <Kpi label='Competencia' value={col.competition > 0.5 ? 'Alta' : col.competition > 0.4 ? 'Media' : 'Baja'} tone={col.competition > 0.5 ? 'bad' : undefined} />
+          <Kpi label='Peatones/h' value={traffic} />
+          <Kpi label='Poder adq.' value={`×${wealth.toFixed(2)}`} />
+          <Kpi label='Competencia' value={`${Math.round(comp * 100)} %`} tone={comp > 0.55 ? 'bad' : undefined} />
+        </div>
+        <div className='flex flex-wrap gap-1.5'>
+          {cm && cm.trend > 0.0004 && <Pill tone='good'>En crecimiento</Pill>}
+          {cm && cm.trend < -0.0004 && <Pill tone='bad'>A la baja</Pill>}
+          {cm && cm.war > 0 && <Pill tone='bad'>Guerra de precios · {cm.war} días</Pill>}
+          {cm?.events.map((e, i) => <Pill key={i} tone={e.traffic >= 0 ? 'good' : 'warn'}>{e.text}</Pill>)}
+          <Pill>{E.rivalStoresIn(game, col.id)} tiendas rivales</Pill>
         </div>
         <div><span className='text-[11px] uppercase tracking-wider text-tenue'>Tráfico por hora</span>
-          <BarChart values={HOUR_PROFILE.map(h => Math.round(col.traffic * h))} labels={['0 h', '23 h']} color='#F2B705' height={80} /></div>
+          <BarChart values={HOUR_PROFILE.map(h => Math.round(traffic * h))} labels={['0 h', '23 h']} color='#F2B705' height={80} /></div>
       </Card>
+
+      <AnalystCard insights={insights} max={3} />
 
       <Card title='Formatos de tienda'>
         {FORMATS.map(f => {
@@ -85,18 +111,27 @@ export function Mapa () {
           const taken = game.stores.some(s => s.colonyId === col.id && s.formatId === f.id)
           return (
             <div key={f.id} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
-              <div className={`w-10 h-10 rounded-xl grid place-items-center ${f.available ? 'bg-rojo/10 text-rojo' : 'bg-arena text-tenue'}`}>{f.available ? <StoreIcon size={20} /> : <Lock size={18} />}</div>
+              <Icon name={f.id} size={40} className={f.available ? '' : 'grayscale opacity-50'} />
               <div className='flex-1 min-w-0'>
                 <b className='block'>{f.name}</b>
                 <span className='text-xs text-tenue'>CAPEX {fmtK(f.capex)} · renta base {fmtK(f.rent)}/mes · margen {Math.round(f.grossMargin * 100)} %{f.available ? '' : ` · ${f.unlockNote}`}</span>
-                {e && <span className='block text-xs text-ahorro font-semibold'>≈ {e.customersDay} clientes/día · utilidad ≈ {fmtK(e.profitMonth)}/mes · retorno {e.paybackMonths ?? '—'} meses</span>}
+                {e && <span className={`block text-xs font-semibold ${e.profitMonth > 0 ? 'text-ahorro' : 'text-rojo'}`}>≈ {e.customersDay} clientes/día · utilidad ≈ {fmtK(e.profitMonth)}/mes · retorno {e.paybackMonths ?? '—'} meses</span>}
               </div>
-              {f.available
-                ? <Btn small disabled={taken} onClick={() => setConfirm(f.id)}>{taken ? 'Abierta' : 'Abrir'}</Btn>
-                : <Pill>{f.unlockNote}</Pill>}
+              {f.available ? <Btn small disabled={taken} onClick={() => setConfirm(f.id)}>{taken ? 'Abierta' : 'Abrir'}</Btn> : <Pill>{f.unlockNote}</Pill>}
             </div>
           )
         })}
+      </Card>
+
+      <Card title='Cadenas rivales'>
+        {game.market?.rivals.map(r => (
+          <div key={r.id} className='flex items-center gap-3 py-1.5 border-t border-borde first:border-t-0'>
+            <span className='w-3 h-8 rounded-full shrink-0' style={{ background: r.color }} />
+            <div className='flex-1 min-w-0'><b className='text-sm'>{r.name}</b><p className='text-xs text-tenue'>{RIVAL_STYLES[r.style].label}: {RIVAL_STYLES[r.style].desc.toLowerCase()}.</p></div>
+            <span className='num text-sm font-semibold'>{Object.values(r.stores).reduce((a, b) => a + b, 0)} tiendas</span>
+          </div>
+        ))}
+        <p className='text-xs text-tenue'>Cada partida genera rivales y colonias distintas. Los rivales deciden cada lunes según dónde ganas tú.</p>
       </Card>
 
       {confirm && (
@@ -114,7 +149,7 @@ export function Mapa () {
             <Row k='Utilidad estimada al mes' v={fmt(est.profitMonth)} bold tone={est.profitMonth >= 0 ? 'text-ahorro' : 'text-rojo'} />
             <Row k='Recuperas la inversión en' v={est.paybackMonths ? `${est.paybackMonths} meses` : 'No se recupera'} />
           </div>
-          <p className='text-xs text-tenue'>Pronóstico con {Math.max(2, Math.ceil(formatOf(confirm).maxCashiers * 0.6))} cajeros de 2 ★ y los precios típicos del formato{game.stores.some(s => s.colonyId === col.id) ? '; ya tienes tienda en esta colonia y se reparten el tráfico' : ''}. Tu efectivo: {fmt(game.cash)}.</p>
+          <p className='text-xs text-tenue'>Pronóstico con {Math.max(2, Math.ceil(formatOf(confirm).maxCashiers * 0.6))} cajeros de 2 ★, los precios típicos del formato y la competencia actual ({Math.round(comp * 100)} %). Tu efectivo: {fmt(game.cash)}.</p>
           <Btn onClick={open} disabled={game.cash < est.openingCost}>{game.cash < est.openingCost ? 'No alcanza el efectivo' : `Abrir por ${fmt(est.openingCost)}`}</Btn>
         </Modal>
       )}

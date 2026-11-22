@@ -1,32 +1,37 @@
-// Ciudades y colonias. `traffic` = peatones por hora en promedio; `wealth` = tolerancia a precios.
+// Ciudades y colonias. Valores base: cada partida los varía con la IA de mercado (engine/market.ts).
+// `traffic` = peatones por hora en promedio; `wealth` = tolerancia a precios; `competition` = presión rival base.
+import mask from './cdmxMask.json'
+
 export interface Colony {
   id: string
   name: string
   traffic: number
   rentMult: number
   wealth: number
-  competition: number // 0–1: presión de tiendas rivales cercanas
-  rivals: number // tiendas rivales visibles en el mapa
-  // posición del polígono en el mapa de la ciudad (viewBox 0–100)
-  shape: string
-  label: [number, number]
+  competition: number
   blurb: string
+  x: number // centro de la colonia en el mapa (% del ancho)
+  y: number // (% del alto)
 }
-export interface City { id: string; name: string; colonies: Colony[] }
+export interface City { id: string; name: string; colonies: Colony[]; map: { grid: string; n: number; ids: string[] } }
+
+const pos = (id: string) => (mask.info as Record<string, { x: number; y: number }>)[id]
+const col = (c: Omit<Colony, 'x' | 'y'>): Colony => ({ ...c, ...pos(c.id) })
 
 export const CITIES: City[] = [
   {
     id: 'cdmx',
     name: 'CDMX',
+    map: { grid: mask.grid, n: mask.n, ids: mask.ids },
     colonies: [
-      { id: 'roma', name: 'Roma-Condesa', traffic: 470, rentMult: 1.45, wealth: 1.25, competition: 0.55, rivals: 4,
-        shape: '8,10 48,6 52,44 12,50', label: [30, 28], blurb: 'Cafés, oficinas creativas y vida nocturna. Mucho peatón y clientes que pagan más.' },
-      { id: 'polanco', name: 'Polanco', traffic: 400, rentMult: 1.95, wealth: 1.55, competition: 0.5, rivals: 3,
-        shape: '52,4 94,8 90,42 56,44', label: [73, 24], blurb: 'Corporativos y residencias de lujo. Renta alta y tickets altos.' },
-      { id: 'coyoacan', name: 'Coyoacán', traffic: 360, rentMult: 1.15, wealth: 1.12, competition: 0.35, rivals: 2,
-        shape: '12,54 50,48 54,92 10,94', label: [31, 72], blurb: 'Barrio tradicional, turismo de fin de semana y poca competencia.' },
-      { id: 'iztapalapa', name: 'Iztapalapa', traffic: 560, rentMult: 0.7, wealth: 0.82, competition: 0.6, rivals: 5,
-        shape: '56,48 92,46 94,90 58,94', label: [75, 70], blurb: 'Muchísima gente y renta barata, pero clientes sensibles al precio.' }
+      col({ id: 'roma', name: 'Roma-Condesa', traffic: 470, rentMult: 1.45, wealth: 1.25, competition: 0.55, blurb: 'Cafés, oficinas creativas y vida nocturna. Mucho peatón y clientes que pagan más.' }),
+      col({ id: 'polanco', name: 'Polanco', traffic: 400, rentMult: 1.95, wealth: 1.55, competition: 0.5, blurb: 'Corporativos y residencias de lujo. Renta alta y tickets altos.' }),
+      col({ id: 'coyoacan', name: 'Coyoacán', traffic: 360, rentMult: 1.15, wealth: 1.12, competition: 0.35, blurb: 'Barrio tradicional, turismo de fin de semana y poca competencia.' }),
+      col({ id: 'iztapalapa', name: 'Iztapalapa', traffic: 560, rentMult: 0.7, wealth: 0.82, competition: 0.6, blurb: 'Muchísima gente y renta barata, pero clientes sensibles al precio.' }),
+      col({ id: 'centro', name: 'Centro Histórico', traffic: 640, rentMult: 0.95, wealth: 0.88, competition: 0.65, blurb: 'El corazón comercial: un río de gente, mucha competencia y ventas rápidas.' }),
+      col({ id: 'santafe', name: 'Santa Fe', traffic: 380, rentMult: 1.75, wealth: 1.45, competition: 0.42, blurb: 'Torres de oficinas: picos fuertes en la mañana y la comida, poco de noche.' }),
+      col({ id: 'narvarte', name: 'Narvarte', traffic: 420, rentMult: 1.1, wealth: 1.05, competition: 0.4, blurb: 'Clase media, familias y oficinas pequeñas. Renta razonable.' }),
+      col({ id: 'delvalle', name: 'Del Valle', traffic: 410, rentMult: 1.3, wealth: 1.2, competition: 0.45, blurb: 'Residencial y ordenada, con buen poder adquisitivo y clientes fieles.' })
     ]
   }
 ]

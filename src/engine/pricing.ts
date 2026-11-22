@@ -5,6 +5,7 @@ import { colonyOf, HOUR_PROFILE } from '../data/cities'
 import { ECONOMY } from '../data/economy'
 import { VOLUME_DISCOUNT, CEDIS, PRIVATE_LABELS, LABEL_COST_FACTOR, LABEL_LOYALTY } from '../data/logistics'
 import type { Store, CatMap, GameState } from './types'
+import { effectiveTraffic, effectiveWealth, effectiveCompetition } from './market'
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
@@ -40,16 +41,16 @@ export function priceIndex (store: Store, cat: CategoryId) {
   if (c.service) return 1
   return unitPrice(store, cat) / c.price
 }
-export function priceFactor (store: Store, cat: CategoryId) {
+export function priceFactor (store: Store, cat: CategoryId, g?: GameState | null) {
   const c = categoryOf(cat)
-  const wealth = colonyOf(store.cityId, store.colonyId).wealth
+  const wealth = effectiveWealth(g, store.cityId, store.colonyId)
   const sens = formatOf(store.formatId).priceSensitivity
   const f = Math.exp(-(c.elasticity * sens / wealth) * (priceIndex(store, cat) - 1))
   return Math.min(1.6, Math.max(0.04, f))
 }
-export function priceAttraction (store: Store) {
+export function priceAttraction (store: Store, g?: GameState | null) {
   let w = 0; let sum = 0
-  for (const c of PRODUCT_CATEGORIES) { w += c.basketProb; sum += c.basketProb * priceFactor(store, c.id) }
+  for (const c of PRODUCT_CATEGORIES) { w += c.basketProb; sum += c.basketProb * priceFactor(store, c.id, g) }
   return Math.sqrt(sum / w)
 }
 export const reputationFactor = (rep: number) => 0.75 + rep * 0.07
@@ -72,9 +73,10 @@ export function labelLoyalty (g: GameState | null | undefined, store: Store) {
 
 export function arrivalsPerHour (store: Store, hour: number, dayMult: number, g?: GameState | null) {
   if (!isOpen(store, hour)) return 0
-  const f = formatOf(store.formatId); const col = colonyOf(store.cityId, store.colonyId)
-  return col.traffic * HOUR_PROFILE[hour] * f.capture * dayMult * (1 - col.competition * 0.3) *
-    reputationFactor(store.reputation) * priceAttraction(store) * cannibalization(g, store) * labelLoyalty(g, store)
+  const f = formatOf(store.formatId)
+  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * dayMult *
+    (1 - effectiveCompetition(g, store.cityId, store.colonyId) * 0.3) *
+    reputationFactor(store.reputation) * priceAttraction(store, g) * cannibalization(g, store) * labelLoyalty(g, store)
 }
 
 export const cashierRate = (stars: number, bonus: boolean) =>

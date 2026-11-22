@@ -5,7 +5,8 @@ import { CATEGORIES } from '../../data/categories'
 import { ECONOMY } from '../../data/economy'
 import { formatOf } from '../../data/formats'
 import { useApp, fmt, fmtK } from '../../state/store'
-import { Card, Btn, Kpi, Pill, Stars, BarChart, Modal } from '../components/kit'
+import { Card, Btn, Kpi, Pill, Stars, BarChart, Modal, AnalystCard, Advisor } from '../components/kit'
+import { useMemo } from 'react'
 
 export function NoStore () {
   return (
@@ -27,6 +28,9 @@ export function Tienda () {
   const st = game.stores.find(s => s.id === storeId) ?? game.stores[0]
   if (!st) return <NoStore />
   const f = formatOf(st.formatId); const t = st.today
+  const day = E.dayOf(game.minute)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const insights = useMemo(() => E.analyzeMarket(game).filter(i => i.storeId === st.id), [day, st.id, JSON.stringify(st.margins), st.cashiers.length])
   const hist = st.history.slice(-14)
 
   return (
@@ -41,6 +45,8 @@ export function Tienda () {
         <Kpi label='Reputación' value={<Stars n={st.reputation} />} />
       </div>
 
+      {insights.length ? <AnalystCard insights={insights} onApply={i => { if (i.cat && i.margin != null) run(g => { const r = E.setMargin(g, st.id, i.cat!, i.margin!); return { ...r, msg: 'Margen ajustado' } }) }} />
+        : <Advisor who='encargado'>Todo en orden en esta tienda. Revisa la fila en las horas pico y que no falte mercancía.</Advisor>}
       <Card title='Precio y margen por categoría'>
         {CATEGORIES.map(c => {
           const pi = E.priceIndex(st, c.id); const diff = Math.round((pi - 1) * 100)

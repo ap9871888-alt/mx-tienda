@@ -3,9 +3,16 @@ import { Download, Upload, RotateCcw } from 'lucide-react'
 import * as E from '../../engine'
 import type { DayReport } from '../../engine/types'
 import { useApp, fmt, fmtK } from '../../state/store'
-import { Card, Btn, Kpi, BarChart, Bar, Modal } from '../components/kit'
+import { Card, Btn, Kpi, BarChart, Bar, Modal, Advisor } from '../components/kit'
+import { FUNDS, FUND_FEE } from '../../data/market'
 
-const sum = (rs: DayReport[], k: keyof DayReport) => rs.reduce((a, r) => a + (r[k] as number), 0)
+const sum = (rs: DayReport[], k: keyof DayReport) => rs.reduce((a, r) => a + ((r[k] as number) || 0), 0)
+function Spark ({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) return null
+  const min = Math.min(...values); const max = Math.max(...values); const span = max - min || 1
+  const pts = values.map((v, i) => `${(i / (values.length - 1)) * 300},${38 - ((v - min) / span) * 34}`).join(' ')
+  return <svg viewBox='0 0 300 40' className='w-full h-8' aria-hidden><polyline points={pts} fill='none' stroke={color} strokeWidth='2' strokeLinejoin='round' /></svg>
+}
 
 export function Corporativo () {
   useApp(s => s.rev)
@@ -70,6 +77,33 @@ export function Corporativo () {
 
       <Card title='Flujo de caja · utilidad diaria'>
         <BarChart values={game.reports.slice(-30).map(r => Math.round(r.profit))} labels={game.reports.slice(-30).map(r => E.dateLabel(r.day).date.slice(0, 6))} color='#2E7D5B' />
+      </Card>
+
+      <Advisor who='finanzas'>{game.cash > 600000 ? 'Tienes efectivo de sobra: lo que no uses en tiendas puede rendir en el fondo de inversión. Deja siempre un colchón para nómina y renta.' : 'Cuida la caja: la nómina y la renta se cobran cada noche en el corte.'}</Advisor>
+
+      <Card title='Fondo de inversión' right={<span className='num text-sm font-bold'>{fmtK(E.fundValue(game))}</span>}>
+        {FUNDS.map(f => {
+          const st = game.market?.funds[f.id]
+          if (!st) return null
+          const value = st.units * st.nav; const gain = value - st.invested
+          const h = st.hist; const ch = h.length > 30 ? st.nav / h[h.length - 31] - 1 : st.nav / h[0] - 1
+          return (
+            <div key={f.id} className='flex flex-col gap-1.5 py-2 border-t border-borde first:border-t-0'>
+              <div className='flex items-center justify-between gap-2'>
+                <span className='flex items-center gap-2 min-w-0'><span className='w-2.5 h-2.5 rounded-full shrink-0' style={{ background: f.color }} /><b className='text-sm truncate'>{f.name}</b></span>
+                <span className={`num text-xs font-semibold ${ch >= 0 ? 'text-ahorro' : 'text-rojo'}`}>{ch >= 0 ? '+' : ''}{(ch * 100).toFixed(1)} % 30 días</span>
+              </div>
+              <p className='text-xs text-tenue'>{f.desc} Rendimiento esperado ~{Math.round(f.annual * 100)} % al año.</p>
+              <Spark values={h} color={f.color} />
+              {st.units > 0 && <div className='flex justify-between text-xs num'><span>Tienes {fmt(value)}</span><span className={gain >= 0 ? 'text-ahorro' : 'text-rojo'}>{gain >= 0 ? '+' : ''}{fmt(gain)}</span></div>}
+              <div className='flex flex-wrap gap-1.5'>
+                {[100000, 500000].map(n => <Btn key={n} small kind='ghost' disabled={game.cash < n} onClick={() => run(g => E.investFund(g, f.id, n))}>+{fmtK(n)}</Btn>)}
+                {st.units > 0 && <Btn small kind='ghost' onClick={() => run(g => E.withdrawFund(g, f.id, Infinity))}>Retirar todo</Btn>}
+              </div>
+            </div>
+          )
+        })}
+        <span className='text-xs text-tenue'>Comisión de {FUND_FEE * 100} % al entrar y al salir. Los fondos se mueven con la bolsa: un rally o una corrección afectan más a las acciones.</span>
       </Card>
 
       <Card title={`Crédito PyME · ${Math.round(18)} % anual`}>

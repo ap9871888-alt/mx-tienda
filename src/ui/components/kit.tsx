@@ -2,6 +2,8 @@
 import { type ReactNode, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useApp, fmtK } from '../../state/store'
+import { assetUrl } from '../../renderer/assets'
+import type { Insight } from '../../engine'
 
 export function Card ({ title, right, children, className = '' }: { title?: string; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -25,7 +27,7 @@ export function Btn ({ children, onClick, kind = 'primary', disabled, small, cla
   const k = { primary: 'bg-rojo text-white', ghost: 'bg-arena text-urbano border border-borde', blue: 'bg-corp text-white', green: 'bg-ahorro text-white', gold: 'bg-oferta text-urbano' }[kind]
   return (
     <button title={title} onClick={onClick} disabled={disabled}
-      className={`${k} ${small ? 'px-3 py-1.5 text-[13px] min-h-[34px]' : 'px-4 py-2.5 min-h-[42px]'} rounded-xl font-semibold inline-flex items-center justify-center gap-1.5 transition active:scale-[.98] disabled:opacity-40 disabled:cursor-not-allowed ${className}`}>
+      className={`${k} ${small ? 'px-3 py-1.5 text-[13px] min-h-[34px]' : 'px-4 py-2.5 min-h-[42px]'} rounded-xl font-semibold inline-flex items-center justify-center gap-1.5 transition-colors active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed select-none ${className}`}>
       {children}
     </button>
   )
@@ -92,5 +94,36 @@ export function Toast () {
     <div role='status' className={`fixed z-[60] left-1/2 -translate-x-1/2 bottom-[calc(84px+env(safe-area-inset-bottom))] max-w-[calc(100%-32px)] px-4 py-2.5 rounded-xl shadow-card font-semibold text-sm ${toast.bad ? 'bg-rojo text-white' : 'bg-urbano text-white'}`}>
       {toast.text}
     </div>
+  )
+}
+
+export type AdvisorId = 'encargado' | 'logistica' | 'comprador' | 'finanzas'
+const ADVISORS: Record<AdvisorId, string> = { encargado: 'Toño · Encargado de tienda', logistica: 'Ing. Ramírez · Logística', comprador: 'Pablo · Marca Propia', finanzas: 'Lic. Daniela · Finanzas' }
+export function Advisor ({ who, children }: { who: AdvisorId; children: ReactNode }) {
+  return (
+    <div className='flex gap-3 items-center bg-white border border-borde rounded-2xl shadow-card p-3'>
+      <img src={assetUrl(`ui/asesor-${who}.webp`)} alt='' width={52} height={52} className='w-[52px] h-[52px] rounded-full shrink-0' />
+      <div className='min-w-0 text-[13.5px] leading-snug'><span className='block text-[11.5px] font-semibold text-tenue'>{ADVISORS[who]}</span>{children}</div>
+    </div>
+  )
+}
+export function Icon ({ name, size = 28, className = '' }: { name: string; size?: number; className?: string }) {
+  return <img src={assetUrl(`ui/${name}.webp`)} alt='' width={size} height={size} className={`object-contain shrink-0 ${className}`} style={{ width: size, height: size }} />
+}
+const KIND: Record<Insight['kind'], { label: string; tone: 'good' | 'bad' | 'warn' | 'blue' | 'neutral' }> = {
+  oportunidad: { label: 'Oportunidad', tone: 'good' }, precio: { label: 'Precio', tone: 'blue' }, alerta: { label: 'Alerta', tone: 'bad' }, rival: { label: 'Competencia', tone: 'warn' }, tendencia: { label: 'Tendencia', tone: 'neutral' }
+}
+export function AnalystCard ({ insights, max = 3, onApply }: { insights: Insight[]; max?: number; onApply?: (i: Insight) => void }) {
+  if (!insights.length) return null
+  return (
+    <Card title='Analista de mercado (IA)'>
+      {insights.slice(0, max).map((i, k) => (
+        <div key={k} className='flex flex-col gap-1 py-1.5 border-t border-borde first:border-t-0'>
+          <div className='flex items-center gap-2'><Pill tone={KIND[i.kind].tone}>{KIND[i.kind].label}</Pill><b className='text-sm leading-tight'>{i.title}</b></div>
+          <p className='text-xs text-tenue'>{i.text}</p>
+          {onApply && i.kind === 'precio' && <div><Btn small kind='blue' onClick={() => onApply(i)}>Aplicar sugerencia</Btn></div>}
+        </div>
+      ))}
+    </Card>
   )
 }

@@ -48,6 +48,11 @@ export interface Store {
 
 export interface LogEntry { minute: number; text: string; kind: 'info' | 'good' | 'bad' }
 
+export interface ColonyMarket { traffic: number; wealth: number; trend: number; events: { text: string; traffic: number; days: number }[]; war: number }
+export interface RivalChain { id: string; name: string; color: string; style: 'precio' | 'expansion' | 'premium'; stores: Record<string, number>; aggression: number }
+export interface FundState { nav: number; hist: number[]; units: number; invested: number }
+export interface MarketState { colonies: Record<string, ColonyMarket>; rivals: RivalChain[]; funds: Record<string, FundState>; regime: number; insightsDay: number }
+
 export interface GameState {
   version: number
   seed: number
@@ -66,6 +71,7 @@ export interface GameState {
   cedis: { level: number; trucks: number; builtDay: number } | null
   labels: string[]
   tripsToday: number
+  market: MarketState
 }
 
 export type GameEvent =

@@ -33,6 +33,13 @@ Una Tiendita de Esquina ($250,000 de CAPEX) con 2 cajeros de 2 ★ y precios de 
 - **Marca Propia** (requiere CEDIS): agua, botanas, lácteos, pan y limpieza; cada línea abarata 15 % su categoría y sube la lealtad.
 - Las partidas del Hito 1 se actualizan solas.
 
+## Arte, IA de mercado y fondo
+- **Arte generado** en `src/assets/`: mapa ilustrado de la CDMX con máscara de colonias (8 colonias clicables), fachadas de los 5 formatos (día y cerrada), edificios de relleno (día y noche), cliente caminando de 6 fotogramas en 4 direcciones recoloreado en 6 variantes, cajero de 4 fotogramas, repartidor, camioneta, camión de CEDIS, motos, íconos y asesores. Si una imagen no carga, el juego usa su dibujo de respaldo.
+- **IA de mercado** (`engine/market.ts`): cada partida genera colonias con tráfico, poder adquisitivo y tendencia distintos, y tres cadenas rivales con estrategia propia (guerra de precios, expansión rápida, premium). Cada lunes deciden dónde abrir o a quién atacar según dónde ganas tú; hay eventos de mercado por colonia.
+- **Analista de mercado** (`engine/analyst.ts`): recomienda la mejor apertura, sugiere ajustes de margen prudentes (máximo 8 puntos) que se aplican con un toque, y avisa de filas, desabasto, guerras de precios y colonias en crecimiento.
+- **Fondo de inversión**: bonos, fondo balanceado y acciones mexicanas, con comisión de entrada/salida y rallies o correcciones de la bolsa.
+- La interfaz ya no se redibuja mientras tocas la pantalla y la página no rebota.
+
 ## Siguientes hitos
 - **Hito 3**: mapa nacional, conglomerados con IA (nombres ficticios), BMV, alianzas, guerras de precios, M&A y calendario mexicano completo.
 - **Hito 4**: holding del futuro, bienes raíces, tutorial de 60 s y balance fino.

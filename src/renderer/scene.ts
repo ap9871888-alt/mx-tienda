@@ -10,6 +10,18 @@ import { PRODUCT_CATEGORIES } from '../data/categories'
 import { colonyOf, HOUR_PROFILE } from '../data/cities'
 import { ECONOMY } from '../data/economy'
 import type { GameState, GameEvent, Store } from '../engine/types'
+import { sprite, preload } from './assets'
+
+// lotes de 2×2 para los edificios de relleno (tu arte), sin pisar la tienda ni la rival
+const LOTS: { x: number; y: number; v: number }[] = []
+{
+  const add = (xs: number[], ys: number[]) => { for (const x of xs) for (const y of ys) LOTS.push({ x, y, v: Math.abs((x * 7 + y * 13) % 8) }) }
+  add([3, 1, -1, -3, -5], [3, 1, -1, -3, -5]) // cuadra de la tienda
+  add([9, 11, 13, 15], [3, 1, -1, -3, -5]) // cuadra noreste
+  add([3, 1, -1, -3, -5], [9, 11, 13, 15]) // cuadra suroeste
+}
+const overlaps = (l: { x: number; y: number }, r: { x: number; y: number; w: number; d: number }) => l.x < r.x + r.w && l.x + 2 > r.x && l.y < r.y + r.d && l.y + 2 > r.y
+const SPRITES = ['sprites/edificio-0-dia.webp', 'sprites/cliente-0.webp', 'sprites/camioneta-0.webp', 'sprites/camion-0.webp', 'sprites/moto-0.webp']
 
 export interface SceneSource { game: () => GameState | null; storeId: () => number | null; speed: () => number }
 
@@ -87,6 +99,7 @@ export class StreetScene {
     this.ctx = canvas.getContext('2d')!
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(canvas)
+    preload([...SPRITES, ...Array.from({ length: 8 }, (_, i) => `sprites/edificio-${i}-dia.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/cliente-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/repartidor-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/cajero-${i}.webp`)])
     this.resize()
   }
 
@@ -336,7 +349,13 @@ export class StreetScene {
     const glows: { sx: number; sy: number; r: number; c: string }[] = []
     // objetos ordenados por profundidad
     const items: { k: number; f: () => void }[] = []
-    for (const [bx, by, bw, bd, bh, col] of BUILDINGS) this.pushBuilding(items, bx, by, bw, bd, bh, col, day, glows)
+    for (const l of LOTS) {
+      if (overlaps(l, STORE) || overlaps(l, RIVAL)) continue
+      const img = sprite(`sprites/edificio-${l.v}-${day < 0.45 ? 'noche' : 'dia'}.webp`)
+      if (img) items.push({ k: l.x + l.y + 3, f: () => this.drawAnchored(img, l.x + 2, l.y + 2, 2 * TW * cam.zoom * 1.02) })
+      else this.pushBuilding(items, l.x, l.y, 2, 2, 2, ['#E8A0BF', '#F2C14E', '#7FB3D5', '#F4A261', '#A3C4BC', '#E76F51', '#C9B6E4', '#9BC1BC'][l.v], day, glows)
+    }
+    void BUILDINGS
     this.pushStore(items, store, open, day, glows)
     this.pushRival(items, day, glows)
     for (const t of TREES) items.push({ k: t.x + t.y, f: () => drawJacaranda(ctx, cam, t.x, t.y) })
@@ -346,14 +365,15 @@ export class StreetScene {
     items.push({ k: 9.6 + 9.6, f: () => drawVendor(ctx, cam, 9.3, 9.3, this.t) })
     for (const c of this.cars) {
       const L = LANES[c.lane]; const x = L.axis === 'x' ? c.pos : L.fixed; const y = L.axis === 'x' ? L.fixed : c.pos
-      items.push({ k: x + y, f: () => { drawVehicle(ctx, cam, x, y, L.axis, c.v, day < 0.5); if (day < 0.5) { const s = toScreen(cam, x, y, 6); glows.push({ sx: s.sx, sy: s.sy, r: 18 * cam.zoom, c: '255,240,180' }) } } })
+      items.push({ k: x + y, f: () => { if (!this.drawVehicleSprite(c, x, y, L.axis, L.dir)) drawVehicle(ctx, cam, x, y, L.axis, c.v, day < 0.5); if (day < 0.5) { const s = toScreen(cam, x, y, 6); glows.push({ sx: s.sx, sy: s.sy, r: 18 * cam.zoom, c: '255,240,180' }) } } })
     }
     const s = cam.zoom * 0.95
     for (const a of this.agents) {
       if (a.mode === 'inside') continue
       items.push({ k: a.x + a.y + 0.05, f: () => {
         const p = toScreen(cam, a.x, a.y)
-        drawPerson(ctx, p.sx, p.sy, s, a.dir, a.mode === 'line' || a.phase < 0 ? -1 : Math.floor(a.phase), a.look, { bag: a.bag, carry: a.carry, uniform: a.uniform })
+        const fr = a.mode === 'line' || a.phase < 0 ? -1 : Math.floor(a.phase)
+        if (!this.drawPersonSprite(a, p.sx, p.sy, fr)) drawPerson(ctx, p.sx, p.sy, s, a.dir, fr, a.look, { bag: a.bag, carry: a.carry, uniform: a.uniform })
         if (a.angry) { ctx.font = `${14 * cam.zoom}px system-ui`; ctx.fillText('😤', p.sx - 7 * cam.zoom, p.sy - 38 * cam.zoom) }
       } })
     }
@@ -388,7 +408,63 @@ export class StreetScene {
       const top = toScreen(cam, STORE.x + 1.5, STORE.y + 1.5, (LOOKS[store.formatId].h + 0.9) * TH)
       const y0 = Math.max(18 + (alerts.length - 1) * 24, top.sy)
       alerts.forEach(([txt, k], i) => this.pill(top.sx, y0 - i * 24, txt, k, 1))
+      // la caja: el cajero con sus 4 fotogramas, en una ventanita
+      const fr = this.cashierAnim > 0 ? 3 - Math.min(3, Math.floor(this.cashierAnim / 0.2)) : 1
+      const cj = store.cashiers.length ? sprite(`sprites/cajero-${fr}.webp`) : null
+      if (cj) {
+        const w = 74; const h = w * cj.height / cj.width
+        ctx.save(); roundRect(ctx, 8, 8, w + 12, h + 22, 12); ctx.fillStyle = 'rgba(255,255,255,.94)'; ctx.fill(); ctx.strokeStyle = '#E6E0D4'; ctx.stroke()
+        ctx.drawImage(cj, 14, 12, w, h)
+        ctx.font = '700 10px Archivo, system-ui'; ctx.fillStyle = '#2B2D33'; ctx.textAlign = 'center'; ctx.fillText(`Caja · ${store.queue.length} en fila`, 14 + w / 2, h + 24); ctx.restore()
+      }
     }
+  }
+
+  // dibuja un sprite con su borde inferior en la esquina frontal (x, y) del lote
+  private drawAnchored (img: HTMLImageElement, x: number, y: number, width: number) {
+    const p = toScreen(this.cam, x, y)
+    const h = width * img.height / img.width
+    this.ctx.drawImage(img, p.sx - width / 2, p.sy - h + 2 * this.cam.zoom, width, h)
+  }
+  private drawPersonSprite (a: Agent, sx: number, sy: number, frame: number) {
+    const z = this.cam.zoom; const ctx = this.ctx
+    if (a.uniform) {
+      const img = sprite(`sprites/repartidor-${a.carry === 'dolly' ? (frame < 0 ? 1 : 1 + (frame % 2)) : 0}.webp`)
+      if (!img) return false
+      const h = 40 * z; const w = h * img.width / img.height
+      const flip = a.dir === 'SW' || a.dir === 'NW'
+      ctx.save(); ctx.translate(sx, sy); if (flip) ctx.scale(-1, 1); ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore()
+      return true
+    }
+    const sheet = sprite(`sprites/cliente-${a.id % 6}.webp`)
+    if (!sheet) return false
+    const cw = sheet.width / 6; const ch = sheet.height / 4
+    const row = a.dir === 'SE' || a.dir === 'SW' ? 0 : 2
+    const flip = a.dir === 'SW' || a.dir === 'NE'
+    const col = frame < 0 ? 0 : frame % 6
+    const h = 38 * z; const w = h * cw / ch
+    ctx.save(); ctx.translate(sx, sy)
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(0, 0, 7 * z, 2.6 * z, 0, 0, Math.PI * 2); ctx.fill()
+    if (flip) ctx.scale(-1, 1)
+    ctx.drawImage(sheet, col * cw, row * ch, cw, ch, -w / 2, -h, w, h)
+    ctx.restore()
+    if (a.angry) { ctx.font = `${14 * z}px system-ui`; ctx.fillText('😤', sx - 7 * z, sy - 44 * z) }
+    return true
+  }
+  private drawVehicleSprite (c: Car, x: number, y: number, axis: 'x' | 'y', dir: number) {
+    const kind = c.v.kind
+    const name = kind === 'van' ? (c.v.color === '#1B4D8F' ? 'camion-0' : 'camioneta-0') : kind === 'moto' ? 'moto-0' : ''
+    if (!name) return false
+    const img = sprite(`sprites/${name}.webp`)
+    if (!img) return false
+    const z = this.cam.zoom; const p = toScreen(this.cam, x, y)
+    const width = (name === 'camion-0' ? 2.1 : name === 'camioneta-0' ? 1.6 : 0.7) * TW * z
+    const h = width * img.height / img.width
+    // los sprites miran hacia +x (abajo a la derecha); se reflejan para los otros sentidos
+    const flip = (axis === 'x' && dir < 0) || (axis === 'y' && dir > 0)
+    this.ctx.save(); this.ctx.translate(p.sx, p.sy + h * 0.28); if (flip) this.ctx.scale(-1, 1)
+    this.ctx.drawImage(img, -width / 2, -h, width, h); this.ctx.restore()
+    return true
   }
 
   private pill (x: number, y: number, text: string, kind: Bubble['kind'], alpha: number) {
@@ -429,6 +505,14 @@ export class StreetScene {
     const ctx = this.ctx; const cam = this.cam; const S = STORE
     if (!store) { this.pushBuilding(items, S.x, S.y, S.w, S.d, 1.3, '#D9D2C4', day, glows); items.push({ k: 9.1, f: () => this.faceText(S.y + S.d, S.x + 0.2, 0.9, 'SE RENTA', '#2B2D33', '#F7F5F0') }); return }
     const L = LOOKS[store.formatId]
+    const stImg = sprite(`sprites/tienda-${store.formatId}-${open ? 'dia' : 'cerrada'}.webp`)
+    if (stImg) {
+      items.push({ k: S.x + S.w - 1 + S.y + S.d - 1 + 1, f: () => {
+        this.drawAnchored(stImg, S.x + S.w, S.y + S.d, 3 * TW * cam.zoom * 1.04)
+        if (open && day < 0.6) { const p = toScreen(cam, S.x + 1.5, S.y + S.d, 0.8 * TH); glows.push({ sx: p.sx, sy: p.sy, r: 70 * cam.zoom, c: '255,220,150' }) }
+      } })
+      return
+    }
     for (let i = S.x; i < S.x + S.w; i++) for (let j = S.y; j < S.y + S.d; j++) {
       const isLeft = j === S.y + S.d - 1; const isRight = i === S.x + S.w - 1
       items.push({ k: i + j + 1, f: () => {

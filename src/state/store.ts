@@ -75,11 +75,18 @@ export const useApp = create<AppState>()(persist((set, get) => ({
   version: E.SAVE_VERSION,
   migrate: (persisted, version) => {
     const p = persisted as { game: GameState | null; speed: Speed; storeId: number | null }
-    if (version === 3 && p?.game) return { ...p, game: E.migrateGame(p.game) } as never
+    if ((version === 3 || version === 4) && p?.game) return { ...p, game: E.migrateGame(p.game) } as never
     return { game: null, speed: 1, storeId: null } as never
   }
 }))
 
+// mientras el jugador toca la pantalla no se redibuja la interfaz: así nada brinca bajo el dedo
+let touching = false; let touchTimer: ReturnType<typeof setTimeout> | undefined
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', () => { touching = true; clearTimeout(touchTimer) }, { passive: true })
+  const up = () => { clearTimeout(touchTimer); touchTimer = setTimeout(() => { touching = false }, 350) }
+  window.addEventListener('pointerup', up, { passive: true }); window.addEventListener('pointercancel', up, { passive: true })
+}
 // bucle de simulación: 1 día de juego = 60 s reales a 1x
 let raf = 0; let last = 0; let uiAcc = 0
 export function startLoop () {
@@ -92,7 +99,7 @@ export function startLoop () {
       const events = E.advance(st.game, dt * st.speed * ECONOMY.gameMinutesPerRealSecond)
       bus.emit(events)
       uiAcc += dt
-      if (uiAcc > 0.25 || events.some(e => e.type === 'dayEnd')) { uiAcc = 0; useApp.setState({ game: st.game, rev: st.rev + 1 }) }
+      if ((uiAcc > 0.4 && !touching) || events.some(e => e.type === 'dayEnd')) { uiAcc = 0; useApp.setState({ game: st.game, rev: st.rev + 1 }) }
     }
     raf = requestAnimationFrame(tick)
   }

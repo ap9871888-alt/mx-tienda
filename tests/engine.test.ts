@@ -165,3 +165,50 @@ describe('Hito 2: formatos, CEDIS y Marca Propia', () => {
     expect(g.cedis).toBeNull(); expect(g.labels).toEqual([])
   })
 })
+
+describe('IA de mercado, analista y fondo', () => {
+  it('cada semilla genera un mercado distinto y la misma semilla el mismo', () => {
+    const a = E.newGame(1); const b = E.newGame(2); const c = E.newGame(1)
+    expect(a.market.colonies.roma.traffic).not.toBe(b.market.colonies.roma.traffic)
+    expect(a.market.rivals.map(r => r.name)).toEqual(c.market.rivals.map(r => r.name))
+    expect(a.market.rivals.map(r => r.style).sort()).toEqual(['expansion', 'precio', 'premium'])
+  })
+  it('los rivales actúan cada semana y la competencia cambia', () => {
+    const s = E.newGame(9); s.cash = 1e8
+    const st = E.openStore(s, 'cdmx', 'roma', 'tiendita').data!
+    st.cashiers.push({ id: 900, name: 'x', stars: 3, salary: 13000 })
+    const before = s.market.rivals.reduce((a, r) => a + Object.values(r.stores).reduce((x, y) => x + y, 0), 0)
+    for (let d = 0; d < 60; d++) E.advance(s, 1440)
+    const after = s.market.rivals.reduce((a, r) => a + Object.values(r.stores).reduce((x, y) => x + y, 0), 0)
+    const wars = s.log.some(l => l.text.includes('guerra de precios'))
+    expect(after !== before || wars).toBe(true)
+  })
+  it('el analista recomienda dónde abrir y sugiere precios', () => {
+    const s = E.newGame(3)
+    const ins = E.analyzeMarket(s)
+    expect(ins.some(i => i.kind === 'oportunidad')).toBe(true)
+    s.cash = 1e7
+    const st = E.openStore(s, 'cdmx', 'polanco', 'tiendita').data!
+    st.margins.bebidas = 0.06
+    const r = E.bestMargin(s, st, 'bebidas')
+    expect(r.margin).toBeGreaterThan(0.06)
+    expect(E.analyzeMarket(s).some(i => i.kind === 'precio' && i.storeId === st.id)).toBe(true)
+  })
+  it('el fondo cobra comisión, cambia de valor y suma al patrimonio', () => {
+    const s = E.newGame(4)
+    const nw = E.netWorth(s)
+    expect(E.investFund(s, 'bonos', 100000).ok).toBe(true)
+    expect(E.fundValue(s)).toBeCloseTo(99500, 0)
+    expect(E.netWorth(s)).toBeCloseTo(nw - 500, -1)
+    for (let d = 0; d < 30; d++) E.advance(s, 1440)
+    expect(E.fundValue(s)).toBeGreaterThan(99500)
+    expect(E.withdrawFund(s, 'bonos', Infinity).ok).toBe(true)
+    expect(E.fundValue(s)).toBe(0)
+  })
+  it('partidas del Hito 2 reciben su mercado', () => {
+    const s = E.newGame(5) as unknown as Record<string, unknown>
+    s.version = 4; delete s.market
+    const g = E.deserialize(JSON.stringify(s))
+    expect(g.market.rivals.length).toBe(3)
+  })
+})
