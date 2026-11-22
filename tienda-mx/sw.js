@@ -1,5 +1,5 @@
 // Red primero, caché como respaldo: el juego funciona sin conexión después de la primera visita.
-const CACHE = 'cafemx-v1'
+const CACHE = 'tiendamx-v1'
 self.addEventListener('install', e => self.skipWaiting())
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()))
 self.addEventListener('fetch', e => {

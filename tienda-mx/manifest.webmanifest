@@ -1,13 +1,13 @@
 {
-  "name": "Café MX Inc.",
-  "short_name": "Café MX",
-  "description": "Construye un imperio cafetalero en México.",
+  "name": "Tienda MX Inc.",
+  "short_name": "Tienda MX",
+  "description": "Del local al imperio: tiendas, cafeterías y taquerías.",
   "lang": "es-MX",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F6EBDD",
-  "theme_color": "#D45B34",
+  "background_color": "#F3F1EC",
+  "theme_color": "#D63B2F",
   "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }
