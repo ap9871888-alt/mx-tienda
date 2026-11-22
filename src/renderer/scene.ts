@@ -101,7 +101,7 @@ export class StreetScene {
     this.ctx = canvas.getContext('2d')!
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(canvas)
-    preload([...SPRITES, ...Array.from({ length: 8 }, (_, i) => `sprites/edificio-${i}-dia.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/cliente-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/repartidor-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/cajero-${i}.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/peaton-${i}.webp`),
+    preload([...SPRITES, ...Array.from({ length: 8 }, (_, i) => `sprites/edificio-${i}-dia.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/cliente-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/repartidor-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/cajero-${i}.webp`), ...Array.from({ length: 8 }, (_, i) => `sprites/peaton-${i}.webp`), 'sprites/cliente-grande.webp',
       ...['jacaranda', 'arbol', 'poste-luz', 'semaforo-rojo', 'semaforo-amarillo', 'semaforo-verde', 'parada', 'puesto', 'bote', 'banca', 'hidrante', 'bici', 'cono'].map(n => `sprites/obj-${n}.webp`),
       ...['taxi', 'vocho', 'sedan-rojo', 'sedan-azul', 'pickup', 'micro', 'metrobus'].flatMap(n => [0, 1, 2, 3].map(i => `sprites/veh-${n}-${i}.webp`))])
     this.resize()
@@ -459,7 +459,7 @@ export class StreetScene {
       return true
     }
     // con bolsa: cliente que ya compró; sin bolsa: peatón
-    const sheet = (!a.bag && a.customerId == null && sprite(`sprites/peaton-${a.id % 6}.webp`)) || sprite(`sprites/cliente-${a.id % 6}.webp`)
+    const sheet = (!a.bag && a.customerId == null && sprite(`sprites/peaton-${a.id % 8}.webp`)) || (a.bag && a.id % 5 === 0 && sprite('sprites/cliente-grande.webp')) || sprite(`sprites/cliente-${a.id % 6}.webp`)
     if (!sheet) return false
     const cw = sheet.width / 6; const ch = sheet.height / 4
     const row = a.dir === 'SE' || a.dir === 'SW' ? 0 : 2
