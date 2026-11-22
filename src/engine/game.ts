@@ -63,6 +63,17 @@ export function formatAvailable (s: GameState, formatId: FormatId): Result {
 export const ownIn = (s: GameState, colonyId: string) => s.stores.filter(x => x.colonyId === colonyId).length
 
 // ---------- ciudades ----------
+// remodelación: más gente entra y sale contenta
+export const remodelCost = (st: Store) => Math.round(formatOf(st.formatId).capex * 0.3 * ((st.remodel ?? 0) + 1))
+export function remodelStore (s: GameState, storeId: number): Result {
+  const st = s.stores.find(x => x.id === storeId)
+  if (!st) return fail('Tienda no encontrada')
+  if ((st.remodel ?? 0) >= 3) return fail('Ya es una tienda insignia')
+  const c = remodelCost(st)
+  if (s.cash < c) return fail('No alcanza el efectivo')
+  s.cash -= c; st.remodel = (st.remodel ?? 0) + 1; st.satisfaction = Math.min(100, st.satisfaction + 6)
+  return ok('¡Remodelación lista! Entra más gente')
+}
 export const canExpand = (s: GameState) => s.stores.length >= 4
 // ---------- viajes: para abrir o administrar otra ciudad tienes que ir ----------
 export function tripQuote (s: GameState, to: string) {
@@ -331,6 +342,7 @@ function makeBasket (s: GameState, st: Store): BasketLine[] {
   const spend = Math.sqrt(effectiveWealth(s, st.cityId, st.colonyId)) // en colonias de más ingreso se lleva más
   const recargas = hasFeature(dateOfDay(dayOf(s.minute)), 'recargas')
   for (const c of CATEGORIES) {
+    if (c.service && f.noServices) continue
     const era = c.service && !recargas ? 0.4 : 1 // sin celulares solo se pagan recibos
     if (nextRandom(s) < c.basketProb * era * spend * priceFactor(st, c.id, s)) {
       const qty = Math.max(1, Math.round(randInt(s, c.qty[0], c.qty[1]) * (c.service ? 1 : f.basketMult)))

@@ -109,7 +109,9 @@ export function Advisor ({ who, children }: { who: AdvisorId; children: ReactNod
   )
 }
 export function Icon ({ name, size = 28, className = '' }: { name: string; size?: number; className?: string }) {
-  return <img src={assetUrl(`ui/${name}.webp`)} alt='' width={size} height={size} className={`object-contain shrink-0 ${className}`} style={{ width: size, height: size }} />
+  const url = assetUrl(`ui/${name}.webp`)
+  if (!url) return <span className={`shrink-0 grid place-items-center ${className}`} style={{ width: size, height: size, fontSize: size * 0.7 }} aria-hidden>{({ taqueria: '🌮', paleteria: '🍦' } as Record<string, string>)[name] ?? '🏪'}</span>
+  return <img src={url} alt='' width={size} height={size} className={`object-contain shrink-0 ${className}`} style={{ width: size, height: size }} />
 }
 const KIND: Record<Insight['kind'], { label: string; tone: 'good' | 'bad' | 'warn' | 'blue' | 'neutral' }> = {
   oportunidad: { label: 'Oportunidad', tone: 'good' }, precio: { label: 'Precio', tone: 'blue' }, alerta: { label: 'Alerta', tone: 'bad' }, rival: { label: 'Competencia', tone: 'warn' }, tendencia: { label: 'Tendencia', tone: 'neutral' }

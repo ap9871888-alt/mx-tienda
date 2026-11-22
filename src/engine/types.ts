@@ -33,6 +33,7 @@ export interface Store {
   margins: CatMap<number>
   cashiers: Cashier[]
   selfCheckouts: number
+  remodel?: number
   security: number // 0–2
   cleaning: number // 0–2
   bonus: boolean

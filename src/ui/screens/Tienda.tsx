@@ -3,7 +3,9 @@ import { UserPlus, GraduationCap, UserMinus, ScanLine, Camera, Sparkles, Award }
 import * as E from '../../engine'
 import { CATEGORIES } from '../../data/categories'
 import { ECONOMY } from '../../data/economy'
-import { formatOf } from '../../data/formats'
+import { formatOf, catLabel, REMODEL } from '../../data/formats'
+import { assetUrl } from '../../renderer/assets'
+import type { Store } from '../../engine/types'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { Card, Btn, Kpi, Pill, Stars, BarChart, Modal, AnalystCard, Advisor } from '../components/kit'
 import { useMemo } from 'react'
@@ -24,6 +26,7 @@ export function Tienda () {
   const storeId = useApp(s => s.storeId)
   const run = useApp(s => s.run)
   const [hiring, setHiring] = useState(false)
+  const [sub, setSub] = useState<'resumen' | 'precios' | 'personal' | 'interior' | 'ventas'>('resumen')
   const [fireId, setFireId] = useState<number | null>(null)
   const st = game.stores.find(s => s.id === storeId) ?? game.stores[0]
   if (!st) return <NoStore />
@@ -44,36 +47,17 @@ export function Tienda () {
         <Kpi label='Satisfacción' value={`${Math.round(st.satisfaction)} / 100`} tone={st.satisfaction >= 70 ? 'good' : st.satisfaction >= 50 ? 'warn' : 'bad'} />
         <Kpi label='Reputación' value={<Stars n={st.reputation} />} />
       </div>
+      <div className='flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1 sticky top-[86px] z-10 bg-arena/95 backdrop-blur py-1'>
+        {([['resumen', '📋 Resumen'], ['precios', '🏷️ Precios'], ['personal', '👥 Personal'], ['interior', '🛠️ Interior'], ['ventas', '📈 Ventas']] as const).map(([k, l]) => (
+          <button key={k} onClick={() => setSub(k)} className={`shrink-0 px-3.5 min-h-[40px] rounded-full text-sm font-bold border ${sub === k ? 'bg-urbano text-white border-urbano' : 'bg-white border-borde'}`}>{l}</button>))}
+      </div>
 
-      {insights.length ? <AnalystCard insights={insights} onApply={i => { if (i.cat && i.margin != null) run(g => { const r = E.setMargin(g, st.id, i.cat!, i.margin!); return { ...r, msg: 'Margen ajustado' } }) }} />
-        : <Advisor who='encargado'>Todo en orden en esta tienda. Revisa la fila en las horas pico y que no falte mercancía.</Advisor>}
-      <Card title='Precio y margen por categoría'>
-        {CATEGORIES.map(c => {
-          const pi = E.priceIndex(st, c.id); const diff = Math.round((pi - 1) * 100)
-          return (
-            <div key={c.id} className='flex flex-col gap-1 py-1.5 border-t border-borde first:border-t-0'>
-              <div className='flex items-center justify-between gap-2'>
-                <span className='font-semibold flex items-center gap-2'><span className='w-2.5 h-2.5 rounded-full' style={{ background: c.color }} />{c.name}</span>
-                <span className='num font-bold'>{fmt(E.unitPrice(st, c.id))}</span>
-              </div>
-              {c.service
-                ? <span className='text-xs text-tenue'>Comisión fija de {fmt(c.price)} por recarga o pago de servicio. No ocupa anaquel.</span>
-                : <>
-                  <label className='sr-only' htmlFor={`m-${c.id}`}>Margen de {c.name}</label>
-                  <input id={`m-${c.id}`} type='range' min={5} max={50} step={1} value={Math.round(st.margins[c.id] * 100)}
-                    onChange={e => run(g => E.setMargin(g, st.id, c.id, +e.target.value / 100))} className='w-full' />
-                  <div className='flex justify-between text-xs text-tenue'>
-                    <span>Margen {Math.round(st.margins[c.id] * 100)} % · costo {fmt(E.unitCost(c.id))}</span>
-                    <span className={diff > 8 ? 'text-rojo font-semibold' : diff < -5 ? 'text-ahorro font-semibold' : ''}>{diff === 0 ? 'igual al mercado' : `${diff > 0 ? '+' : ''}${diff} % vs mercado`} · {t.catUnits[c.id] || 0} vendidas hoy</span>
-                  </div>
-                </>}
-            </div>
-          )
-        })}
-        <p className='text-xs text-tenue'>Más margen deja más por pieza, pero menos gente compra; en Polanco aguantan precios más altos que en Iztapalapa.</p>
-      </Card>
+      {sub === 'resumen' && (insights.length ? <AnalystCard insights={insights} onApply={i => { if (i.cat && i.margin != null) run(g => { const r = E.setMargin(g, st.id, i.cat!, i.margin!); return { ...r, msg: 'Margen ajustado' } }) }} />
+        : <Advisor who='encargado'>Todo en orden en esta tienda. Revisa la fila en las horas pico y que no falte mercancía.</Advisor>)}
+      {sub === 'precios' && <PriceWheel st={st} />}
 
-      <Card title={`Cajeros · ${st.cashiers.length}/${f.maxCashiers}`} right={<span className='text-xs text-tenue num'>{Math.round(E.serviceRate(st))} clientes/h</span>}>
+
+      {sub === 'personal' && <Card title={`Cajeros · ${st.cashiers.length}/${f.maxCashiers}`} right={<span className='text-xs text-tenue num'>{Math.round(E.serviceRate(st))} clientes/h</span>}>
         {st.cashiers.map(c => (
           <div key={c.id} className='flex items-center gap-2 py-1 border-t border-borde first:border-t-0'>
             <div className='flex-1 min-w-0'><b>{c.name}</b> <Stars n={c.stars} /><br /><span className='text-xs text-tenue'>{fmt(c.salary)}/mes · cobra ~{Math.round(E.cashierRate(c.stars, st.bonus))} clientes/h</span></div>
@@ -86,21 +70,22 @@ export function Tienda () {
           <Btn kind={st.bonus ? 'blue' : 'ghost'} small onClick={() => run(g => E.toggleBonus(g, st.id))}><Award size={14} /> Bono de desempeño {st.bonus ? 'activo' : '+10 %'}</Btn>
         </div>
         <span className='text-xs text-tenue'>Con más de {ECONOMY.queueTolerance} personas en fila la gente se empieza a ir. El bono sube 10 % la rapidez y baja la rotación.</span>
-      </Card>
+      </Card>}
 
-      <Card title='Mejoras de operación'>
+      {sub === 'interior' && <Interior st={st} />}
+      {sub === 'interior' && <Card title='Mejoras de operación'>
         <Upgrade icon={<ScanLine size={18} />} name={`Caja de autocobro (${st.selfCheckouts}/${f.selfCheckoutSlots})`} desc={`+${ECONOMY.selfCheckoutRate} clientes/h sin sueldo`}
           action={<Btn small kind='blue' disabled={st.selfCheckouts >= f.selfCheckoutSlots || game.cash < ECONOMY.selfCheckoutCost} onClick={() => run(g => E.buySelfCheckout(g, st.id))}>{st.selfCheckouts >= f.selfCheckoutSlots ? 'Lleno' : fmtK(ECONOMY.selfCheckoutCost)}</Btn>} />
         <Upgrade icon={<Camera size={18} />} name={`Seguridad · nivel ${st.security}`} desc={`Merma y robo hormiga: ${(ECONOMY.shrinkBySecurity[st.security] * 100).toFixed(1)} % de ventas${st.security < 2 ? ` → ${(ECONOMY.shrinkBySecurity[st.security + 1] * 100).toFixed(1)} %` : ''}`}
           action={st.security < 2 ? <Btn small kind='blue' disabled={game.cash < ECONOMY.securityCost[st.security + 1]} onClick={() => run(g => E.upgradeSecurity(g, st.id))}>{fmtK(ECONOMY.securityCost[st.security + 1])}</Btn> : <Pill tone='good'>Máximo</Pill>} />
         <Upgrade icon={<Sparkles size={18} />} name='Limpieza' desc={`${fmt(ECONOMY.cleaningMonthly[st.cleaning])}/mes · +${ECONOMY.cleaningSatisfaction[st.cleaning]} satisfacción`}
           action={<div className='flex gap-1'>{[0, 1, 2].map(l => <button key={l} onClick={() => run(g => E.setCleaning(g, st.id, l))} className={`w-8 h-8 rounded-lg text-sm font-bold border ${st.cleaning === l ? 'bg-ahorro text-white border-ahorro' : 'bg-white border-borde'}`}>{l}</button>)}</div>} />
-      </Card>
+      </Card>}
 
-      <Card title='Ventas diarias · últimos 14 días'>
+      {sub === 'ventas' && <Card title='Ventas diarias · últimos 14 días'>
         <BarChart values={hist.map(h => Math.round(h.sales + h.commissions))} labels={hist.map(h => E.dateLabel(h.day).date.slice(0, 6))} />
         {hist.length > 0 && <span className='text-xs text-tenue'>Utilidad de ayer: <b className={hist[hist.length - 1].profit >= 0 ? 'text-ahorro' : 'text-rojo'}>{fmt(hist[hist.length - 1].profit)}</b></span>}
-      </Card>
+      </Card>}
 
       {hiring && (
         <Modal title='Contratar cajero' onClose={() => setHiring(false)}>
@@ -130,5 +115,68 @@ function Upgrade ({ icon, name, desc, action }: { icon: React.ReactNode; name: s
       <div className='flex-1 min-w-0'><b className='block text-sm'>{name}</b><span className='text-xs text-tenue'>{desc}</span></div>
       {action}
     </div>
+  )
+}
+
+// Ruleta de precios: una categoría a la vez, se desliza de lado y se ajusta con botones grandes
+function PriceWheel ({ st }: { st: Store }) {
+  const run = useApp(s => s.run)
+  const cats = CATEGORIES.filter(c => !(c.service && formatOf(st.formatId).noServices))
+  const [i, setI] = useState(0)
+  const c = cats[Math.min(i, cats.length - 1)]
+  const name = catLabel(st.formatId, c.id, c.name)
+  const m = Math.round((st.margins[c.id] ?? 0) * 100)
+  const pi = E.priceIndex(st, c.id); const diff = Math.round((pi - 1) * 100)
+  const set = (v: number) => run(g => E.setMargin(g, st.id, c.id, Math.max(5, Math.min(50, v)) / 100))
+  const move = (d: number) => setI((i + d + cats.length) % cats.length)
+  let x0 = 0
+  return (
+    <Card>
+      <div className='flex items-center gap-2' onTouchStart={e => { x0 = e.touches[0].clientX }} onTouchEnd={e => { const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) move(dx < 0 ? 1 : -1) }}>
+        <button onClick={() => move(-1)} aria-label='Anterior' className='w-11 h-11 rounded-full bg-arena border border-borde text-xl font-bold shrink-0'>‹</button>
+        <div className='flex-1 text-center rounded-2xl py-4 px-2 text-white' style={{ background: c.color }}>
+          <span className='text-[12px] uppercase tracking-wider font-bold opacity-90'>{i + 1} / {cats.length}</span>
+          <b className='block text-2xl leading-tight'>{name}</b>
+          <span className='font-display text-4xl num block mt-1'>{fmt(E.unitPrice(st, c.id))}</span>
+          {!c.service && <span className='text-xs font-semibold bg-black/20 rounded-full px-2 py-0.5'>{diff === 0 ? 'igual al mercado' : `${diff > 0 ? '+' : ''}${diff} % vs mercado`}</span>}
+        </div>
+        <button onClick={() => move(1)} aria-label='Siguiente' className='w-11 h-11 rounded-full bg-arena border border-borde text-xl font-bold shrink-0'>›</button>
+      </div>
+      <div className='flex justify-center gap-1.5'>{cats.map((k, j) => <button key={k.id} aria-label={k.name} onClick={() => setI(j)} className={`h-2.5 rounded-full transition-all ${j === i ? 'w-6' : 'w-2.5 opacity-40'}`} style={{ background: k.color }} />)}</div>
+      {c.service ? <p className='text-sm text-center text-tenue'>Comisión fija por recarga o pago de servicio. No ocupa anaquel.</p> : <>
+        <div className='grid grid-cols-[auto_1fr_auto] items-center gap-3'>
+          <button onClick={() => set(m - 1)} aria-label='Bajar margen' className='w-14 h-14 rounded-2xl bg-ahorro text-white text-3xl font-bold'>−</button>
+          <div className='text-center'><span className='text-[11px] uppercase text-tenue font-bold'>Margen</span><b className='block text-3xl num'>{m} %</b></div>
+          <button onClick={() => set(m + 1)} aria-label='Subir margen' className='w-14 h-14 rounded-2xl bg-rojo text-white text-3xl font-bold'>+</button>
+        </div>
+        <input type='range' min={5} max={50} value={m} onChange={e => set(+e.target.value)} aria-label={`Margen de ${name}`} className='w-full' />
+        <p className='text-xs text-tenue text-center'>Costo {fmt(E.unitCost(c.id))} · {st.today.catUnits[c.id] || 0} vendidas hoy. Más margen = más ganancia por pieza, pero menos compradores.</p>
+      </>}
+    </Card>
+  )
+}
+
+// Interior: lo que hay dentro de tu tienda y su remodelación
+function Interior ({ st }: { st: Store }) {
+  const game = useApp(s => s.game)!
+  const run = useApp(s => s.run)
+  const lvl = st.remodel ?? 0; const next = REMODEL[lvl + 1]
+  const f = formatOf(st.formatId)
+  const floor = ['#E7DFD0', '#EDE6DA', '#F4EFE6', '#FFFFFF'][lvl]
+  const things: [string, number][] = [['anaquel', f.food ? 2 : 4], ['caja', Math.max(1, st.cashiers.length)], ['autocobro', st.selfCheckouts], ['camara', st.security], ['limpieza', st.cleaning]]
+  return (
+    <Card title={`Interior · ${REMODEL[lvl].name}`}>
+      <div className='relative rounded-2xl border-4 border-urbano/80 p-3 grid grid-cols-4 gap-2 min-h-[170px]' style={{ background: `repeating-linear-gradient(45deg, ${floor} 0 14px, ${lvl >= 2 ? '#E9E2D6' : '#DCD3C2'} 14px 28px)` }}>
+        {things.flatMap(([n, k]) => Array.from({ length: k }, (_, j) => (
+          <div key={n + j} className='bg-white/80 rounded-xl grid place-items-center p-1.5 shadow-sm'>{assetUrl(`ui/${n}.webp`) ? <img src={assetUrl(`ui/${n}.webp`)} alt={n} className='w-full aspect-square object-contain' /> : <span className='text-2xl'>📦</span>}</div>
+        )))}
+        {lvl >= 1 && <span className='absolute -top-3 left-3 bg-oferta text-urbano text-[10px] font-black rounded-full px-2'>✨ {REMODEL[lvl].name.toUpperCase()}</span>}
+      </div>
+      <p className='text-xs text-tenue'>Anaqueles, cajas, autocobro, cámaras y limpieza que tienes hoy. Cada remodelación atrae +8 % de clientes y sube la satisfacción.</p>
+      {next ? <div className='rounded-xl border border-dashed border-borde p-3 flex items-center gap-3'>
+        <div className='flex-1'><b className='text-sm'>Remodelar a «{next.name}»</b><p className='text-xs text-tenue'>{next.desc}</p></div>
+        <Btn small disabled={game.cash < E.remodelCost(st)} onClick={() => run(g => E.remodelStore(g, st.id))}>{fmtK(E.remodelCost(st))}</Btn>
+      </div> : <Pill tone='good'>Tienda insignia: remodelación máxima</Pill>}
+    </Card>
   )
 }

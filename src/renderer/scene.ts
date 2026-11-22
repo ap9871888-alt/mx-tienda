@@ -70,12 +70,16 @@ const LOOKS: Record<string, { wall: string; awning: [string, string]; sign: stri
   conveniencia: { wall: '#FFFFFF', awning: ['#D63B2F', '#F2B705'], sign: 'TIENDA MX 24/7', signBg: '#D63B2F', signFg: '#FFFFFF', h: 1.6, band: '#F2B705' },
   hardDiscount: { wall: '#F2B705', awning: ['#D63B2F', '#D63B2F'], sign: 'TMX AHORRO', signBg: '#D63B2F', signFg: '#FFFFFF', h: 1.8, band: '#D63B2F' },
   bodega: { wall: '#FFFFFF', awning: ['#2E7D5B', '#FFFFFF'], sign: 'BODEGA MX + FARMACIA', signBg: '#2E7D5B', signFg: '#FFFFFF', h: 1.9, band: '#2E7D5B' },
+  taqueria: { wall: '#F6D9A8', awning: ['#2E7D5B', '#FFFFFF'], sign: 'TAQUERÍA MX', signBg: '#2E7D5B', signFg: '#FFFFFF', h: 1.4 },
+  paleteria: { wall: '#FFE3EC', awning: ['#E5649B', '#FFFFFF'], sign: 'PALETAS MX', signBg: '#E5649B', signFg: '#FFFFFF', h: 1.2 },
   darkStore: { wall: '#2B2D33', awning: ['#1B4D8F', '#1B4D8F'], sign: 'TMX 15 MIN', signBg: '#1B4D8F', signFg: '#FFFFFF', h: 1.5 }
 }
 const RIVAL = { x: 12, y: 1, w: 3, d: 4, h: 1.4 }
 const TREES: P[] = [{ x: 1.2, y: 5.25 }, { x: 5.2, y: 1.6 }, { x: 11.5, y: 5.25 }, { x: 8.8, y: 11.2 }, { x: 2.3, y: 8.78 }, { x: 14.6, y: 8.78 }, { x: 10.6, y: 10.6 }, { x: 12.8, y: 11.4 }, { x: 11.2, y: 13.4 }]
 // objetos sueltos: [sprite, x, y, alto px]
-const PROPS: [string, number, number, number][] = [['bote', 6.6, 5.3, 26], ['banca', 12.4, 8.7, 28], ['hidrante', 2.6, 5.35, 20], ['bici', 7.4, 8.75, 30], ['cono', 13.9, 6.2, 16]]
+// objetos sueltos, siempre sobre banqueta (la calle es x o y entre 6 y 8). Cada tienda usa una combinación distinta
+const PROP_SPOTS: [number, number][] = [[5.35, 4.2], [4.2, 5.35], [9.0, 4.0], [3.0, 8.9], [12.5, 8.85], [8.85, 12.4], [9.2, 3.0], [1.6, 5.4], [13.5, 5.3]]
+const PROP_KINDS: [string, number][] = [['bote', 26], ['banca', 28], ['hidrante', 20], ['bici', 30], ['cono', 16], ['antena', 0]]
 const LAMPS: P[] = [{ x: 0.2, y: 5.15 }, { x: 8.85, y: 2.5 }, { x: 13.5, y: 5.15 }, { x: 5.15, y: 12.5 }, { x: 11, y: 8.85 }]
 const LIGHTS: [P, 'A' | 'B'][] = [[{ x: 5.15, y: 5.15 }, 'A'], [{ x: 8.85, y: 5.15 }, 'B'], [{ x: 5.15, y: 8.85 }, 'B'], [{ x: 8.85, y: 8.85 }, 'A']]
 // carriles: eje, coordenada fija, sentido, línea de alto
@@ -236,11 +240,14 @@ export class StreetScene {
   private updateCars (d: number, hour: number) {
     const density = HOUR_PROFILE[hour]
     if (d > 0 && this.cars.length < 3 + density * 6 && this.rnd() < d * 0.9 * density) {
-      const lane = Math.floor(this.rnd() * 4); const L = LANES[lane]
+      let lane = Math.floor(this.rnd() * 4); const pre = randomVehicle(this.rnd)
+      // la moto solo tiene un dibujo: circula solo hacia abajo (+x o +y)
+      if (pre.kind === 'moto' && LANES[lane].dir < 0) lane = lane === 0 ? 1 : 3
+      const L = LANES[lane]
       const start = L.dir > 0 ? -4 : 18
       if (!this.cars.some(c => c.lane === lane && Math.abs(c.pos - start) < 2.5)) {
         const bus = lane === 1 && this.rnd() < 0.12
-        const v: VehicleLook = bus ? { kind: 'bus', color: '#D63B2F' } : randomVehicle(this.rnd)
+        const v: VehicleLook = bus ? { kind: 'bus', color: '#D63B2F' } : pre
         // antes de 2014 los taxis eran vochos verdes; antes de 2005 no había Metrobús
         const skin = bus ? (this.year >= 2005 ? 'metrobus' : 'micro')
           : v.kind === 'taxi' ? (this.year >= 2014 ? 'taxi' : 'vocho-taxi')
@@ -276,17 +283,17 @@ export class StreetScene {
     const dv = this.delivery
     if (!dv) return
     if (dv.stage === 0) {
-      this.cars.push({ id: this.nextId++, lane: 0, pos: 18, v: { kind: 'van', color: dv.via === 'cedis' ? '#1B4D8F' : '#E9E4DA' }, wait: 0, parkAt: 3.7 })
+      this.cars.push({ id: this.nextId++, lane: 1, pos: -4, v: { kind: 'van', color: dv.via === 'cedis' ? '#1B4D8F' : '#E9E4DA' }, wait: 0, parkAt: 3.7 })
       dv.stage = 1
     }
     const van = this.cars.find(c => c.v.kind === 'van' && c.parkAt === 3.7)
     if (dv.stage === 1 && van && Math.abs(van.pos - 3.7) < 0.15) {
       dv.stage = 2
-      const carrier = this.spawn([{ x: 3.4, y: 6.1 }, { x: 3.6, y: 5.5 }, DOOR_OUT, DOOR], { mode: 'walk', uniform: true, carry: 'box', look: { skin: '#A0673D', shirt: '#E9DCC4', pants: '#2F4A7A', hair: '#111', long: false } })
+      const carrier = this.spawn([{ x: 3.7, y: 6.9 }, { x: 3.6, y: 5.5 }, DOOR_OUT, DOOR], { mode: 'walk', uniform: true, carry: 'box', look: { skin: '#A0673D', shirt: '#E9DCC4', pants: '#2F4A7A', hair: '#111', long: false } })
       carrier.speed = 1.1
       carrier.onArrive = () => {
         if (carrier.path.length === 0) {
-          carrier.carry = 'dolly'; carrier.path = [DOOR_OUT, { x: 3.6, y: 5.5 }, { x: 3.4, y: 6.1 }]
+          carrier.carry = 'dolly'; carrier.path = [DOOR_OUT, { x: 3.6, y: 5.5 }, { x: 3.7, y: 6.9 }]
           carrier.mode = 'leave'
           this.bubble('📦 ¡Resurtido!', DOOR.x, DOOR.y, 1.6, 'info')
           carrier.onArrive = () => { if (!carrier.path.length && this.delivery) this.delivery.stage = 3 }
@@ -369,9 +376,10 @@ export class StreetScene {
     const items: { k: number; f: () => void }[] = []
     for (const l of LOTS) {
       if (overlaps(l, STORE) || overlaps(l, RIVAL)) continue
-      const img = sprite(`sprites/edificio-${l.v}-${day < 0.45 ? 'noche' : 'dia'}.webp`)
+      const v = (l.v + (store?.id ?? 0) * 3) % 8
+      const img = sprite(`sprites/edificio-${v}-${day < 0.45 ? 'noche' : 'dia'}.webp`)
       if (img) items.push({ k: l.x + l.y + 3, f: () => this.drawAnchored(img, l.x + 2, l.y + 2, 2 * TW * cam.zoom * 1.02) })
-      else this.pushBuilding(items, l.x, l.y, 2, 2, 2, ['#E8A0BF', '#F2C14E', '#7FB3D5', '#F4A261', '#A3C4BC', '#E76F51', '#C9B6E4', '#9BC1BC'][l.v], day, glows)
+      else this.pushBuilding(items, l.x, l.y, 2, 2, 2, ['#E8A0BF', '#F2C14E', '#7FB3D5', '#F4A261', '#A3C4BC', '#E76F51', '#C9B6E4', '#9BC1BC'][v], day, glows)
     }
     void BUILDINGS
     this.pushStore(items, store, open, day, glows)
@@ -390,7 +398,11 @@ export class StreetScene {
     } })
     items.push({ k: 11.5 + 8.6, f: () => { if (!this.prop('parada', 11, 8.55, 70)) drawBusStop(ctx, cam, 11, 8.55) } })
     items.push({ k: 9.6 + 9.6, f: () => { if (!this.prop('puesto', 9.3, 9.3, 64)) drawVendor(ctx, cam, 9.3, 9.3, this.t) } })
-    for (const [n, x, y, h] of PROPS) items.push({ k: x + y, f: () => { this.prop(n, x, y, h) } })
+    const seed = store?.id ?? 0
+    PROP_SPOTS.forEach(([x, y], i) => {
+      const [n, h] = PROP_KINDS[(seed * 5 + i * 3) % PROP_KINDS.length]
+      if (h && (seed + i) % 3 !== 0) items.push({ k: x + y, f: () => { this.prop(n, x, y, h) } })
+    })
     for (const c of this.cars) {
       const L = LANES[c.lane]; const x = L.axis === 'x' ? c.pos : L.fixed; const y = L.axis === 'x' ? L.fixed : c.pos
       items.push({ k: x + y, f: () => { if (!this.drawVehicleSprite(c, x, y, L.axis, L.dir)) drawVehicle(ctx, cam, x, y, L.axis, c.v, day < 0.5); if (day < 0.5) { const s = toScreen(cam, x, y, 6); glows.push({ sx: s.sx, sy: s.sy, r: 18 * cam.zoom, c: '255,240,180' }) } } })
