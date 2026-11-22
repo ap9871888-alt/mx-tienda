@@ -4,14 +4,15 @@ import { formatOf, type FormatId } from '../data/formats'
 import { colonyOf, cityOf } from '../data/cities'
 import { ECONOMY } from '../data/economy'
 import { FIRST_NAMES, LAST_NAMES } from '../data/names'
+import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/logistics'
 import { nextRandom, pick, poisson, randInt } from './rng'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel } from './time'
 import {
-  defaultMargins, unitCost, unitPrice, priceFactor, arrivalsPerHour, serviceRate, shelfCapacity, salaryFor, monthlyRent, priceIndex
+  defaultMargins, unitCost, unitPrice, priceFactor, arrivalsPerHour, serviceRate, shelfCapacity, salaryFor, monthlyRent, priceIndex, purchaseCost
 } from './pricing'
 import type { GameState, Store, Result, GameEvent, DayStats, DayReport, Candidate, BasketLine, CatMap, LogEntry } from './types'
 
-export const SAVE_VERSION = 3
+export const SAVE_VERSION = 4
 const ok = <T>(msg = '', data?: T): Result<T> => ({ ok: true, msg, data })
 const fail = (msg: string): Result<never> => ({ ok: false, msg })
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
@@ -21,7 +22,7 @@ export function newGame (seed: number, company = 'Tienda MX Inc.'): GameState {
   const s: GameState = {
     version: SAVE_VERSION, seed: seed >>> 0, rng: seed >>> 0, company,
     minute: 6 * 60 + 30, carry: 0, cash: ECONOMY.startCash, loan: 0,
-    stores: [], candidates: [], nextId: 1, log: [], reports: [], todayFees: 0
+    stores: [], candidates: [], nextId: 1, log: [], reports: [], todayFees: 0, cedis: null, labels: [], tripsToday: 0
   }
   refreshCandidates(s)
   log(s, `¡Bienvenido a ${company}! Abre tu tienda piloto en la Ciudad de México.`, 'info')
@@ -92,7 +93,7 @@ export function openStore (s: GameState, cityId: string, colonyId: string, forma
   const f = formatOf(formatId)
   const st: Store = {
     id: s.nextId++, cityId, colonyId, formatId, openedDay: dayOf(s.minute),
-    margins: defaultMargins(), cashiers: [], selfCheckouts: 0, security: 0, cleaning: 0, bonus: false, autoReorder: true,
+    margins: defaultMargins(formatId), cashiers: [], selfCheckouts: 0, security: 0, cleaning: 0, bonus: false, autoReorder: true,
     inventory: Object.fromEntries(CATEGORIES.map(c => [c.id, c.service ? 0 : f.shelfUnits])) as CatMap<number>,
     orders: [], queue: [], serviceCarry: 0, satisfaction: 70, reputation: 3, today: emptyDay(), history: []
   }
@@ -145,28 +146,86 @@ export function toggleAutoReorder (s: GameState, storeId: number): Result {
 export function pendingUnits (st: Store, cat: CategoryId) {
   return st.orders.reduce((a, o) => a + (o.items[cat] || 0), 0)
 }
-export function orderQuote (st: Store) {
+export function orderQuote (st: Store, g?: GameState) {
   const cap = shelfCapacity(st)
   const items: Partial<CatMap<number>> = {}
   let cost = 0
   for (const c of PRODUCT_CATEGORIES) {
     const need = Math.max(0, Math.round(cap - st.inventory[c.id] - pendingUnits(st, c.id)))
-    if (need > 0) { items[c.id] = need; cost += need * unitCost(c.id) }
+    if (need > 0) { items[c.id] = need; cost += need * purchaseCost(g, c.id) }
   }
-  return { items, cost: Math.round(cost), fee: ECONOMY.restockFee }
+  return { items, cost: Math.round(cost), fee: g?.cedis ? CEDIS.fuelPerTrip : ECONOMY.restockFee, via: (g?.cedis ? 'cedis' : 'mayorista') as 'cedis' | 'mayorista' }
 }
 export function placeOrder (s: GameState, storeId: number, events?: GameEvent[]): Result {
   const st = storeById(s, storeId)
   if (!st) return fail('No existe')
-  const q = orderQuote(st)
+  const q = orderQuote(st, s)
   if (!Object.keys(q.items).length) return fail('El anaquel ya está lleno o el pedido viene en camino')
-  if (s.cash < q.cost + q.fee) return fail('No alcanza para el pedido al mayorista')
+  if (s.cash < q.cost + q.fee) return fail(q.via === 'cedis' ? 'No alcanza para surtir desde el CEDIS' : 'No alcanza para el pedido al mayorista')
   s.cash -= q.cost + q.fee
   st.today.fees += q.fee
-  st.orders.push({ id: s.nextId++, arrivesAt: s.minute + ECONOMY.restockLeadMinutes, items: q.items, cost: q.cost })
-  if (events) log(s, `Pedido al mayorista para ${colonyOf(st.cityId, st.colonyId).name}: llega en 6 h`, 'info', events)
+  const where = colonyOf(st.cityId, st.colonyId).name
+  if (q.via === 'cedis') {
+    // sin camión libre hoy, el pedido sale mañana temprano: eso es desabasto
+    const busy = s.tripsToday >= tripCapacity(s)
+    const arrivesAt = busy ? (dayOf(s.minute) + 1) * MIN_PER_DAY + 6 * 60 + CEDIS.leadMinutes : s.minute + CEDIS.leadMinutes
+    if (!busy) s.tripsToday++
+    st.orders.push({ id: s.nextId++, arrivesAt, items: q.items, cost: q.cost, via: 'cedis', delayed: busy })
+    if (busy && events) log(s, `Flotilla saturada: el resurtido de ${where} sale mañana. Compra otro camión.`, 'bad', events)
+    return ok(busy ? 'Sin camiones libres: el pedido sale mañana a las 6:00' : 'Despacho desde el CEDIS: llega en 3 horas')
+  }
+  st.orders.push({ id: s.nextId++, arrivesAt: s.minute + ECONOMY.restockLeadMinutes, items: q.items, cost: q.cost, via: 'mayorista' })
+  if (events) log(s, `Pedido al mayorista para ${where}: llega en 6 h`, 'info', events)
   return ok('Pedido enviado: el mayorista llega en 6 horas')
 }
+
+// ---------- CEDIS, flotilla y Marca Propia ----------
+export const tripCapacity = (s: GameState) => s.cedis ? s.cedis.trucks * CEDIS.tripsPerTruck : 0
+export function cedisRequirement (s: GameState) {
+  const okStores = s.stores.length >= CEDIS.requiredStores
+  const okWorth = netWorth(s) >= CEDIS.requiredNetWorth
+  return { ok: okStores || okWorth, stores: s.stores.length, worth: netWorth(s) }
+}
+export function buildCedis (s: GameState): Result {
+  if (s.cedis) return fail('Ya tienes CEDIS')
+  const req = cedisRequirement(s)
+  if (!req.ok) return fail(`Necesitas ${CEDIS.requiredStores} tiendas o $${(CEDIS.requiredNetWorth / 1e6).toFixed(0)} M de patrimonio`)
+  if (s.cash < CEDIS.cost) return fail('No alcanza el efectivo')
+  s.cash -= CEDIS.cost
+  s.cedis = { level: 1, trucks: CEDIS.startingTrucks, builtDay: dayOf(s.minute) }
+  for (const st of s.stores) st.orders = st.orders.filter(o => o.via === 'cedis' || o.arrivesAt > s.minute)
+  log(s, `🚚 Inauguraste el ${CEDIS.name}: inventario ${Math.round(CEDIS.savings[0] * 100)} % más barato y ${CEDIS.startingTrucks} camiones`, 'good')
+  return ok('CEDIS construido')
+}
+export function upgradeCedis (s: GameState): Result {
+  if (!s.cedis) return fail('Primero construye el CEDIS')
+  if (s.cedis.level >= CEDIS.savings.length) return fail('El CEDIS ya está al máximo')
+  const cost = CEDIS.upgradeCost[s.cedis.level]
+  if (s.cash < cost) return fail('No alcanza el efectivo')
+  s.cash -= cost; s.cedis.level++
+  return ok(`CEDIS nivel ${s.cedis.level}: ahorro de ${Math.round(CEDIS.savings[s.cedis.level - 1] * 100)} %`)
+}
+export function buyTruck (s: GameState): Result {
+  if (!s.cedis) return fail('Primero construye el CEDIS')
+  if (s.cash < CEDIS.truckCost) return fail('No alcanza el efectivo')
+  s.cash -= CEDIS.truckCost; s.cedis.trucks++
+  return ok(`Camión nuevo: ${tripCapacity(s)} viajes al día`)
+}
+export function sellTruck (s: GameState): Result {
+  if (!s.cedis || s.cedis.trucks <= 1) return fail('Necesitas al menos un camión')
+  s.cedis.trucks--; s.cash += Math.round(CEDIS.truckCost * 0.5)
+  return ok('Camión vendido a la mitad de su precio')
+}
+export function launchLabel (s: GameState, id: LabelId): Result {
+  const l = PRIVATE_LABELS.find(x => x.id === id)
+  if (!l || s.labels.includes(id)) return fail('Esa línea ya existe')
+  if (!s.cedis) return fail('La Marca Propia necesita un CEDIS para distribuirse')
+  if (s.cash < l.cost) return fail('No alcanza el efectivo')
+  s.cash -= l.cost; s.labels.push(id)
+  log(s, `🏷️ Lanzaste ${l.name}: tu costo en ${categoryOf(l.cat).name} baja 15 %`, 'good')
+  return ok(`${l.name} ya está en tus anaqueles`)
+}
+export const logisticsDaily = (s: GameState) => s.cedis ? (CEDIS.monthly + s.cedis.trucks * CEDIS.truckMonthly) / 30 : 0
 
 // ---------- crédito ----------
 export const loanLimit = (s: GameState) => ECONOMY.loanLimitBase + s.stores.length * 150000
@@ -194,7 +253,7 @@ function makeBasket (s: GameState, st: Store): BasketLine[] {
   }
   return basket
 }
-function checkout (st: Store, basket: BasketLine[], events: GameEvent[]) {
+function checkout (s: GameState, st: Store, basket: BasketLine[], events: GameEvent[]) {
   let amount = 0; let items = 0; let lost = 0
   for (const line of basket) {
     const c = categoryOf(line.cat)
@@ -206,7 +265,7 @@ function checkout (st: Store, basket: BasketLine[], events: GameEvent[]) {
       const price = unitPrice(st, line.cat)
       amount += sold * price
       st.today.sales += sold * price
-      st.today.cogs += sold * unitCost(line.cat)
+      st.today.cogs += sold * purchaseCost(s, line.cat)
       st.today.catUnits[line.cat] = (st.today.catUnits[line.cat] || 0) + sold
       items += sold
     }
@@ -230,7 +289,7 @@ function stepMinute (s: GameState, events: GameEvent[]) {
     if (due.length) {
       for (const o of due) for (const [cat, n] of Object.entries(o.items)) st.inventory[cat as CategoryId] = Math.min(shelfCapacity(st), st.inventory[cat as CategoryId] + (n || 0))
       st.orders = st.orders.filter(o => o.arrivesAt > minute)
-      events.push({ type: 'delivery', storeId: st.id })
+      events.push({ type: 'delivery', storeId: st.id, via: due[0].via })
     }
     // pedido automático cada hora en punto
     if (st.autoReorder && minute % 60 === 0 && !st.orders.length &&
@@ -241,7 +300,7 @@ function stepMinute (s: GameState, events: GameEvent[]) {
     const canServe = st.cashiers.length + st.selfCheckouts > 0
     // llegadas
     if (canServe) {
-      const n = poisson(s, arrivalsPerHour(st, hour, mult) / 60)
+      const n = poisson(s, arrivalsPerHour(st, hour, mult, s) / 60)
       for (let i = 0; i < n; i++) {
         const basket = makeBasket(s, st)
         if (!basket.length) continue
@@ -264,7 +323,7 @@ function stepMinute (s: GameState, events: GameEvent[]) {
       st.serviceCarry -= 1
       const c = st.queue.shift()!
       const waited = minute - c.arrivedAt
-      const r = checkout(st, c.basket, events)
+      const r = checkout(s, st, c.basket, events)
       const lostShare = r.lost / Math.max(1, r.items + r.lost)
       st.satisfaction += (satisfactionTarget(st, waited, lostShare) - st.satisfaction) * 0.03
       if (r.amount > 0) {
@@ -292,7 +351,7 @@ function stepMinute (s: GameState, events: GameEvent[]) {
 // corte de caja diario
 function endOfDay (s: GameState, events: GameEvent[]) {
   const day = dayOf(s.minute) - 1
-  const company: DayReport = { day, sales: 0, commissions: 0, cogs: 0, payroll: 0, rent: 0, power: 0, shrink: 0, upkeep: 0, fees: 0, interest: 0, profit: 0, tickets: 0, abandoned: 0, satisfaction: 0 }
+  const company: DayReport = { day, sales: 0, commissions: 0, cogs: 0, payroll: 0, rent: 0, power: 0, shrink: 0, upkeep: 0, fees: 0, interest: 0, logistics: 0, profit: 0, tickets: 0, abandoned: 0, satisfaction: 0 }
   for (const st of s.stores) {
     const t = st.today; const f = formatOf(st.formatId)
     const payroll = st.cashiers.reduce((a, c) => a + c.salary, 0) * (st.bonus ? 1 + ECONOMY.bonusRate : 1) / 30
@@ -305,20 +364,22 @@ function endOfDay (s: GameState, events: GameEvent[]) {
       const units = (t.catUnits[c.id] || 0) * shrinkRate / (1 - shrinkRate)
       const take = Math.min(st.inventory[c.id], units)
       st.inventory[c.id] -= take
-      shrink += take * unitCost(c.id)
+      shrink += take * purchaseCost(s, c.id)
     }
     const upkeep = (f.overhead + ECONOMY.securityMonthly[st.security] + ECONOMY.cleaningMonthly[st.cleaning]) / 30
     const profit = t.sales + t.commissions - t.cogs - payroll - rent - power - shrink - upkeep - t.fees
     s.cash -= payroll + rent + power + upkeep
     st.reputation = clamp(st.reputation + (st.satisfaction / 20 - st.reputation) * 0.15, 0, 5)
-    const rep: DayReport = { day, sales: t.sales, commissions: t.commissions, cogs: t.cogs, payroll, rent, power, shrink, upkeep, fees: t.fees, interest: 0, profit, tickets: t.tickets, abandoned: t.abandoned, satisfaction: st.satisfaction }
+    const rep: DayReport = { day, sales: t.sales, commissions: t.commissions, cogs: t.cogs, payroll, rent, power, shrink, upkeep, fees: t.fees, interest: 0, logistics: 0, profit, tickets: t.tickets, abandoned: t.abandoned, satisfaction: st.satisfaction }
     st.history.push(rep); if (st.history.length > 60) st.history.shift()
     for (const k of ['sales', 'commissions', 'cogs', 'payroll', 'rent', 'power', 'shrink', 'upkeep', 'fees', 'profit', 'tickets', 'abandoned'] as const) company[k] += rep[k]
     st.today = emptyDay()
   }
   company.interest = s.loan * ECONOMY.loanRate / 365
-  s.cash -= company.interest
-  company.profit -= company.interest
+  company.logistics = logisticsDaily(s)
+  s.cash -= company.interest + company.logistics
+  company.profit -= company.interest + company.logistics
+  s.tripsToday = 0
   company.satisfaction = s.stores.length ? s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length : 0
   s.reports.push(company); if (s.reports.length > 90) s.reports.shift()
   events.push({ type: 'dayEnd', report: company })
@@ -353,17 +414,30 @@ export function advance (s: GameState, minutes: number, events: GameEvent[] = []
 export function netWorth (s: GameState) {
   const stores = s.stores.reduce((a, st) => a + formatOf(st.formatId).capex * 0.6 +
     PRODUCT_CATEGORIES.reduce((b, c) => b + st.inventory[c.id] * unitCost(c.id), 0), 0)
-  return Math.round(s.cash + stores - s.loan)
+  const cedis = s.cedis ? (CEDIS.cost + CEDIS.upgradeCost.slice(0, s.cedis.level).reduce((a, b) => a + b, 0) + s.cedis.trucks * CEDIS.truckCost) * 0.6 : 0
+  return Math.round(s.cash + stores + cedis - s.loan)
 }
 export function phaseInfo (s: GameState) {
   const n = s.stores.length
-  if (n >= 4) return { phase: 2, name: 'Clúster Urbano', next: 'Llega a 10 tiendas o $12 M para construir CEDIS (Hito 2)', progress: Math.min(1, n / 10) }
-  return { phase: 1, name: 'Tienda Piloto', next: 'Abre 4 sucursales para llegar a Clúster Urbano', progress: n / 4 }
+  if (s.labels.length) return { phase: 4, name: 'Marca Propia', next: 'Ecosistema fintech, conglomerados y BMV llegan en el Hito 3', progress: Math.min(1, s.labels.length / PRIVATE_LABELS.length) }
+  if (s.cedis) return { phase: 3, name: 'CEDIS Propio', next: 'Lanza tu primera línea de Marca Propia en Logística', progress: 0.5 }
+  if (n >= VOLUME_DISCOUNT.minStores) return { phase: 2, name: 'Clúster Urbano', next: `Llega a ${CEDIS.requiredStores} tiendas o $${CEDIS.requiredNetWorth / 1e6} M para construir tu CEDIS · ya compras 8 % más barato`, progress: Math.max(n / CEDIS.requiredStores, netWorth(s) / CEDIS.requiredNetWorth) }
+  return { phase: 1, name: 'Tienda Piloto', next: `Abre ${VOLUME_DISCOUNT.minStores} sucursales para llegar a Clúster Urbano (−8 % en mercancía)`, progress: n / VOLUME_DISCOUNT.minStores }
 }
 
 export function serialize (s: GameState) { return JSON.stringify(s) }
+// partidas del Hito 1 (versión 3) se actualizan sin perder nada
+export function migrateGame (s: GameState & { version: number }): GameState {
+  if (s.version === 3) {
+    s.cedis = null; s.labels = []; s.tripsToday = 0
+    for (const r of s.reports) r.logistics = r.logistics ?? 0
+    for (const st of s.stores) { for (const r of st.history) r.logistics = r.logistics ?? 0; for (const o of st.orders) o.via = o.via ?? 'mayorista' }
+    s.version = SAVE_VERSION
+  }
+  return s
+}
 export function deserialize (text: string): GameState {
   const s = JSON.parse(text)
-  if (!s || s.version !== SAVE_VERSION || !Array.isArray(s.stores)) throw new Error('Partida incompatible con esta versión')
-  return s as GameState
+  if (!s || !Array.isArray(s.stores) || (s.version !== SAVE_VERSION && s.version !== 3)) throw new Error('Partida incompatible con esta versión')
+  return migrateGame(s)
 }

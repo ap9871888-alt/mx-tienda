@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Lock, MapPin, Store as StoreIcon } from 'lucide-react'
 import { CITIES, HOUR_PROFILE, type Colony } from '../../data/cities'
-import { FORMATS, type FormatId } from '../../data/formats'
+import { FORMATS, formatOf, type FormatId } from '../../data/formats'
 import * as E from '../../engine'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { Card, Btn, Pill, Modal, Kpi, BarChart } from '../components/kit'
@@ -22,11 +22,15 @@ export function Mapa () {
   const [sel, setSel] = useState<string>('roma')
   const [confirm, setConfirm] = useState<FormatId | null>(null)
   const col = CITY.colonies.find(c => c.id === sel)!
-  const est = useMemo(() => E.estimateStore(CITY.id, col.id, 'tiendita'), [col.id])
+  const estimates = useMemo(() => Object.fromEntries(FORMATS.filter(f => f.available).map(f => [f.id, E.estimateStore(CITY.id, col.id, f.id, game)])) as Record<FormatId, E.Estimate>,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [col.id, game.stores.length, !!game.cedis, game.labels.length])
+  const est = estimates[confirm ?? 'tiendita']
   const mine = game.stores.filter(s => s.colonyId === col.id)
 
   const open = () => {
-    const r = useApp.getState().run(g => E.openStore(g, CITY.id, col.id, 'tiendita'))
+    const fid = confirm!
+    const r = useApp.getState().run(g => E.openStore(g, CITY.id, col.id, fid))
     setConfirm(null)
     if (r?.ok && r.data) { useApp.getState().selectStore(r.data.id); useApp.getState().setTab('tienda') }
   }
@@ -77,7 +81,7 @@ export function Mapa () {
 
       <Card title='Formatos de tienda'>
         {FORMATS.map(f => {
-          const e = f.id === 'tiendita' ? est : null
+          const e = f.available ? estimates[f.id] : null
           const taken = game.stores.some(s => s.colonyId === col.id && s.formatId === f.id)
           return (
             <div key={f.id} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
@@ -97,7 +101,7 @@ export function Mapa () {
 
       {confirm && (
         <Modal title='Confirmar apertura' onClose={() => setConfirm(null)}>
-          <p className='text-sm'>Tiendita de Esquina en <b>{col.name}</b>. Estos son todos los costos, sin letras chiquitas:</p>
+          <p className='text-sm'>{formatOf(confirm).name} en <b>{col.name}</b>. Estos son todos los costos, sin letras chiquitas:</p>
           <div className='bg-white border border-borde rounded-xl p-3 text-sm flex flex-col gap-1.5 num'>
             <Row k='Equipo y adecuación (CAPEX)' v={fmt(est.capex)} />
             <Row k='Depósito: 1 mes de renta' v={fmt(est.rent)} />
@@ -110,7 +114,7 @@ export function Mapa () {
             <Row k='Utilidad estimada al mes' v={fmt(est.profitMonth)} bold tone={est.profitMonth >= 0 ? 'text-ahorro' : 'text-rojo'} />
             <Row k='Recuperas la inversión en' v={est.paybackMonths ? `${est.paybackMonths} meses` : 'No se recupera'} />
           </div>
-          <p className='text-xs text-tenue'>Pronóstico con 2 cajeros de 2 ★ y precios de mercado. Tu efectivo: {fmt(game.cash)}.</p>
+          <p className='text-xs text-tenue'>Pronóstico con {Math.max(2, Math.ceil(formatOf(confirm).maxCashiers * 0.6))} cajeros de 2 ★ y los precios típicos del formato{game.stores.some(s => s.colonyId === col.id) ? '; ya tienes tienda en esta colonia y se reparten el tráfico' : ''}. Tu efectivo: {fmt(game.cash)}.</p>
           <Btn onClick={open} disabled={game.cash < est.openingCost}>{game.cash < est.openingCost ? 'No alcanza el efectivo' : `Abrir por ${fmt(est.openingCost)}`}</Btn>
         </Modal>
       )}

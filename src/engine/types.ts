@@ -8,7 +8,7 @@ export type Candidate = Omit<Cashier, 'id'>
 
 export interface BasketLine { cat: CategoryId; qty: number }
 export interface QueuedCustomer { id: number; arrivedAt: number; patience: number; basket: BasketLine[] }
-export interface Order { id: number; arrivesAt: number; items: Partial<CatMap<number>>; cost: number }
+export interface Order { id: number; arrivesAt: number; items: Partial<CatMap<number>>; cost: number; via: 'mayorista' | 'cedis'; delayed?: boolean }
 
 export interface DayStats {
   sales: number; commissions: number; cogs: number; fees: number
@@ -19,7 +19,7 @@ export interface DayStats {
 export interface DayReport {
   day: number
   sales: number; commissions: number; cogs: number; payroll: number; rent: number; power: number
-  shrink: number; upkeep: number; fees: number; interest: number; profit: number
+  shrink: number; upkeep: number; fees: number; interest: number; logistics: number; profit: number
   tickets: number; abandoned: number; satisfaction: number
 }
 
@@ -63,6 +63,9 @@ export interface GameState {
   log: LogEntry[]
   reports: DayReport[]
   todayFees: number
+  cedis: { level: number; trucks: number; builtDay: number } | null
+  labels: string[]
+  tripsToday: number
 }
 
 export type GameEvent =
@@ -70,7 +73,7 @@ export type GameEvent =
   | { type: 'balk'; storeId: number }
   | { type: 'sale'; storeId: number; customerId: number; amount: number; items: number; happy: boolean }
   | { type: 'abandon'; storeId: number; customerId: number }
-  | { type: 'delivery'; storeId: number }
+  | { type: 'delivery'; storeId: number; via: 'mayorista' | 'cedis' }
   | { type: 'stockout'; storeId: number; cat: CategoryId }
   | { type: 'dayEnd'; report: DayReport }
   | { type: 'log'; entry: LogEntry }

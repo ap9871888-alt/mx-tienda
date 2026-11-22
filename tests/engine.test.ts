@@ -103,3 +103,65 @@ describe('motor Tienda MX', () => {
     expect(profit).toBeGreaterThan(0)
   })
 })
+
+describe('Hito 2: formatos, CEDIS y Marca Propia', () => {
+  it('se pueden abrir los cuatro formatos y conviven en la misma colonia con canibalización', () => {
+    const s = E.newGame(5); s.cash = 1e8
+    for (const f of ['tiendita', 'conveniencia', 'hardDiscount', 'bodega'] as const) expect(E.openStore(s, 'cdmx', 'roma', f).ok).toBe(true)
+    expect(E.openStore(s, 'cdmx', 'roma', 'darkStore').ok).toBe(false)
+    expect(E.cannibalization(s, s.stores[0])).toBeCloseTo(0.55)
+  })
+  it('la 24/7 nunca cierra y el hard discount tiene precios más bajos', () => {
+    const s = E.newGame(5); s.cash = 1e8
+    const c = E.openStore(s, 'cdmx', 'roma', 'conveniencia').data!
+    const h = E.openStore(s, 'cdmx', 'polanco', 'hardDiscount').data!
+    expect(E.isOpen(c, 3)).toBe(true)
+    expect(E.priceIndex(h, 'abarrotes')).toBeLessThan(1)
+    expect(E.priceIndex(c, 'abarrotes')).toBeGreaterThan(1)
+  })
+  it('con 4 tiendas se compra 8 % más barato', () => {
+    const s = E.newGame(5); s.cash = 1e8
+    const base = E.purchaseCost(s, 'abarrotes')
+    for (const col of ['roma', 'polanco', 'coyoacan', 'iztapalapa']) E.openStore(s, 'cdmx', col, 'tiendita')
+    expect(E.purchaseCost(s, 'abarrotes')).toBeCloseTo(base * 0.92)
+    expect(E.phaseInfo(s).phase).toBe(2)
+  })
+  it('el CEDIS exige 10 tiendas o $12 M, abarata 22 % y cobra su operación', () => {
+    const s = E.newGame(5); s.cash = 7e6
+    E.openStore(s, 'cdmx', 'roma', 'tiendita')
+    expect(E.buildCedis(s).ok).toBe(false)
+    s.cash = 2e7
+    expect(E.buildCedis(s).ok).toBe(true)
+    expect(E.purchaseFactor(s, 'abarrotes')).toBeCloseTo(0.78)
+    E.hireCashier(s, s.stores[0].id, 0)
+    E.advance(s, 1440)
+    expect(s.reports[0].logistics).toBeGreaterThan(0)
+  })
+  it('sin camiones libres el pedido del CEDIS se retrasa al día siguiente', () => {
+    const s = E.newGame(5); s.cash = 1e8
+    const st = E.openStore(s, 'cdmx', 'roma', 'tiendita').data!
+    E.buildCedis(s)
+    s.tripsToday = E.tripCapacity(s)
+    for (const k of Object.keys(st.inventory)) (st.inventory as Record<string, number>)[k] = 10
+    const r = E.placeOrder(s, st.id)
+    expect(r.ok).toBe(true)
+    expect(st.orders[0].delayed).toBe(true)
+    expect(E.buyTruck(s).ok).toBe(true)
+  })
+  it('la Marca Propia necesita CEDIS y abarata su categoría 15 %', () => {
+    const s = E.newGame(5); s.cash = 1e8
+    E.openStore(s, 'cdmx', 'roma', 'tiendita')
+    expect(E.launchLabel(s, 'agua').ok).toBe(false)
+    E.buildCedis(s)
+    const before = E.purchaseCost(s, 'bebidas')
+    expect(E.launchLabel(s, 'agua').ok).toBe(true)
+    expect(E.purchaseCost(s, 'bebidas')).toBeCloseTo(before * 0.85)
+    expect(E.phaseInfo(s).phase).toBe(4)
+  })
+  it('las partidas del Hito 1 se actualizan', () => {
+    const s = E.newGame(5) as unknown as Record<string, unknown>
+    s.version = 3; delete s.cedis; delete s.labels
+    const g = E.deserialize(JSON.stringify(s))
+    expect(g.cedis).toBeNull(); expect(g.labels).toEqual([])
+  })
+})

@@ -17,7 +17,7 @@ export function Corporativo () {
   const week = game.reports.slice(-7); const prev = game.reports.slice(-14, -7)
   const ph = E.phaseInfo(game)
   const limit = E.loanLimit(game)
-  const rows: [string, keyof DayReport, number][] = [['Ventas', 'sales', 1], ['Comisiones de servicios', 'commissions', 1], ['Costo de mercancía', 'cogs', -1], ['Nómina', 'payroll', -1], ['Renta', 'rent', -1], ['Luz CFE', 'power', -1], ['Merma y robo', 'shrink', -1], ['Servicios, seguridad y limpieza', 'upkeep', -1], ['Fletes', 'fees', -1], ['Intereses', 'interest', -1]]
+  const rows: [string, keyof DayReport, number][] = [['Ventas', 'sales', 1], ['Comisiones de servicios', 'commissions', 1], ['Costo de mercancía', 'cogs', -1], ['Nómina', 'payroll', -1], ['Renta', 'rent', -1], ['Luz CFE', 'power', -1], ['Merma y robo', 'shrink', -1], ['Servicios, seguridad y limpieza', 'upkeep', -1], ['Fletes', 'fees', -1], ['CEDIS y flotilla', 'logistics', -1], ['Intereses', 'interest', -1]]
 
   const exportGame = async () => {
     const text = E.serialize(game)

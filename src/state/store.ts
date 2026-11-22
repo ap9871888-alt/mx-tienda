@@ -73,7 +73,11 @@ export const useApp = create<AppState>()(persist((set, get) => ({
   storage: createJSONStorage(() => storage),
   partialize: s => ({ game: s.game, speed: s.speed, storeId: s.storeId }),
   version: E.SAVE_VERSION,
-  migrate: () => ({ game: null, speed: 1, storeId: null }) as never
+  migrate: (persisted, version) => {
+    const p = persisted as { game: GameState | null; speed: Speed; storeId: number | null }
+    if (version === 3 && p?.game) return { ...p, game: E.migrateGame(p.game) } as never
+    return { game: null, speed: 1, storeId: null } as never
+  }
 }))
 
 // bucle de simulación: 1 día de juego = 60 s reales a 1x
@@ -102,3 +106,6 @@ export function fmtK (n: number) {
   if (a >= 1e4) return `${s}$${Math.round(a / 1000)} k`
   return fmt(n)
 }
+
+// solo en desarrollo: acceso desde la consola para pruebas
+if (import.meta.env.DEV && typeof window !== 'undefined') (window as unknown as { __app: typeof useApp }).__app = useApp

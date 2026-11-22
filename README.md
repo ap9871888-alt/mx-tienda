@@ -1,4 +1,4 @@
-# 🏪 Tienda MX Inc. — Hito 1
+# 🏪 Tienda MX Inc. — Hito 2
 
 Simulador empresarial de retail mexicano (business tycoon). Abres una tiendita de esquina en la CDMX y la ves operar en una calle isométrica viva: cada persona que camina hacia tu puerta es un cliente real de la simulación.
 
@@ -22,11 +22,18 @@ npm run build:single # un solo HTML autocontenido en dist-single/
 | `src/state/` | Zustand con guardado automático en `localStorage` (con espera), bucle de simulación (1 día = 60 s a 1x; pausa, 1x, 2x, 4x) y bus de eventos motor → renderer. |
 | `src/ui/` | React + Tailwind + Lucide. Pestañas: Calle Viva, Mapa, Tienda, Logística y Marca, Corporativo. |
 
-## Balance del Hito 1
+## Balance
 Una Tiendita de Esquina ($250,000 de CAPEX) con 2 cajeros de 2 ★ y precios de mercado recupera la inversión en ~4.5 a 7.5 meses según la colonia. Polanco cobra caro pero aguanta precios altos; Iztapalapa tiene mucho tráfico y clientes sensibles al precio. El mapa muestra CAPEX, renta, utilidad estimada y meses de retorno antes de confirmar.
 
+## Hito 2: escala y logística
+- **4 formatos**: Tiendita de Esquina, Conveniencia 24/7 (nunca cierra, precios altos, clientes poco sensibles al precio), Hard Discount (precios bajos, ticket 2.4×, la Marca Propia le da más lealtad) y Bodega Express y Farmacia (ticket alto). Cada uno con fachada propia en la calle viva. En el mapa ves CAPEX, renta, utilidad y retorno de cada formato en cada colonia; recuperan la inversión en ~5 a 11 meses.
+- **Canibalización**: varias tiendas propias en la misma colonia se reparten el tráfico (−15 % por cada una).
+- **Fase 2, Clúster Urbano**: con 4 tiendas compras 8 % más barato.
+- **CEDIS propio** (10 tiendas o $12 M de patrimonio): inventario 22 % más barato (26 % y 30 % al ampliarlo), sin flete del mayorista y resurtido en 3 h. La flotilla tiene viajes limitados por día; si se satura, los pedidos salen al día siguiente y hay desabasto. En la calle llega el camión azul del CEDIS; con mayorista, el blanco.
+- **Marca Propia** (requiere CEDIS): agua, botanas, lácteos, pan y limpieza; cada línea abarata 15 % su categoría y sube la lealtad.
+- Las partidas del Hito 1 se actualizan solas.
+
 ## Siguientes hitos
-- **Hito 2**: los otros formatos, CEDIS, flotilla, desabasto y Marca Propia.
 - **Hito 3**: mapa nacional, conglomerados con IA (nombres ficticios), BMV, alianzas, guerras de precios, M&A y calendario mexicano completo.
 - **Hito 4**: holding del futuro, bienes raíces, tutorial de 60 s y balance fino.
 

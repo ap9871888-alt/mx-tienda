@@ -52,6 +52,14 @@ const BUILDINGS: [number, number, number, number, number, string][] = [
   [-3, 9, 4, 3, 2.2, '#7FB3D5'], [1, 9, 4, 3, 3, '#F4A261'], [-3, 12, 4, 5, 2.6, '#A3C4BC'], [1, 12, 4, 5, 1.8, '#E76F51']
 ]
 const STORE = { x: 2, y: 2, w: 3, d: 3, h: 1.5 }
+// fachada por formato: muro, toldo, letrero y altura
+const LOOKS: Record<string, { wall: string; awning: [string, string]; sign: string; signBg: string; signFg: string; h: number; band?: string }> = {
+  tiendita: { wall: '#F3E6CF', awning: ['#D63B2F', '#FFFFFF'], sign: 'TIENDA MX', signBg: '#D63B2F', signFg: '#F2B705', h: 1.5 },
+  conveniencia: { wall: '#FFFFFF', awning: ['#D63B2F', '#F2B705'], sign: 'TIENDA MX 24/7', signBg: '#D63B2F', signFg: '#FFFFFF', h: 1.6, band: '#F2B705' },
+  hardDiscount: { wall: '#F2B705', awning: ['#D63B2F', '#D63B2F'], sign: 'TMX AHORRO', signBg: '#D63B2F', signFg: '#FFFFFF', h: 1.8, band: '#D63B2F' },
+  bodega: { wall: '#FFFFFF', awning: ['#2E7D5B', '#FFFFFF'], sign: 'BODEGA MX + FARMACIA', signBg: '#2E7D5B', signFg: '#FFFFFF', h: 1.9, band: '#2E7D5B' },
+  darkStore: { wall: '#2B2D33', awning: ['#1B4D8F', '#1B4D8F'], sign: 'TMX 15 MIN', signBg: '#1B4D8F', signFg: '#FFFFFF', h: 1.5 }
+}
 const RIVAL = { x: 12, y: 1, w: 3, d: 4, h: 1.4 }
 const TREES: P[] = [{ x: 1.2, y: 5.25 }, { x: 5.2, y: 1.6 }, { x: 11.5, y: 5.25 }, { x: 8.8, y: 11.2 }, { x: 2.3, y: 8.78 }, { x: 14.6, y: 8.78 }, { x: 10.6, y: 10.6 }, { x: 12.8, y: 11.4 }, { x: 11.2, y: 13.4 }]
 const LAMPS: P[] = [{ x: 0.2, y: 5.15 }, { x: 8.85, y: 2.5 }, { x: 13.5, y: 5.15 }, { x: 5.15, y: 12.5 }, { x: 11, y: 8.85 }]
@@ -71,7 +79,7 @@ export class StreetScene {
   private agents: Agent[] = []; private cars: Car[] = []; private bubbles: Bubble[] = []
   private nextId = 1; private rnd = Math.random
   private cashierAnim = 0; private lastBubble = 0; private pendingMoney = 0; private pendingCount = 0
-  private delivery: { stage: number; t: number } | null = null
+  private delivery: { stage: number; t: number; via: 'mayorista' | 'cedis' } | null = null
   private currentStore: number | null = null
   private ro: ResizeObserver
 
@@ -120,7 +128,7 @@ export class StreetScene {
         if (a) { a.mode = 'leave'; a.angry = 2; a.path = this.exitPath(); a.customerId = undefined } else if (customers < 12) {
           const ag = this.spawn([NODES.w1, { x: 2.6, y: 5.6 }, NODES.w1], { mode: 'leave' }); ag.angry = 3
         }
-      } else if (e.type === 'delivery') this.delivery = { stage: 0, t: 0 }
+      } else if (e.type === 'delivery') this.delivery = { stage: 0, t: 0, via: e.via }
     }
   }
   private exitPath () { return route('door', ENDS[Math.floor(this.rnd() * ENDS.length)]).slice(1) }
@@ -237,7 +245,7 @@ export class StreetScene {
     const dv = this.delivery
     if (!dv) return
     if (dv.stage === 0) {
-      this.cars.push({ id: this.nextId++, lane: 0, pos: -4, v: { kind: 'van', color: '#1B4D8F' }, wait: 0, parkAt: 3.7 })
+      this.cars.push({ id: this.nextId++, lane: 0, pos: -4, v: { kind: 'van', color: dv.via === 'cedis' ? '#1B4D8F' : '#E9E4DA' }, wait: 0, parkAt: 3.7 })
       dv.stage = 1
     }
     const van = this.cars.find(c => c.v.kind === 'van' && c.parkAt === 3.7)
@@ -377,8 +385,9 @@ export class StreetScene {
       if (store.queue.length > ECONOMY.queueTolerance) alerts.push(['⏱️ ¡Fila larga!', 'bad'])
       if (PRODUCT_CATEGORIES.some(c => store.inventory[c.id] < shelfCapacity(store) * 0.15)) alerts.push(['📦 ¡Reabastecer!', 'info'])
       if (!open) alerts.push(['🔒 Cerrado', 'info'])
-      const top = toScreen(cam, STORE.x + 1.5, STORE.y + 1.5, (STORE.h + 0.9) * TH)
-      alerts.forEach(([txt, k], i) => this.pill(top.sx, top.sy - i * 24, txt, k, 1))
+      const top = toScreen(cam, STORE.x + 1.5, STORE.y + 1.5, (LOOKS[store.formatId].h + 0.9) * TH)
+      const y0 = Math.max(18 + (alerts.length - 1) * 24, top.sy)
+      alerts.forEach(([txt, k], i) => this.pill(top.sx, y0 - i * 24, txt, k, 1))
     }
   }
 
@@ -419,10 +428,12 @@ export class StreetScene {
   private pushStore (items: { k: number; f: () => void }[], store: Store | undefined, open: boolean, day: number, glows: { sx: number; sy: number; r: number; c: string }[]) {
     const ctx = this.ctx; const cam = this.cam; const S = STORE
     if (!store) { this.pushBuilding(items, S.x, S.y, S.w, S.d, 1.3, '#D9D2C4', day, glows); items.push({ k: 9.1, f: () => this.faceText(S.y + S.d, S.x + 0.2, 0.9, 'SE RENTA', '#2B2D33', '#F7F5F0') }); return }
+    const L = LOOKS[store.formatId]
     for (let i = S.x; i < S.x + S.w; i++) for (let j = S.y; j < S.y + S.d; j++) {
       const isLeft = j === S.y + S.d - 1; const isRight = i === S.x + S.w - 1
       items.push({ k: i + j + 1, f: () => {
-        box(ctx, cam, i, j, 1, 1, S.h, '#F3E6CF', { left: isLeft, right: isRight, lw: 0.7 })
+        box(ctx, cam, i, j, 1, 1, L.h, L.wall, { left: isLeft, right: isRight, lw: 0.7 })
+        if (L.band) { if (isLeft) leftFaceQuad(ctx, cam, S.y + S.d, i, i + 1, L.h - 0.22, L.h, L.band, null); if (isRight) rightFaceQuad(ctx, cam, S.x + S.w, j, j + 1, L.h - 0.22, L.h, L.band, null) }
         const yF = S.y + S.d
         if (isLeft) {
           // zoclo rojo
@@ -461,12 +472,12 @@ export class StreetScene {
         const x0 = S.x + k * (S.w / 12); const x1 = x0 + S.w / 12
         const p = [toScreen(cam, x0, yF, 1.12 * TH), toScreen(cam, x1, yF, 1.12 * TH), toScreen(cam, x1, yF + 0.35, 0.95 * TH), toScreen(cam, x0, yF + 0.35, 0.95 * TH)]
         ctx.beginPath(); ctx.moveTo(p[0].sx, p[0].sy); for (const q of p.slice(1)) ctx.lineTo(q.sx, q.sy); ctx.closePath()
-        ctx.fillStyle = k % 2 ? '#FFFFFF' : '#D63B2F'; ctx.fill()
+        ctx.fillStyle = k % 2 ? L.awning[1] : L.awning[0]; ctx.fill()
       }
       const a = toScreen(cam, S.x, yF + 0.35, 0.95 * TH); const b = toScreen(cam, S.x + S.w, yF + 0.35, 0.95 * TH)
       ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke()
-      this.faceText(yF, S.x + 0.15, 1.18, 'TIENDA MX', '#D63B2F', '#F2B705', open && day < 0.6 ? glows : undefined)
-      const t = toScreen(cam, S.x + 0.7, S.y + 0.7, S.h * TH)
+      this.faceText(yF, S.x + 0.15, Math.min(L.h - 0.05, 1.3), L.sign, L.signBg, L.signFg, open && day < 0.6 ? glows : undefined)
+      const t = toScreen(cam, S.x + 0.7, S.y + 0.7, L.h * TH)
       ctx.fillStyle = '#2B2D33'; ctx.beginPath(); ctx.ellipse(t.sx, t.sy - 10 * cam.zoom, 7 * cam.zoom, 3.5 * cam.zoom, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(t.sx - 7 * cam.zoom, t.sy - 10 * cam.zoom, 14 * cam.zoom, 10 * cam.zoom)
     } })
   }
