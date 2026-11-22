@@ -7,21 +7,25 @@ import { FIRST_NAMES, LAST_NAMES } from '../data/names'
 import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/logistics'
 import { nextRandom, pick, poisson, randInt } from './rng'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth } from './market'
-import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel } from './time'
+import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
+import { priceLevelAt, loanRateAt, hasFeature, historicMultiplier, historicEvents } from './era'
+import { HISTORIC_EVENTS } from '../data/eras'
 import {
   defaultMargins, unitCost, unitPrice, priceFactor, arrivalsPerHour, serviceRate, shelfCapacity, salaryFor, monthlyRent, priceIndex, purchaseCost
 } from './pricing'
 import type { GameState, Store, Result, GameEvent, DayStats, DayReport, Candidate, BasketLine, CatMap, LogEntry } from './types'
 
-export const SAVE_VERSION = 5
+export const SAVE_VERSION = 6
+const STREETS = ['Av. Insurgentes', 'Calle Morelos', 'Av. Juárez', 'Calle Hidalgo', 'Av. Revolución', 'Calle Allende', 'Av. Universidad', 'Calle Zaragoza', 'Calle Madero', 'Av. Reforma', 'Calle Guerrero', 'Av. Cuauhtémoc']
 const ok = <T>(msg = '', data?: T): Result<T> => ({ ok: true, msg, data })
 const fail = (msg: string): Result<never> => ({ ok: false, msg })
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
 // ---------- partida ----------
-export function newGame (seed: number, company = 'Tienda MX Inc.'): GameState {
+export function newGame (seed: number, company = 'Tienda MX Inc.', startYear = 2027): GameState {
+  setEpoch(startYear)
   const s: GameState = {
-    version: SAVE_VERSION, seed: seed >>> 0, rng: seed >>> 0, company,
+    version: SAVE_VERSION, seed: seed >>> 0, rng: seed >>> 0, company, startYear, cities: ['cdmx'],
     minute: 6 * 60 + 30, carry: 0, cash: ECONOMY.startCash, loan: 0,
     stores: [], candidates: [], nextId: 1, log: [], reports: [], todayFees: 0, cedis: null, labels: [], tripsToday: 0,
     market: null as unknown as GameState['market']
@@ -40,6 +44,28 @@ export function log (s: GameState, text: string, kind: LogEntry['kind'] = 'info'
 const emptyDay = (): DayStats => ({ sales: 0, commissions: 0, cogs: 0, fees: 0, arrivals: 0, tickets: 0, abandoned: 0, lostItems: 0, waitSum: 0, maxQueue: 0, catUnits: {} })
 export const storeById = (s: GameState, id: number) => s.stores.find(x => x.id === id)
 export const storeName = (st: Store) => `${formatOf(st.formatId).name} ${colonyOf(st.cityId, st.colonyId).name}`
+export const storeShort = (st: Store) => `${colonyOf(st.cityId, st.colonyId).name} · ${st.label}`
+export const priceLevel = (s: GameState) => priceLevelAt(dateOfDay(dayOf(s.minute)))
+export const nominal = (s: GameState, v: number) => Math.round(v * priceLevel(s))
+export function formatAvailable (s: GameState, formatId: FormatId): Result {
+  const f = formatOf(formatId); const d = dateOfDay(dayOf(s.minute))
+  if (!f.available) return fail(`${f.name} se desbloquea en el ${f.unlockNote}`)
+  if (formatId === 'hardDiscount' && !hasFeature(d, 'hardDiscount')) return fail('Los hard discount llegan a México en 2004')
+  return ok()
+}
+export const ownIn = (s: GameState, colonyId: string) => s.stores.filter(x => x.colonyId === colonyId).length
+
+// ---------- ciudades ----------
+export const canExpand = (s: GameState) => s.stores.length >= 4
+export function unlockCity (s: GameState, cityId: string): Result {
+  const c = cityOf(cityId)
+  if (s.cities.includes(cityId)) return fail('Ya operas en esa ciudad')
+  if (!canExpand(s)) return fail('Primero llega a Clúster Urbano: 4 tiendas en la CDMX')
+  if (s.cash < c.unlock) return fail('No alcanza el efectivo')
+  s.cash -= c.unlock; s.cities.push(cityId)
+  log(s, `🗺️ Expansión: ya puedes abrir tiendas en ${c.name}`, 'good')
+  return ok(`${c.name} desbloqueada`)
+}
 
 // ---------- personal ----------
 function makeCandidate (s: GameState): Candidate {
@@ -76,9 +102,10 @@ export function trainCashier (s: GameState, storeId: number, cashierId: number):
 
 // ---------- apertura y mejoras ----------
 export function canOpen (s: GameState, cityId: string, colonyId: string, formatId: FormatId): Result {
-  const f = formatOf(formatId)
-  if (!f.available) return fail(`${f.name} se desbloquea en el ${f.unlockNote}`)
-  if (s.stores.some(x => x.cityId === cityId && x.colonyId === colonyId && x.formatId === formatId)) return fail('Ya tienes este formato en la colonia')
+  const fa = formatAvailable(s, formatId)
+  if (!fa.ok) return fa
+  if (!s.cities.includes(cityId)) return fail(`Primero desbloquea ${cityOf(cityId).name} en el mapa nacional`)
+  if (ownIn(s, colonyId) >= colonyOf(cityId, colonyId).slots) return fail('Ya no hay locales disponibles en esta colonia')
   const cost = openingCost(cityId, colonyId, formatId)
   if (s.cash < cost) return fail('No alcanza el efectivo')
   return ok()
@@ -96,6 +123,7 @@ export function openStore (s: GameState, cityId: string, colonyId: string, forma
   const f = formatOf(formatId)
   const st: Store = {
     id: s.nextId++, cityId, colonyId, formatId, openedDay: dayOf(s.minute),
+    label: `${pick(s, STREETS)} ${randInt(s, 10, 990)}`,
     margins: defaultMargins(formatId), cashiers: [], selfCheckouts: 0, security: 0, cleaning: 0, bonus: false, autoReorder: true,
     inventory: Object.fromEntries(CATEGORIES.map(c => [c.id, c.service ? 0 : f.shelfUnits])) as CatMap<number>,
     orders: [], queue: [], serviceCarry: 0, satisfaction: 70, reputation: 3, today: emptyDay(), history: []
@@ -113,6 +141,7 @@ export function setMargin (s: GameState, storeId: number, cat: CategoryId, margi
 export function buySelfCheckout (s: GameState, storeId: number): Result {
   const st = storeById(s, storeId)
   if (!st) return fail('No existe')
+  if (!hasFeature(dateOfDay(dayOf(s.minute)), 'selfCheckout')) return fail('Las cajas de autocobro llegan en 2012')
   if (st.selfCheckouts >= formatOf(st.formatId).selfCheckoutSlots) return fail('No cabe otra caja de autocobro')
   if (s.cash < ECONOMY.selfCheckoutCost) return fail('No alcanza el efectivo')
   s.cash -= ECONOMY.selfCheckoutCost; st.selfCheckouts++
@@ -155,9 +184,10 @@ export function orderQuote (st: Store, g?: GameState) {
   let cost = 0
   for (const c of PRODUCT_CATEGORIES) {
     const need = Math.max(0, Math.round(cap - st.inventory[c.id] - pendingUnits(st, c.id)))
-    if (need > 0) { items[c.id] = need; cost += need * purchaseCost(g, c.id) }
+    if (need > 0) { items[c.id] = need; cost += need * purchaseCost(g, c.id, st) }
   }
-  return { items, cost: Math.round(cost), fee: g?.cedis ? CEDIS.fuelPerTrip : ECONOMY.restockFee, via: (g?.cedis ? 'cedis' : 'mayorista') as 'cedis' | 'mayorista' }
+  const cedis = !!g?.cedis && !!cityOf(st.cityId).cedisRadius
+  return { items, cost: Math.round(cost), fee: cedis ? CEDIS.fuelPerTrip : ECONOMY.restockFee, via: (cedis ? 'cedis' : 'mayorista') as 'cedis' | 'mayorista' }
 }
 export function placeOrder (s: GameState, storeId: number, events?: GameEvent[]): Result {
   const st = storeById(s, storeId)
@@ -248,8 +278,10 @@ export function repayLoan (s: GameState, amount: number): Result {
 function makeBasket (s: GameState, st: Store): BasketLine[] {
   const f = formatOf(st.formatId); const basket: BasketLine[] = []
   const spend = Math.sqrt(effectiveWealth(s, st.cityId, st.colonyId)) // en colonias de más ingreso se lleva más
+  const recargas = hasFeature(dateOfDay(dayOf(s.minute)), 'recargas')
   for (const c of CATEGORIES) {
-    if (nextRandom(s) < c.basketProb * spend * priceFactor(st, c.id, s)) {
+    const era = c.service && !recargas ? 0.4 : 1 // sin celulares solo se pagan recibos
+    if (nextRandom(s) < c.basketProb * era * spend * priceFactor(st, c.id, s)) {
       const qty = Math.max(1, Math.round(randInt(s, c.qty[0], c.qty[1]) * (c.service ? 1 : f.basketMult)))
       basket.push({ cat: c.id, qty })
     }
@@ -268,7 +300,7 @@ function checkout (s: GameState, st: Store, basket: BasketLine[], events: GameEv
       const price = unitPrice(st, line.cat)
       amount += sold * price
       st.today.sales += sold * price
-      st.today.cogs += sold * purchaseCost(s, line.cat)
+      st.today.cogs += sold * purchaseCost(s, line.cat, st)
       st.today.catUnits[line.cat] = (st.today.catUnits[line.cat] || 0) + sold
       items += sold
     }
@@ -286,6 +318,7 @@ function stepMinute (s: GameState, events: GameEvent[]) {
   const minute = s.minute
   const hour = hourOf(minute)
   const { mult } = dayMultiplier(dayOf(minute))
+  const date = dateOfDay(dayOf(minute))
   for (const st of s.stores) {
     // llegan pedidos del mayorista
     const due = st.orders.filter(o => o.arrivesAt <= minute)
@@ -303,7 +336,7 @@ function stepMinute (s: GameState, events: GameEvent[]) {
     const canServe = st.cashiers.length + st.selfCheckouts > 0
     // llegadas
     if (canServe) {
-      const n = poisson(s, arrivalsPerHour(st, hour, mult, s) / 60)
+      const n = poisson(s, arrivalsPerHour(st, hour, mult * historicMultiplier(date, st.cityId), s) / 60)
       for (let i = 0; i < n; i++) {
         const basket = makeBasket(s, st)
         if (!basket.length) continue
@@ -367,7 +400,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
       const units = (t.catUnits[c.id] || 0) * shrinkRate / (1 - shrinkRate)
       const take = Math.min(st.inventory[c.id], units)
       st.inventory[c.id] -= take
-      shrink += take * purchaseCost(s, c.id)
+      shrink += take * purchaseCost(s, c.id, st)
     }
     const upkeep = (f.overhead + ECONOMY.securityMonthly[st.security] + ECONOMY.cleaningMonthly[st.cleaning]) / 30
     const profit = t.sales + t.commissions - t.cogs - payroll - rent - power - shrink - upkeep - t.fees
@@ -378,7 +411,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
     for (const k of ['sales', 'commissions', 'cogs', 'payroll', 'rent', 'power', 'shrink', 'upkeep', 'fees', 'profit', 'tickets', 'abandoned'] as const) company[k] += rep[k]
     st.today = emptyDay()
   }
-  company.interest = s.loan * ECONOMY.loanRate / 365
+  company.interest = s.loan * loanRateAt(dateOfDay(day)) / 365
   company.logistics = logisticsDaily(s)
   s.cash -= company.interest + company.logistics
   company.profit -= company.interest + company.logistics
@@ -387,7 +420,11 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   company.satisfaction = s.stores.length ? s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length : 0
   s.reports.push(company); if (s.reports.length > 90) s.reports.shift()
   events.push({ type: 'dayEnd', report: company })
-  if (s.stores.length) log(s, `Corte del ${dateLabel(day).date}: utilidad ${Math.round(company.profit).toLocaleString('es-MX')} MXN`, company.profit >= 0 ? 'good' : 'bad', events)
+  if (s.stores.length) log(s, `Corte del ${dateLabel(day).date}: utilidad ${nominal(s, company.profit).toLocaleString('es-MX')} MXN`, company.profit >= 0 ? 'good' : 'bad', events)
+  // sucesos históricos que empiezan mañana
+  const tomorrow = dateOfDay(day + 1).toISOString().slice(0, 10)
+  for (const e of HISTORIC_EVENTS) if (e.from === tomorrow) log(s, `📰 ${e.text}`, e.traffic >= 0 ? 'good' : 'bad', events)
+  void historicEvents
   // cada lunes: nuevos candidatos y algo de rotación de personal
   if ((day + 1) % 7 === 0) {
     refreshCandidates(s)
@@ -407,6 +444,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
 
 // avanza la simulación `minutes` minutos de juego (puede ser fraccionario)
 export function advance (s: GameState, minutes: number, events: GameEvent[] = []) {
+  setEpoch(s.startYear)
   s.carry += minutes
   let n = Math.floor(s.carry)
   s.carry -= n
@@ -439,11 +477,17 @@ export function migrateGame (s: GameState & { version: number }): GameState {
     for (const st of s.stores) { for (const r of st.history) r.logistics = r.logistics ?? 0; for (const o of st.orders) o.via = o.via ?? 'mayorista' }
     s.version = 4
   }
-  if (s.version === 4) { s.market = generateMarket(s); s.version = SAVE_VERSION }
+  if (s.version === 4) { s.market = generateMarket(s); s.version = 5 }
+  if (s.version === 5) {
+    s.startYear = 2027; s.cities = ['cdmx']
+    for (const st of s.stores) st.label = st.label ?? `Local ${st.id}`
+    s.version = SAVE_VERSION
+  }
+  setEpoch(s.startYear)
   return s
 }
 export function deserialize (text: string): GameState {
   const s = JSON.parse(text)
-  if (!s || !Array.isArray(s.stores) || (s.version !== SAVE_VERSION && s.version !== 3 && s.version !== 4)) throw new Error('Partida incompatible con esta versión')
+  if (!s || !Array.isArray(s.stores) || (s.version < 3 || s.version > SAVE_VERSION)) throw new Error('Partida incompatible con esta versión')
   return migrateGame(s)
 }

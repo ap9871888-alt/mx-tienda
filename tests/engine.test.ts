@@ -109,7 +109,7 @@ describe('Hito 2: formatos, CEDIS y Marca Propia', () => {
     const s = E.newGame(5); s.cash = 1e8
     for (const f of ['tiendita', 'conveniencia', 'hardDiscount', 'bodega'] as const) expect(E.openStore(s, 'cdmx', 'roma', f).ok).toBe(true)
     expect(E.openStore(s, 'cdmx', 'roma', 'darkStore').ok).toBe(false)
-    expect(E.cannibalization(s, s.stores[0])).toBeCloseTo(0.55)
+    expect(E.cannibalization(s, s.stores[0])).toBeCloseTo(1 / 1.54)
   })
   it('la 24/7 nunca cierra y el hard discount tiene precios más bajos', () => {
     const s = E.newGame(5); s.cash = 1e8
@@ -171,7 +171,7 @@ describe('IA de mercado, analista y fondo', () => {
     const a = E.newGame(1); const b = E.newGame(2); const c = E.newGame(1)
     expect(a.market.colonies.roma.traffic).not.toBe(b.market.colonies.roma.traffic)
     expect(a.market.rivals.map(r => r.name)).toEqual(c.market.rivals.map(r => r.name))
-    expect(a.market.rivals.map(r => r.style).sort()).toEqual(['expansion', 'precio', 'premium'])
+    expect(a.market.rivals.map(r => r.style).sort()).toEqual(['barrio', 'expansion', 'precio', 'premium'])
   })
   it('los rivales actúan cada semana y la competencia cambia', () => {
     const s = E.newGame(9); s.cash = 1e8
@@ -209,6 +209,50 @@ describe('IA de mercado, analista y fondo', () => {
     const s = E.newGame(5) as unknown as Record<string, unknown>
     s.version = 4; delete s.market
     const g = E.deserialize(JSON.stringify(s))
-    expect(g.market.rivals.length).toBe(3)
+    expect(g.market.rivals.length).toBe(4)
+  })
+})
+
+describe('Épocas, ciudades y muchas tiendas', () => {
+  it('el año de fundación cambia la fecha, los precios y la tecnología', () => {
+    const g = E.newGame(1, 'Changarro 95', 1995)
+    expect(E.dateLabel(0).date).toBe('1 ene 1995')
+    expect(E.priceLevel(g)).toBeCloseTo(0.12, 2)
+    g.cash = 1e8
+    expect(E.openStore(g, 'cdmx', 'roma', 'hardDiscount').ok).toBe(false)
+    const st = E.openStore(g, 'cdmx', 'roma', 'tiendita').data!
+    expect(E.buySelfCheckout(g, st.id).ok).toBe(false)
+    expect(E.historicEvents(new Date(Date.UTC(1995, 5, 1))).length).toBe(1)
+    const h = E.newGame(1, 'Hoy', 2027)
+    expect(E.priceLevel(h)).toBeCloseTo(1, 2)
+  })
+  it('la pandemia de 2020 baja la clientela', () => {
+    expect(E.historicMultiplier(new Date(Date.UTC(2020, 4, 1)), 'cdmx')).toBeCloseTo(0.55)
+    expect(E.historicMultiplier(new Date(Date.UTC(2017, 8, 25)), 'gdl')).toBe(1)
+  })
+  it('se pueden tener muchas tiendas en una colonia hasta llenar sus locales', () => {
+    const g = E.newGame(2); g.cash = 1e9
+    let n = 0
+    while (E.openStore(g, 'cdmx', 'centro', 'tiendita').ok) n++
+    expect(n).toBe(8)
+    expect(new Set(g.stores.map(s => s.label)).size).toBeGreaterThan(1)
+  })
+  it('otras ciudades se desbloquean desde Clúster Urbano y fuera del radio no aplica el CEDIS', () => {
+    const g = E.newGame(3); g.cash = 1e9
+    expect(E.unlockCity(g, 'mty').ok).toBe(false)
+    for (const c of ['roma', 'polanco', 'coyoacan', 'iztapalapa']) E.openStore(g, 'cdmx', c, 'tiendita')
+    expect(E.unlockCity(g, 'mty').ok).toBe(true)
+    const m = E.openStore(g, 'mty', 'sanpedro', 'tiendita').data!
+    E.buildCedis(g)
+    const local = g.stores[0]
+    expect(E.purchaseFactor(g, 'abarrotes', local)).toBeLessThan(E.purchaseFactor(g, 'abarrotes', m))
+    expect(E.orderQuote(m, g).via).toBe('mayorista')
+  })
+  it('con varias ciudades abiertas los rivales crecen a decenas de tiendas', () => {
+    const g = E.newGame(4); g.cash = 1e9; g.cities = ['cdmx', 'pue', 'gdl', 'mty']
+    const count = () => g.market.rivals.reduce((a, r) => a + Object.values(r.stores).reduce((x, y) => x + y, 0), 0)
+    const before = count()
+    for (let d = 0; d < 120; d++) E.advance(g, 1440)
+    expect(count()).toBeGreaterThan(before + 10)
   })
 })

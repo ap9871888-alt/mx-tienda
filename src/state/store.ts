@@ -17,7 +17,7 @@ interface AppState {
   tab: Tab
   storeId: number | null
   toast: { text: string; bad: boolean; id: number } | null
-  newGame: (company: string) => void
+  newGame: (company: string, year: number) => void
   setSpeed: (s: Speed) => void
   setTab: (t: Tab) => void
   selectStore: (id: number | null) => void
@@ -43,9 +43,9 @@ if (typeof window !== 'undefined') {
 
 export const useApp = create<AppState>()(persist((set, get) => ({
   game: null, rev: 0, speed: 1, tab: 'calle', storeId: null, toast: null,
-  newGame: company => {
+  newGame: (company, year) => {
     const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0
-    set({ game: E.newGame(seed, company), storeId: null, tab: 'mapa', speed: 1, rev: 0 })
+    set({ game: E.newGame(seed, company, year), storeId: null, tab: 'mapa', speed: 1, rev: 0 })
   },
   setSpeed: speed => set({ speed }),
   setTab: tab => set({ tab }),
@@ -75,7 +75,7 @@ export const useApp = create<AppState>()(persist((set, get) => ({
   version: E.SAVE_VERSION,
   migrate: (persisted, version) => {
     const p = persisted as { game: GameState | null; speed: Speed; storeId: number | null }
-    if ((version === 3 || version === 4) && p?.game) return { ...p, game: E.migrateGame(p.game) } as never
+    if (version >= 3 && p?.game) return { ...p, game: E.migrateGame(p.game) } as never
     return { game: null, speed: 1, storeId: null } as never
   }
 }))
@@ -106,8 +106,12 @@ export function startLoop () {
   raf = requestAnimationFrame(tick)
 }
 
-export const fmt = (n: number) => (n < 0 ? '−$' : '$') + Math.abs(Math.round(n)).toLocaleString('es-MX')
+// el motor guarda pesos de 2027; aquí se muestran en pesos de la fecha del juego
+let PRICE_LEVEL = 1
+export const setPriceLevel = (v: number) => { PRICE_LEVEL = v }
+export const fmt = (n: number) => (n < 0 ? '−$' : '$') + Math.abs(Math.round(n * PRICE_LEVEL)).toLocaleString('es-MX')
 export function fmtK (n: number) {
+  n *= PRICE_LEVEL
   const a = Math.abs(n); const s = n < 0 ? '−' : ''
   if (a >= 1e6) return `${s}$${(a / 1e6).toFixed(a >= 1e7 ? 1 : 2)} M`
   if (a >= 1e4) return `${s}$${Math.round(a / 1000)} k`

@@ -1,5 +1,5 @@
 // Analista de mercado: revisa la partida y propone acciones concretas con números.
-import { CITIES, colonyOf } from '../data/cities'
+import { CITIES, colonyOf, colonyById } from '../data/cities'
 import { FORMATS } from '../data/formats'
 import { PRODUCT_CATEGORIES, categoryOf, type CategoryId } from '../data/categories'
 import { estimateStore } from './estimate'
@@ -20,7 +20,7 @@ function catGrossPerVisitor (g: GameState, st: Store, cat: CategoryId, margin: n
   let gross = 0
   for (const c of PRODUCT_CATEGORIES) {
     const p = c.basketProb * priceFactor(st, c.id, g)
-    gross += p * ((c.qty[0] + c.qty[1]) / 2) * (unitPrice(st, c.id) - purchaseCost(g, c.id))
+    gross += p * ((c.qty[0] + c.qty[1]) / 2) * (unitPrice(st, c.id) - purchaseCost(g, c.id, st))
   }
   const over = Math.max(0, priceIndex(st, cat) - 1.12)
   const value = gross * priceAttraction(st, g) * Math.exp(-over * 4)
@@ -44,8 +44,8 @@ export function analyzeMarket (g: GameState): Insight[] {
   const out: Insight[] = []
   // 1) dónde abrir
   const options: { col: string; fmt: string; months: number; profit: number; cost: number }[] = []
-  for (const city of CITIES) for (const c of city.colonies) for (const f of FORMATS.filter(x => x.available)) {
-    if (g.stores.some(s => s.colonyId === c.id && s.formatId === f.id)) continue
+  for (const city of CITIES.filter(x => g.cities.includes(x.id))) for (const c of city.colonies) for (const f of FORMATS.filter(x => x.available && (x.id !== 'hardDiscount' || g.startYear >= 2004 || g.minute > (2004 - g.startYear) * 525600))) {
+    if (g.stores.filter(s => s.colonyId === c.id).length >= c.slots) continue
     const e = estimateStore(city.id, c.id, f.id, g)
     if (e.paybackMonths) options.push({ col: c.id, fmt: f.name, months: e.paybackMonths, profit: e.profitMonth, cost: e.openingCost })
   }
@@ -54,7 +54,7 @@ export function analyzeMarket (g: GameState): Insight[] {
   const pick = affordable[0] ?? options[0]
   if (pick) {
     out.push({ kind: 'oportunidad', colonyId: pick.col, score: 80,
-      title: `Mejor apertura: ${pick.fmt} en ${colonyOf('cdmx', pick.col).name}`,
+      title: `Mejor apertura: ${pick.fmt} en ${colonyById(pick.col).colony.name}`,
       text: `Recuperas la inversión en ~${pick.months} meses con ${Math.round(pick.profit).toLocaleString('es-MX')} MXN de utilidad al mes.${pick.cost > g.cash ? ` Te faltan ${Math.round(pick.cost - g.cash).toLocaleString('es-MX')} MXN.` : ''}` })
   }
   // 2) precios de cada tienda
@@ -83,9 +83,9 @@ export function analyzeMarket (g: GameState): Insight[] {
   if (g.market) {
     for (const [id, m] of Object.entries(g.market.colonies)) {
       const mine = g.stores.some(s => s.colonyId === id)
-      const name = colonyOf('cdmx', id).name
+      const name = colonyById(id).colony.name
       if (m.war > 0 && mine) out.push({ kind: 'rival', colonyId: id, score: 88, title: `Guerra de precios en ${name}`, text: `Faltan ${m.war} días. Aguanta con buena atención o baja un poco los precios de Bebidas y Botanas.` })
-      if (m.trend > 0.0005) out.push({ kind: 'tendencia', colonyId: id, score: mine ? 40 : 55, title: `${name} está creciendo`, text: `Su tráfico sube ~${(m.trend * 3000).toFixed(1)} % al mes. Competencia actual: ${Math.round(effectiveCompetition(g, 'cdmx', id) * 100)} % con ${rivalStoresIn(g, id)} tiendas rivales.` })
+      if (m.trend > 0.0005) out.push({ kind: 'tendencia', colonyId: id, score: mine ? 40 : 55, title: `${name} está creciendo`, text: `Su tráfico sube ~${(m.trend * 3000).toFixed(1)} % al mes. Competencia actual: ${Math.round(effectiveCompetition(g, '', id) * 100)} % con ${rivalStoresIn(g, id)} tiendas rivales.` })
       if (m.trend < -0.0005 && mine) out.push({ kind: 'tendencia', colonyId: id, score: 50, title: `${name} va a la baja`, text: `Su tráfico cae ~${(-m.trend * 3000).toFixed(1)} % al mes. No inviertas más ahí por ahora.` })
     }
   }

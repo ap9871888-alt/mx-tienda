@@ -25,6 +25,7 @@ export interface DayReport {
 
 export interface Store {
   id: number
+  label: string // dirección corta del local
   cityId: string
   colonyId: string
   formatId: FormatId
@@ -49,12 +50,14 @@ export interface Store {
 export interface LogEntry { minute: number; text: string; kind: 'info' | 'good' | 'bad' }
 
 export interface ColonyMarket { traffic: number; wealth: number; trend: number; events: { text: string; traffic: number; days: number }[]; war: number }
-export interface RivalChain { id: string; name: string; color: string; style: 'precio' | 'expansion' | 'premium'; stores: Record<string, number>; aggression: number }
+export interface RivalChain { id: string; name: string; color: string; style: 'precio' | 'expansion' | 'premium' | 'barrio'; stores: Record<string, number>; aggression: number }
 export interface FundState { nav: number; hist: number[]; units: number; invested: number }
 export interface MarketState { colonies: Record<string, ColonyMarket>; rivals: RivalChain[]; funds: Record<string, FundState>; regime: number; insightsDay: number }
 
 export interface GameState {
   version: number
+  startYear: number
+  cities: string[] // ciudades desbloqueadas
   seed: number
   rng: number
   company: string

@@ -4,7 +4,11 @@ export const MIN_PER_DAY = 1440
 export const dayOf = (minute: number) => Math.floor(minute / MIN_PER_DAY)
 export const minuteOfDay = (minute: number) => ((minute % MIN_PER_DAY) + MIN_PER_DAY) % MIN_PER_DAY
 export const hourOf = (minute: number) => Math.floor(minuteOfDay(minute) / 60)
-export const dateOfDay = (day: number) => new Date(Date.UTC(START_DATE.year, START_DATE.month, START_DATE.day + day))
+// año de fundación de la partida en curso (lo fija el motor al crear, cargar o avanzar una partida)
+let epochYear = START_DATE.year
+export const setEpoch = (year: number) => { epochYear = year }
+export const getEpoch = () => epochYear
+export const dateOfDay = (day: number) => new Date(Date.UTC(epochYear, START_DATE.month, START_DATE.day + day))
 
 export function clockLabel (minute: number) {
   const m = minuteOfDay(minute)

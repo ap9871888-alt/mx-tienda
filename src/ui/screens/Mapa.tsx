@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { MapPin } from 'lucide-react'
-import { CITIES, HOUR_PROFILE } from '../../data/cities'
+import { CITIES, HOUR_PROFILE, cityOf, type City } from '../../data/cities'
 import { FORMATS, formatOf, type FormatId } from '../../data/formats'
 import { RIVAL_STYLES } from '../../data/market'
 import * as E from '../../engine'
@@ -8,11 +8,9 @@ import { useApp, fmt, fmtK } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
 import { Card, Btn, Pill, Modal, Kpi, BarChart, Icon, AnalystCard } from '../components/kit'
 
-const CITY = CITIES[0]
-
 // qué colonia hay en un punto del mapa (usa la máscara de colores de tu lámina)
-function colonyAt (px: number, py: number) {
-  const { grid, n, ids } = CITY.map
+function colonyAt (CITY: City, px: number, py: number) {
+  const { grid, n, ids } = CITY.map!
   const gx = Math.min(n - 1, Math.max(0, Math.floor(px * n))); const gy = Math.min(n - 1, Math.max(0, Math.floor(py * n)))
   const v = +grid[gy * n + gx]
   return v ? ids[v - 1] : null
@@ -21,14 +19,21 @@ function colonyAt (px: number, py: number) {
 export function Mapa () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
-  const [sel, setSel] = useState<string>('roma')
+  const [cityId, setCityId] = useState('cdmx')
+  const [national, setNational] = useState(false)
+  const [unlock, setUnlock] = useState<string | null>(null)
+  const CITY = cityOf(cityId)
+  const [selBy, setSelBy] = useState<Record<string, string>>({ cdmx: 'roma' })
+  const sel = selBy[cityId] ?? CITY.colonies[0].id
+  const setSel = (id: string) => setSelBy(m => ({ ...m, [cityId]: id }))
   const [confirm, setConfirm] = useState<FormatId | null>(null)
-  const col = CITY.colonies.find(c => c.id === sel)!
+  const col = CITY.colonies.find(c => c.id === sel) ?? CITY.colonies[0]
+  const used = E.ownIn(game, col.id)
   const day = E.dayOf(game.minute)
   const estimates = useMemo(() => Object.fromEntries(FORMATS.filter(f => f.available).map(f => [f.id, E.estimateStore(CITY.id, col.id, f.id, game)])) as Record<FormatId, E.Estimate>,
     // se recalcula al cambiar de colonia, de día o de número de tiendas
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [col.id, day, game.stores.length, !!game.cedis, game.labels.length])
+    [col.id, cityId, day, game.stores.length, !!game.cedis, game.labels.length])
   const insights = useMemo(() => E.analyzeMarket(game).filter(i => i.kind !== 'precio'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [day, game.stores.length, Math.floor(game.cash / 250000)])
@@ -47,14 +52,21 @@ export function Mapa () {
   }
   const onMap = (e: React.MouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
-    const id = colonyAt((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
+    const id = colonyAt(CITY, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
     if (id) setSel(id)
   }
 
   return (
     <div className='flex flex-col gap-3'>
-      <div className='flex items-baseline justify-between'><h1 className='font-display text-2xl uppercase'>{CITY.name}</h1><span className='text-xs text-tenue'>Toca una colonia</span></div>
-      <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#EDE8DC] aspect-square select-none' onClick={onMap} role='img' aria-label='Mapa de la Ciudad de México con colonias, tráfico y tiendas'>
+      <div className='flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1'>
+        <button onClick={() => setNational(true)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-sm font-semibold border ${national ? 'bg-corp text-white border-corp' : 'bg-white border-borde'}`}>🇲🇽 México</button>
+        {CITIES.filter(c => game.cities.includes(c.id)).map(c => (
+          <button key={c.id} onClick={() => { setCityId(c.id); setNational(false) }} className={`shrink-0 px-3 min-h-[36px] rounded-full text-sm font-semibold border ${!national && c.id === cityId ? 'bg-corp text-white border-corp' : 'bg-white border-borde'}`}>
+            {c.name} <span className='opacity-70'>· {game.stores.filter(s => s.cityId === c.id).length}</span></button>))}
+      </div>
+      {national ? <Nacional onCity={id => { if (game.cities.includes(id)) { setCityId(id); setNational(false) } else setUnlock(id) }} /> : <>
+      <div className='flex items-baseline justify-between'><h1 className='font-display text-2xl uppercase'>{CITY.name}</h1><span className='text-xs text-tenue'>{CITY.map ? 'Toca una colonia' : 'Elige una zona'}</span></div>
+      {CITY.map ? <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#EDE8DC] aspect-square select-none' onClick={onMap} role='img' aria-label='Mapa de la Ciudad de México con colonias, tráfico y tiendas'>
         <img src={assetUrl('map/cdmx.webp')} alt='' className='absolute inset-0 w-full h-full' draggable={false} />
         {CITY.colonies.map(c => (
           <img key={c.id} src={assetUrl(`map/zona-${c.id}.png`)} alt='' draggable={false}
@@ -72,20 +84,29 @@ export function Mapa () {
             <div key={c.id} className='absolute pointer-events-none flex flex-col items-center' style={{ left: `${c.x}%`, top: `${c.y}%`, transform: 'translate(-50%,-50%)' }}>
               <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded-md shadow whitespace-nowrap ${c.id === sel ? 'bg-corp text-white' : 'bg-white/95 text-urbano'}`}>{c.name}</span>
               <span className='flex gap-0.5 mt-0.5'>
-                {Array.from({ length: mine }).map((_, i) => <MapPin key={`m${i}`} size={14} className='text-rojo fill-white drop-shadow' />)}
-                {Array.from({ length: Math.min(5, rivals) }).map((_, i) => <span key={`r${i}`} className='w-2 h-2 mt-1 rounded-full bg-urbano/70 border border-white' />)}
+                {mine > 0 && <span className='inline-flex items-center text-[10px] font-bold bg-rojo text-white rounded-full pl-0.5 pr-1.5 shadow'><MapPin size={12} className='fill-white text-rojo' />{mine}</span>}
+                {rivals > 0 && <span className='text-[10px] font-bold bg-urbano/80 text-white rounded-full px-1.5 shadow'>{rivals}</span>}
               </span>
             </div>
           )
         })}
-      </div>
+      </div> : (
+        <div className='grid grid-cols-2 gap-2'>
+          {CITY.colonies.map(c => {
+            const mine = E.ownIn(game, c.id)
+            return <button key={c.id} onClick={() => setSel(c.id)} className={`text-left rounded-xl border p-2.5 min-h-[60px] ${c.id === col.id ? 'border-corp bg-corp/10' : 'border-borde bg-white'}`}>
+              <b className='block text-sm'>{c.name}</b>
+              <span className='text-[11.5px] text-tenue'>{Math.round(E.effectiveTraffic(game, CITY.id, c.id))} peat/h · {mine}/{c.slots} tuyas · {E.rivalStoresIn(game, c.id)} rivales</span>
+            </button>
+          })}
+        </div>)}
       <div className='flex flex-wrap gap-3 text-[11.5px] text-tenue -mt-1'>
         <span className='inline-flex items-center gap-1'><span className='w-3 h-3 rounded-full' style={{ background: 'radial-gradient(#D63B2F,#F2B705)' }} /> Tráfico peatonal</span>
         <span className='inline-flex items-center gap-1'><MapPin size={12} className='text-rojo' /> Tus tiendas</span>
         <span className='inline-flex items-center gap-1'><span className='w-2.5 h-2.5 rounded-full bg-urbano/70' /> Tiendas rivales</span>
       </div>
 
-      <Card title={col.name} right={game.stores.some(s => s.colonyId === col.id) ? <Pill tone='good'>Tienes {game.stores.filter(s => s.colonyId === col.id).length}</Pill> : undefined}>
+      <Card title={col.name} right={<Pill tone={used >= col.slots ? 'bad' : used ? 'good' : undefined}>Locales {used}/{col.slots}</Pill>}>
         <p className='text-sm text-tenue -mt-1'>{col.blurb}</p>
         <div className='grid grid-cols-3 gap-2'>
           <Kpi label='Peatones/h' value={traffic} />
@@ -108,7 +129,8 @@ export function Mapa () {
       <Card title='Formatos de tienda'>
         {FORMATS.map(f => {
           const e = f.available ? estimates[f.id] : null
-          const taken = game.stores.some(s => s.colonyId === col.id && s.formatId === f.id)
+          const full = used >= col.slots
+          const here = game.stores.filter(s => s.colonyId === col.id && s.formatId === f.id).length
           return (
             <div key={f.id} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
               <Icon name={f.id} size={40} className={f.available ? '' : 'grayscale opacity-50'} />
@@ -117,7 +139,7 @@ export function Mapa () {
                 <span className='text-xs text-tenue'>CAPEX {fmtK(f.capex)} · renta base {fmtK(f.rent)}/mes · margen {Math.round(f.grossMargin * 100)} %{f.available ? '' : ` · ${f.unlockNote}`}</span>
                 {e && <span className={`block text-xs font-semibold ${e.profitMonth > 0 ? 'text-ahorro' : 'text-rojo'}`}>≈ {e.customersDay} clientes/día · utilidad ≈ {fmtK(e.profitMonth)}/mes · retorno {e.paybackMonths ?? '—'} meses</span>}
               </div>
-              {f.available ? <Btn small disabled={taken} onClick={() => setConfirm(f.id)}>{taken ? 'Abierta' : 'Abrir'}</Btn> : <Pill>{f.unlockNote}</Pill>}
+              {f.available ? <Btn small disabled={full} onClick={() => setConfirm(f.id)}>{full ? 'Lleno' : here ? `Otra (${here})` : 'Abrir'}</Btn> : <Pill>{f.unlockNote}</Pill>}
             </div>
           )
         })}
@@ -134,7 +156,9 @@ export function Mapa () {
         <p className='text-xs text-tenue'>Cada partida genera rivales y colonias distintas. Los rivales deciden cada lunes según dónde ganas tú.</p>
       </Card>
 
-      {confirm && (
+      </>}
+      {unlock && <UnlockModal id={unlock} onClose={() => setUnlock(null)} onDone={id => { setUnlock(null); setCityId(id); setNational(false) }} />}
+      {confirm && !national && (
         <Modal title='Confirmar apertura' onClose={() => setConfirm(null)}>
           <p className='text-sm'>{formatOf(confirm).name} en <b>{col.name}</b>. Estos son todos los costos, sin letras chiquitas:</p>
           <div className='bg-white border border-borde rounded-xl p-3 text-sm flex flex-col gap-1.5 num'>
@@ -158,4 +182,44 @@ export function Mapa () {
 }
 function Row ({ k, v, bold, tone = '' }: { k: string; v: string; bold?: boolean; tone?: string }) {
   return <div className={`flex justify-between gap-3 ${bold ? 'font-bold' : ''} ${tone}`}><span>{k}</span><span>{v}</span></div>
+}
+
+function Nacional ({ onCity }: { onCity: (id: string) => void }) {
+  const game = useApp(s => s.game)!
+  return (
+    <div className='flex flex-col gap-3'>
+      <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#DCEAF2] select-none' style={{ aspectRatio: '1.49' }}>
+        <img src={assetUrl('map/mexico.webp')} alt='Mapa de México' className='absolute inset-0 w-full h-full' draggable={false} />
+        {CITIES.map(c => {
+          const on = game.cities.includes(c.id); const n = game.stores.filter(s => s.cityId === c.id).length
+          return <button key={c.id} onClick={() => onCity(c.id)} className='absolute flex flex-col items-center' style={{ left: `${c.nx}%`, top: `${c.ny}%`, transform: 'translate(-50%,-50%)' }}>
+            <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded-md shadow whitespace-nowrap ${on ? 'bg-corp text-white' : 'bg-white/95 text-urbano'}`}>{on ? '' : '🔒 '}{c.name}{on ? ` · ${n}` : ''}</span>
+          </button>
+        })}
+      </div>
+      <Card title='Expansión nacional'>
+        {CITIES.map(c => {
+          const on = game.cities.includes(c.id)
+          return <div key={c.id} className='flex items-center gap-3 py-1.5 border-t border-borde first:border-t-0'>
+            <div className='flex-1 min-w-0'><b className='text-sm'>{c.name}</b> <span className='text-xs text-tenue'>{c.state} · {c.colonies.length} zonas{c.cedisRadius ? ' · la surte tu CEDIS' : ''}</span></div>
+            {on ? <Pill tone='good'>{game.stores.filter(s => s.cityId === c.id).length} tiendas</Pill> : <Btn small onClick={() => onCity(c.id)}>{fmtK(c.unlock)}</Btn>}
+          </div>
+        })}
+        <p className='text-xs text-tenue'>Necesitas 4 tiendas para expandirte. Los rivales también crecen más rápido cuantas más ciudades abres.</p>
+      </Card>
+    </div>
+  )
+}
+function UnlockModal ({ id, onClose, onDone }: { id: string; onClose: () => void; onDone: (id: string) => void }) {
+  const game = useApp(s => s.game)!
+  const c = cityOf(id)
+  const can = E.canExpand(game)
+  const go = () => { const r = useApp.getState().run(g => E.unlockCity(g, id)); if (r?.ok) onDone(id) }
+  return (
+    <Modal title={`Expandirte a ${c.name}`} onClose={onClose}>
+      <p className='text-sm'>Permisos, estudio de mercado y bodega regional en {c.state}. Después abres tiendas en sus {c.colonies.length} zonas.</p>
+      {!c.cedisRadius && <p className='text-xs text-tenue'>Tu CEDIS del Valle de México no llega hasta aquí: compras al mayorista local sin el descuento del CEDIS.</p>}
+      <Btn onClick={go} disabled={!can || game.cash < c.unlock}>{!can ? 'Necesitas 4 tiendas' : game.cash < c.unlock ? 'No alcanza el efectivo' : `Desbloquear por ${fmt(c.unlock)}`}</Btn>
+    </Modal>
+  )
 }

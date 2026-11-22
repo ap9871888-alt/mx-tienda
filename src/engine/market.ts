@@ -1,6 +1,6 @@
 // IA de mercado: cada partida genera colonias y cadenas rivales distintas a partir de su semilla,
 // y los rivales reaccionan a lo que hace el jugador. También el fondo de inversión y el analista.
-import { CITIES, colonyOf } from '../data/cities'
+import { CITIES, colonyById } from '../data/cities'
 import { RIVAL_POOL, MARKET_EVENTS, MAX_RIVAL_STORES_PER_COLONY, FUNDS, FUND_FEE, type RivalStyle } from '../data/market'
 import { nextRandom } from './rng'
 import type { GameState, GameEvent, Result, MarketState, ColonyMarket } from './types'
@@ -29,11 +29,11 @@ export function generateMarket (s: { rng: number }): MarketState {
     }
   }
   const pool = [...RIVAL_POOL]
-  const styles: RivalStyle[] = ['precio', 'expansion', 'premium']
+  const styles: RivalStyle[] = ['precio', 'expansion', 'premium', 'barrio']
   const rivals = styles.map((style, i) => {
     const p = pool.splice(Math.floor(r(s) * pool.length), 1)[0]
     const stores: Record<string, number> = {}
-    for (const city of CITIES) for (const c of city.colonies) stores[c.id] = Math.floor(r(s) * (style === 'premium' ? c.wealth * 1.4 : 2.2))
+    for (const city of CITIES) for (const c of city.colonies) stores[c.id] = Math.floor(r(s) * (style === 'premium' ? c.wealth * 1.4 : style === 'barrio' ? 3 / c.wealth : 2.2))
     return { id: `r${i}`, name: p.name, color: p.color, style, stores, aggression: +(0.6 + r(s) * 0.8).toFixed(2) }
   })
   const funds = Object.fromEntries(FUNDS.map(f => [f.id, { nav: 100, hist: [100], units: 0, invested: 0 }]))
@@ -49,18 +49,18 @@ export function rivalStoresIn (g: GameState | null | undefined, colonyId: string
   return g.market.rivals.reduce((a, x) => a + (x.stores[colonyId] || 0), 0)
 }
 export function effectiveTraffic (g: GameState | null | undefined, cityId: string, colonyId: string) {
-  const base = colonyOf(cityId, colonyId).traffic
+  const base = colonyById(colonyId).colony.traffic; void cityId
   const m = colonyMarket(g, colonyId)
   if (!m) return base
   return base * m.traffic * m.events.reduce((a, e) => a * (1 + e.traffic), 1)
 }
 export function effectiveWealth (g: GameState | null | undefined, cityId: string, colonyId: string) {
-  const base = colonyOf(cityId, colonyId).wealth
+  const base = colonyById(colonyId).colony.wealth; void cityId
   const m = colonyMarket(g, colonyId)
   return m ? base * m.wealth : base
 }
 export function effectiveCompetition (g: GameState | null | undefined, cityId: string, colonyId: string) {
-  const base = colonyOf(cityId, colonyId).competition
+  const base = colonyById(colonyId).colony.competition; void cityId
   if (!g?.market) return base
   const m = g.market.colonies[colonyId]
   return clamp(base * 0.55 + rivalStoresIn(g, colonyId) * 0.07 + (m.war > 0 ? 0.15 : 0), 0.05, 0.92)
@@ -74,22 +74,25 @@ export function weeklyMarketAI (g: GameState, events: GameEvent[], log: (t: stri
   const playerProfit: Record<string, number> = {}
   for (const st of g.stores) playerProfit[st.colonyId] = (playerProfit[st.colonyId] || 0) + st.history.slice(-7).reduce((a, h) => a + h.profit, 0)
   for (const rv of g.market.rivals) {
+    // con más ciudades abiertas, los rivales tienen más hambre de crecer
+    const tries = 1 + Math.floor(g.cities.length / 2)
+    for (let t = 0; t < tries; t++) {
     if (r(g) > 0.55 * rv.aggression) continue
     // cada rival puntúa las colonias con su propia estrategia
     let best = ''; let bestScore = -Infinity
     for (const id of ids) {
-      const c = colonyOf('cdmx', id); const traffic = effectiveTraffic(g, 'cdmx', id); const wealth = effectiveWealth(g, 'cdmx', id)
+      const traffic = effectiveTraffic(g, '', id); const wealth = effectiveWealth(g, '', id)
       const crowd = 1 + rivalStoresIn(g, id) + g.stores.filter(s => s.colonyId === id).length * 0.8
       let score = traffic * (rv.style === 'premium' ? wealth * wealth : wealth) / crowd
       if (rv.style === 'precio') score += Math.max(0, playerProfit[id] || 0) / 2000
       if (rv.style === 'expansion') score *= 1.2
+      if (rv.style === 'barrio') score *= 1.6 / wealth
       score *= 0.8 + r(g) * 0.4
       if ((rv.stores[id] || 0) >= MAX_RIVAL_STORES_PER_COLONY) score = -Infinity
       if (score > bestScore) { bestScore = score; best = id }
-      void c
     }
     if (!best) continue
-    const name = colonyOf('cdmx', best).name
+    const name = colonyById(best).colony.name
     if (rv.style === 'precio' && (playerProfit[best] || 0) > 0 && g.market.colonies[best].war <= 0 && r(g) < 0.5) {
       g.market.colonies[best].war = 14
       log(`⚔️ ${rv.name} lanzó guerra de precios en ${name}: vas a sentir menos clientes 2 semanas`, 'bad')
@@ -97,12 +100,13 @@ export function weeklyMarketAI (g: GameState, events: GameEvent[], log: (t: stri
       rv.stores[best] = (rv.stores[best] || 0) + 1
       log(`🏪 ${rv.name} abrió una tienda en ${name}`, g.stores.some(s => s.colonyId === best) ? 'bad' : 'info')
     }
+    }
   }
   // cierres: si una colonia está saturada, el rival más débil se va
   for (const id of ids) {
-    if (rivalStoresIn(g, id) > 6) {
+    if (rivalStoresIn(g, id) > 12) {
       const rv = g.market.rivals.find(x => (x.stores[id] || 0) > 0)
-      if (rv) { rv.stores[id]--; log(`${rv.name} cerró una tienda en ${colonyOf('cdmx', id).name}`, 'good') }
+      if (rv) { rv.stores[id]--; log(`${rv.name} cerró una tienda en ${colonyById(id).colony.name}`, 'good') }
     }
   }
   void events
@@ -122,7 +126,7 @@ export function dailyMarket (g: GameState, log: (t: string, k: 'info' | 'good' |
   if (r(g) < 1 / 18) {
     const ids = Object.keys(m.colonies); const id = ids[Math.floor(r(g) * ids.length)]
     const ev = MARKET_EVENTS[Math.floor(r(g) * MARKET_EVENTS.length)]
-    const name = colonyOf('cdmx', id).name
+    const name = colonyById(id).colony.name
     if (ev.days >= 9999) { m.colonies[id].traffic = clamp(m.colonies[id].traffic * (1 + ev.traffic), 0.6, 1.6); if (ev.wealth) m.colonies[id].wealth += ev.wealth } else m.colonies[id].events.push({ text: ev.text.replace('{c}', name), traffic: ev.traffic, days: ev.days })
     log(`📰 ${ev.text.replace('{c}', name)}`, ev.traffic >= 0 ? 'good' : 'bad')
   }

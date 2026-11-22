@@ -1,7 +1,7 @@
 // Precios, costos, demanda y capacidad: funciones puras.
 import { CATEGORIES, PRODUCT_CATEGORIES, categoryOf, type CategoryId } from '../data/categories'
 import { formatOf, type FormatId } from '../data/formats'
-import { colonyOf, HOUR_PROFILE } from '../data/cities'
+import { colonyOf, cityOf, HOUR_PROFILE } from '../data/cities'
 import { ECONOMY } from '../data/economy'
 import { VOLUME_DISCOUNT, CEDIS, PRIVATE_LABELS, LABEL_COST_FACTOR, LABEL_LOYALTY } from '../data/logistics'
 import type { Store, CatMap, GameState } from './types'
@@ -20,15 +20,15 @@ export function unitCost (cat: CategoryId) {
   return c.service ? 0 : c.price * (1 - c.margin) * ECONOMY.wholesaleCostMult
 }
 // lo que de verdad pagas por pieza: descuento por volumen, CEDIS y Marca Propia
-export function purchaseFactor (g: GameState | null | undefined, cat: CategoryId) {
+export function purchaseFactor (g: GameState | null | undefined, cat: CategoryId, st?: Store) {
   if (!g) return 1
   let f = 1
   if (g.stores.length >= VOLUME_DISCOUNT.minStores) f *= VOLUME_DISCOUNT.factor
-  if (g.cedis) f *= 1 - CEDIS.savings[g.cedis.level - 1]
+  if (g.cedis && (!st || cityOf(st.cityId).cedisRadius)) f *= 1 - CEDIS.savings[g.cedis.level - 1]
   for (const l of PRIVATE_LABELS) if (l.cat === cat && g.labels.includes(l.id)) f *= LABEL_COST_FACTOR
   return f
 }
-export const purchaseCost = (g: GameState | null | undefined, cat: CategoryId) => unitCost(cat) * purchaseFactor(g, cat)
+export const purchaseCost = (g: GameState | null | undefined, cat: CategoryId, st?: Store) => unitCost(cat) * purchaseFactor(g, cat, st)
 
 // precio de venta con el margen que eligió el jugador
 export function unitPrice (store: Store, cat: CategoryId) {
@@ -64,7 +64,7 @@ export function isOpen (store: Store, hour: number) {
 export function cannibalization (g: GameState | null | undefined, store: Store) {
   if (!g) return 1
   const others = g.stores.filter(s => s.id !== store.id && s.cityId === store.cityId && s.colonyId === store.colonyId).length
-  return Math.max(0.55, 1 - 0.15 * others)
+  return 1 / (1 + 0.18 * others)
 }
 export function labelLoyalty (g: GameState | null | undefined, store: Store) {
   if (!g) return 1

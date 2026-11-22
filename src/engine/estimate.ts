@@ -14,7 +14,7 @@ export interface Estimate {
 export function estimateStore (cityId: string, colonyId: string, formatId: FormatId, g?: GameState | null): Estimate {
   const f = formatOf(formatId)
   const probe: Store = {
-    id: 0, cityId, colonyId, formatId, openedDay: 0, margins: defaultMargins(formatId),
+    id: 0, label: '', cityId, colonyId, formatId, openedDay: 0, margins: defaultMargins(formatId),
     cashiers: Array.from({ length: Math.max(2, Math.ceil(f.maxCashiers * 0.6)) }, (_, i) => ({ id: i, name: '', stars: 2, salary: salaryFor(2) })),
     selfCheckouts: 0, security: 0, cleaning: 0, bonus: false, autoReorder: true,
     inventory: {} as CatMap<number>, orders: [], queue: [], serviceCarry: 0, satisfaction: 70, reputation: 3,

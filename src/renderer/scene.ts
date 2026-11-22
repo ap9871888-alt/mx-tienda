@@ -5,7 +5,7 @@ import {
   drawPerson, drawCashier, drawVehicle, drawJacaranda, drawLamp, drawTrafficLight, drawBusStop, drawVendor,
   randomLook, randomVehicle, dirFrom, vehicleLength, type Look, type Dir, type VehicleLook
 } from './sprites'
-import { daylight, hourOf, isOpen, shelfCapacity } from '../engine'
+import { daylight, hourOf, isOpen, shelfCapacity, dateOfDay, dayOf } from '../engine'
 import { PRODUCT_CATEGORIES } from '../data/categories'
 import { colonyOf, HOUR_PROFILE } from '../data/cities'
 import { ECONOMY } from '../data/economy'
@@ -30,7 +30,7 @@ interface Agent {
   id: number; x: number; y: number; path: P[]; speed: number; look: Look; bag: boolean; phase: number; dir: Dir
   customerId?: number; mode: 'walk' | 'line' | 'inside' | 'leave'; angry?: number; carry?: 'box' | 'dolly' | null; uniform?: boolean; onArrive?: () => void
 }
-interface Car { id: number; lane: number; pos: number; v: VehicleLook; wait: number; parkAt?: number; parked?: number; bus?: boolean }
+interface Car { id: number; lane: number; pos: number; v: VehicleLook; skin?: string; wait: number; parkAt?: number; parked?: number; bus?: boolean }
 interface Bubble { text: string; x: number; y: number; z: number; t: number; kind: 'money' | 'happy' | 'bad' | 'info' }
 
 // --- trazado de la calle ---
@@ -74,6 +74,8 @@ const LOOKS: Record<string, { wall: string; awning: [string, string]; sign: stri
 }
 const RIVAL = { x: 12, y: 1, w: 3, d: 4, h: 1.4 }
 const TREES: P[] = [{ x: 1.2, y: 5.25 }, { x: 5.2, y: 1.6 }, { x: 11.5, y: 5.25 }, { x: 8.8, y: 11.2 }, { x: 2.3, y: 8.78 }, { x: 14.6, y: 8.78 }, { x: 10.6, y: 10.6 }, { x: 12.8, y: 11.4 }, { x: 11.2, y: 13.4 }]
+// objetos sueltos: [sprite, x, y, alto px]
+const PROPS: [string, number, number, number][] = [['bote', 6.6, 5.3, 26], ['banca', 12.4, 8.7, 28], ['hidrante', 2.6, 5.35, 20], ['bici', 7.4, 8.75, 30], ['cono', 13.9, 6.2, 16]]
 const LAMPS: P[] = [{ x: 0.2, y: 5.15 }, { x: 8.85, y: 2.5 }, { x: 13.5, y: 5.15 }, { x: 5.15, y: 12.5 }, { x: 11, y: 8.85 }]
 const LIGHTS: [P, 'A' | 'B'][] = [[{ x: 5.15, y: 5.15 }, 'A'], [{ x: 8.85, y: 5.15 }, 'B'], [{ x: 5.15, y: 8.85 }, 'B'], [{ x: 8.85, y: 8.85 }, 'A']]
 // carriles: eje, coordenada fija, sentido, línea de alto
@@ -99,7 +101,9 @@ export class StreetScene {
     this.ctx = canvas.getContext('2d')!
     this.ro = new ResizeObserver(() => this.resize())
     this.ro.observe(canvas)
-    preload([...SPRITES, ...Array.from({ length: 8 }, (_, i) => `sprites/edificio-${i}-dia.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/cliente-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/repartidor-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/cajero-${i}.webp`)])
+    preload([...SPRITES, ...Array.from({ length: 8 }, (_, i) => `sprites/edificio-${i}-dia.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/cliente-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/repartidor-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/cajero-${i}.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/peaton-${i}.webp`),
+      ...['jacaranda', 'arbol', 'poste-luz', 'semaforo-rojo', 'semaforo-amarillo', 'semaforo-verde', 'parada', 'puesto', 'bote', 'banca', 'hidrante', 'bici', 'cono'].map(n => `sprites/obj-${n}.webp`),
+      ...['taxi', 'vocho', 'sedan-rojo', 'sedan-azul', 'pickup', 'micro', 'metrobus'].flatMap(n => [0, 1, 2, 3].map(i => `sprites/veh-${n}-${i}.webp`))])
     this.resize()
   }
 
@@ -161,7 +165,9 @@ export class StreetScene {
   }
 
   // ---------- actualización ----------
+  private year = 2027
   private update (dt: number, g: GameState | null, store: Store | undefined) {
+    if (g) this.year = dateOfDay(dayOf(g.minute)).getUTCFullYear()
     const sp = this.src.speed()
     const vm = sp === 0 ? 0 : 1 + (sp - 1) * 0.35
     const d = dt * vm
@@ -228,7 +234,13 @@ export class StreetScene {
       const start = L.dir > 0 ? -4 : 18
       if (!this.cars.some(c => c.lane === lane && Math.abs(c.pos - start) < 2.5)) {
         const bus = lane === 1 && this.rnd() < 0.12
-        this.cars.push({ id: this.nextId++, lane, pos: start, v: bus ? { kind: 'bus', color: '#D63B2F' } : randomVehicle(this.rnd), wait: 0, bus, parkAt: bus ? 11.6 : undefined })
+        const v: VehicleLook = bus ? { kind: 'bus', color: '#D63B2F' } : randomVehicle(this.rnd)
+        // antes de 2014 los taxis eran vochos verdes; antes de 2005 no había Metrobús
+        const skin = bus ? (this.year >= 2005 ? 'metrobus' : 'micro')
+          : v.kind === 'taxi' ? (this.year >= 2014 ? 'taxi' : 'vocho-taxi')
+            : v.kind === 'vocho' ? 'vocho' : v.kind === 'car' ? ['sedan-rojo', 'sedan-azul', 'pickup', 'sedan-rojo'][Math.floor(this.rnd() * 4)] : undefined
+        if (skin === 'vocho-taxi') v.color = '#3E9E4A'
+        this.cars.push({ id: this.nextId++, lane, pos: start, v, skin, wait: 0, bus, parkAt: bus ? 11.6 : undefined })
       }
     }
     for (const c of this.cars) {
@@ -358,11 +370,21 @@ export class StreetScene {
     void BUILDINGS
     this.pushStore(items, store, open, day, glows)
     this.pushRival(items, day, glows)
-    for (const t of TREES) items.push({ k: t.x + t.y, f: () => drawJacaranda(ctx, cam, t.x, t.y) })
-    for (const l of LAMPS) items.push({ k: l.x + l.y, f: () => { const p = drawLamp(ctx, cam, l.x, l.y); if (day < 0.6) glows.push({ sx: p.sx, sy: p.sy, r: 46 * cam.zoom, c: '255,214,120' }) } })
-    for (const [p, ax] of LIGHTS) items.push({ k: p.x + p.y, f: () => { const s = drawTrafficLight(ctx, cam, p.x, p.y, this.lightState(ax)); glows.push({ sx: s.sx, sy: s.sy, r: 8 * cam.zoom, c: s.color === '#FF3B30' ? '255,59,48' : s.color === '#34C759' ? '52,199,89' : '255,204,0' }) } })
-    items.push({ k: 11.5 + 8.6, f: () => drawBusStop(ctx, cam, 11, 8.55) })
-    items.push({ k: 9.6 + 9.6, f: () => drawVendor(ctx, cam, 9.3, 9.3, this.t) })
+    TREES.forEach((t, i) => items.push({ k: t.x + t.y, f: () => { if (!this.prop(i % 3 === 2 ? 'arbol' : 'jacaranda', t.x, t.y, i % 3 === 2 ? 96 : 112)) drawJacaranda(ctx, cam, t.x, t.y) } }))
+    for (const l of LAMPS) items.push({ k: l.x + l.y, f: () => {
+      const z = cam.zoom; const q = toScreen(cam, l.x, l.y)
+      const p = this.prop('poste-luz', l.x, l.y, 92) ? { sx: q.sx, sy: q.sy - 86 * z } : drawLamp(ctx, cam, l.x, l.y)
+      if (day < 0.6) glows.push({ sx: p.sx, sy: p.sy, r: 46 * z, c: '255,214,120' })
+    } })
+    for (const [p, ax] of LIGHTS) items.push({ k: p.x + p.y, f: () => {
+      const st = this.lightState(ax); const z = cam.zoom; const q = toScreen(cam, p.x, p.y)
+      const name = st === 'green' ? 'semaforo-verde' : st === 'yellow' ? 'semaforo-amarillo' : 'semaforo-rojo'
+      const sp = this.prop(name, p.x, p.y, 66) ? { sx: q.sx, sy: q.sy - 56 * z, color: st === 'green' ? '#34C759' : st === 'yellow' ? '#FFCC00' : '#FF3B30' } : drawTrafficLight(ctx, cam, p.x, p.y, st)
+      glows.push({ sx: sp.sx, sy: sp.sy, r: 8 * z, c: sp.color === '#FF3B30' ? '255,59,48' : sp.color === '#34C759' ? '52,199,89' : '255,204,0' })
+    } })
+    items.push({ k: 11.5 + 8.6, f: () => { if (!this.prop('parada', 11, 8.55, 70)) drawBusStop(ctx, cam, 11, 8.55) } })
+    items.push({ k: 9.6 + 9.6, f: () => { if (!this.prop('puesto', 9.3, 9.3, 64)) drawVendor(ctx, cam, 9.3, 9.3, this.t) } })
+    for (const [n, x, y, h] of PROPS) items.push({ k: x + y, f: () => { this.prop(n, x, y, h) } })
     for (const c of this.cars) {
       const L = LANES[c.lane]; const x = L.axis === 'x' ? c.pos : L.fixed; const y = L.axis === 'x' ? L.fixed : c.pos
       items.push({ k: x + y, f: () => { if (!this.drawVehicleSprite(c, x, y, L.axis, L.dir)) drawVehicle(ctx, cam, x, y, L.axis, c.v, day < 0.5); if (day < 0.5) { const s = toScreen(cam, x, y, 6); glows.push({ sx: s.sx, sy: s.sy, r: 18 * cam.zoom, c: '255,240,180' }) } } })
@@ -436,7 +458,8 @@ export class StreetScene {
       ctx.save(); ctx.translate(sx, sy); if (flip) ctx.scale(-1, 1); ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore()
       return true
     }
-    const sheet = sprite(`sprites/cliente-${a.id % 6}.webp`)
+    // con bolsa: cliente que ya compró; sin bolsa: peatón
+    const sheet = (!a.bag && a.customerId == null && sprite(`sprites/peaton-${a.id % 6}.webp`)) || sprite(`sprites/cliente-${a.id % 6}.webp`)
     if (!sheet) return false
     const cw = sheet.width / 6; const ch = sheet.height / 4
     const row = a.dir === 'SE' || a.dir === 'SW' ? 0 : 2
@@ -451,7 +474,31 @@ export class StreetScene {
     if (a.angry) { ctx.font = `${14 * z}px system-ui`; ctx.fillText('😤', sx - 7 * z, sy - 44 * z) }
     return true
   }
+  // objeto de calle anclado por la base; alto en px a zoom 1
+  private prop (name: string, x: number, y: number, hPx: number) {
+    const img = sprite(`sprites/obj-${name}.webp`)
+    if (!img) return false
+    const z = this.cam.zoom; const p = toScreen(this.cam, x, y)
+    const h = hPx * z; const w = h * img.width / img.height
+    this.ctx.drawImage(img, p.sx - w / 2, p.sy - h + 2 * z, w, h)
+    return true
+  }
   private drawVehicleSprite (c: Car, x: number, y: number, axis: 'x' | 'y', dir: number) {
+    if (c.skin) {
+      const sk = c.skin === 'vocho-taxi' ? 'vocho' : c.skin
+      // columnas de la lámina: 0 SE (+x), 1 SW (+y), 2 NE (−y), 3 NW (−x)
+      const col = axis === 'x' ? (dir > 0 ? 0 : 3) : (dir > 0 ? 1 : 2)
+      const img = sprite(`sprites/veh-${sk}-${col}.webp`)
+      if (img) {
+        const z = this.cam.zoom; const p = toScreen(this.cam, x, y)
+        const width = (sk === 'metrobus' ? 2.5 : sk === 'micro' ? 2 : sk === 'pickup' ? 1.35 : sk === 'vocho' ? 1.05 : 1.2) * TW * z
+        const h = width * img.height / img.width
+        if (c.skin === 'vocho-taxi') this.ctx.filter = 'hue-rotate(95deg) saturate(1.3)'
+        this.ctx.drawImage(img, p.sx - width / 2, p.sy - h * 0.72, width, h)
+        this.ctx.filter = 'none'
+        return true
+      }
+    }
     const kind = c.v.kind
     const name = kind === 'van' ? (c.v.color === '#1B4D8F' ? 'camion-0' : 'camioneta-0') : kind === 'moto' ? 'moto-0' : ''
     if (!name) return false

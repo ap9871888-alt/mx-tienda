@@ -1,5 +1,5 @@
 // Datos de la IA de mercado y del fondo de inversión. Nombres ficticios.
-export type RivalStyle = 'precio' | 'expansion' | 'premium'
+export type RivalStyle = 'precio' | 'expansion' | 'premium' | 'barrio'
 export const RIVAL_POOL: { name: string; color: string }[] = [
   { name: 'Super Esquina', color: '#E35D2F' },
   { name: 'Abarrotes La Lupita', color: '#7A5BA6' },
@@ -11,9 +11,10 @@ export const RIVAL_POOL: { name: string; color: string }[] = [
 export const RIVAL_STYLES: Record<RivalStyle, { label: string; desc: string }> = {
   precio: { label: 'Guerra de precios', desc: 'Baja precios donde te ve ganar' },
   expansion: { label: 'Expansión rápida', desc: 'Abre tiendas donde hay hueco' },
-  premium: { label: 'Premium', desc: 'Busca colonias de alto poder adquisitivo' }
+  premium: { label: 'Premium', desc: 'Busca colonias de alto poder adquisitivo' },
+  barrio: { label: 'Changarros de barrio', desc: 'Llena las colonias populares de tienditas' }
 }
-export const MAX_RIVAL_STORES_PER_COLONY = 4
+export const MAX_RIVAL_STORES_PER_COLONY = 9
 
 // eventos de mercado que la IA puede lanzar en una colonia
 export const MARKET_EVENTS = [
