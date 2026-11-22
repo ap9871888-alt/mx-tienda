@@ -1,9 +1,10 @@
-import { START_YEARS } from '../data/eras'
-import { useEffect, useState } from 'react'
+import { Portada } from './screens/Portada'
+import { GuiaButton } from './Guia'
+import { useEffect } from 'react'
 import { Footprints, Map, Store, Truck, Building2, Pause, Play, FastForward, ChevronsRight } from 'lucide-react'
 import { useApp, startLoop, fmt, type Tab, type Speed, setPriceLevel } from '../state/store'
 import * as E from '../engine'
-import { Toast, Btn } from './components/kit'
+import { Toast } from './components/kit'
 import { CalleViva } from './screens/CalleViva'
 import { Mapa } from './screens/Mapa'
 import { Tienda } from './screens/Tienda'
@@ -21,9 +22,10 @@ function TopBar () {
   const d = E.dateLabel(E.dayOf(game.minute))
   const { tags } = E.dayMultiplier(E.dayOf(game.minute))
   return (
-    <header className='sticky top-0 z-30 bg-rojo text-white pt-[calc(8px+env(safe-area-inset-top))] pb-2 px-3 flex flex-col gap-1.5 shadow-md'>
+    <header style={{ background: game.profile?.color ?? '#D63B2F' }} className='sticky top-0 z-30 text-white pt-[calc(8px+env(safe-area-inset-top))] pb-2 px-3 flex flex-col gap-1.5 shadow-md'>
       <div className='flex items-center gap-2'>
-        <button onClick={() => useApp.getState().setTab('banco')} aria-label='Abrir banco' className={`num font-bold text-[17px] px-3 py-1 rounded-full border-[1.5px] border-oferta whitespace-nowrap min-w-[150px] text-center ${game.cash < 0 ? 'bg-urbano' : 'bg-black/15'}`}>{fmt(game.cash)}<small className='text-[11px] opacity-80 ml-1'>MXN</small></button>
+        <GuiaButton />
+        <button onClick={() => useApp.getState().setTab('banco')} aria-label='Abrir banco' className={`num font-bold text-[17px] px-3 py-1 rounded-full border-[1.5px] border-oferta whitespace-nowrap min-w-[118px] text-center ${game.cash < 0 ? 'bg-urbano' : 'bg-black/15'}`}>{fmt(game.cash)}<small className='text-[11px] opacity-80 ml-1'>MXN</small></button>
         <div className='flex-1 min-w-0 text-right leading-tight h-[30px] overflow-hidden'>
           <div className='text-[12px] font-semibold num whitespace-nowrap'>{d.date.replace(/ \d{4}$/, '')} · {E.clockLabel(game.minute)}</div>
           <div className='text-[11px] opacity-85 truncate'>{d.weekday}{tags.length ? ` · ${tags.join(' · ')}` : ''}</div>
@@ -42,41 +44,13 @@ function TopBar () {
   )
 }
 
-function Intro () {
-  const [name, setName] = useState('Tienda MX Inc.')
-  const [year, setYear] = useState(2027)
-  return (
-    <div className='min-h-full max-w-[560px] mx-auto px-5 py-8 flex flex-col justify-center gap-5'>
-      <div className='rounded-3xl bg-white border border-borde shadow-card p-5 flex flex-col gap-2'>
-        <div className='flex gap-1.5'>{['#D63B2F', '#F2B705', '#1B4D8F', '#2E7D5B', '#2B2D33'].map(c => <span key={c} className='h-2 flex-1 rounded-full' style={{ background: c }} />)}</div>
-        <h1 className='font-display text-[42px] leading-[.95] uppercase mt-2'>Tienda <span className='text-rojo'>MX</span> Inc.</h1>
-        <p className='text-[16px]'>Del changarro al holding. Abre una tiendita de esquina en la Ciudad de México, cuida tu fila en caja, tus precios y tu anaquel, y crece hasta la Bolsa.</p>
-      </div>
-      <ul className='text-sm text-tenue flex flex-col gap-1 px-1'>
-        <li>• Arrancas con <b className='text-urbano'>$500,000 MXN de hoy</b> (ajustados a los precios de tu época).</li>
-        <li>• 1 día de juego dura 1 minuto a velocidad 1x.</li>
-        <li>• Cada persona que ves en la calle es un cliente real de la simulación.</li>
-      </ul>
-      <label className='flex flex-col gap-1.5'><span className='text-[11px] uppercase tracking-wider text-tenue font-semibold'>Nombre de tu empresa</span>
-        <input value={name} maxLength={40} onChange={e => setName(e.target.value)} className='bg-white border border-borde rounded-xl px-3 py-2.5 min-h-[44px]' /></label>
-      <div className='flex flex-col gap-1.5'><span className='text-[11px] uppercase tracking-wider text-tenue font-semibold'>Año de fundación</span>
-        <div className='grid grid-cols-2 gap-2'>
-          {START_YEARS.map(y => (
-            <button key={y.year} onClick={() => setYear(y.year)} className={`text-left rounded-xl border p-2.5 min-h-[44px] ${year === y.year ? 'border-corp bg-corp/10' : 'border-borde bg-white'}`}>
-              <b className='block text-sm'>{y.title}</b><span className='text-[11.5px] text-tenue leading-tight block'>{y.desc}</span>
-            </button>))}
-        </div></div>
-      <Btn onClick={() => useApp.getState().newGame(name.trim() || 'Tienda MX Inc.', year)}>Fundar empresa en {year}</Btn>
-    </div>
-  )
-}
-
 export function App () {
   const hasGame = useApp(s => !!s.game)
   useApp(s => s.rev)
   const g = useApp.getState().game
   if (g) { E.setEpoch(g.startYear ?? 2027); setPriceLevel(E.priceLevel(g)) }
   const tab = useApp(s => s.tab)
+  const title = useApp(s => s.title)
   useEffect(() => { startLoop() }, [])
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -85,7 +59,7 @@ export function App () {
     }
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k)
   }, [])
-  if (!hasGame) return <><Intro /><Toast /></>
+  if (!hasGame || title) return <><Portada /><Toast /></>
   const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco }[tab]
   return (
     <div className='max-w-[620px] mx-auto min-h-full flex flex-col'>

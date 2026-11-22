@@ -1,3 +1,5 @@
+import { sfx } from '../ui/sound'
+import type { CompanyProfile } from '../engine/types'
 // Estado de la app con Zustand. La partida es un objeto mutable que el motor avanza en el bucle;
 // `rev` avisa a React que redibuje unas veces por segundo.
 import { create } from 'zustand'
@@ -17,12 +19,16 @@ interface AppState {
   tab: Tab
   storeId: number | null
   toast: { text: string; bad: boolean; id: number } | null
-  newGame: (company: string, year: number) => void
+  newGame: (company: string, year: number, profile?: CompanyProfile) => void
   setSpeed: (s: Speed) => void
   setTab: (t: Tab) => void
   selectStore: (id: number | null) => void
   run: <T>(fn: (g: GameState) => Result<T>) => Result<T> | null
   say: (text: string, bad?: boolean) => void
+  title: boolean
+  setTitle: (v: boolean) => void
+  mapFocus: string | null
+  focusColony: (id: string) => void
   importGame: (text: string) => boolean
   reset: () => void
 }
@@ -43,18 +49,23 @@ if (typeof window !== 'undefined') {
 
 export const useApp = create<AppState>()(persist((set, get) => ({
   game: null, rev: 0, speed: 1, tab: 'calle', storeId: null, toast: null,
-  newGame: (company, year) => {
+  newGame: (company, year, profile) => {
     const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0
-    set({ game: E.newGame(seed, company, year), storeId: null, tab: 'mapa', speed: 1, rev: 0 })
+    set({ game: E.newGame(seed, company, year, profile), storeId: null, tab: 'mapa', speed: 1, rev: 0, title: false })
   },
   setSpeed: speed => set({ speed }),
-  setTab: tab => set({ tab }),
+  setTab: tab => { sfx.tab(); set({ tab, title: false }) },
+  title: true,
+  setTitle: v => set({ title: v }),
+  mapFocus: null,
+  focusColony: id => { sfx.tab(); set({ mapFocus: id, tab: 'mapa' }) },
   selectStore: storeId => set({ storeId }),
   run: fn => {
     const g = get().game
     if (!g) return null
     const r = fn(g)
     if (r.msg) get().say(r.msg, !r.ok)
+    if (r.ok && r.msg) sfx.good(); else if (!r.ok) sfx.error()
     set({ game: g, rev: get().rev + 1 })
     return r
   },
@@ -95,9 +106,11 @@ export function startLoop () {
   const tick = (now: number) => {
     const dt = Math.min(0.25, (now - last) / 1000); last = now
     const st = useApp.getState()
-    if (st.game && st.speed > 0) {
+    if (st.game && st.speed > 0 && !st.title) {
       const events = E.advance(st.game, dt * st.speed * ECONOMY.gameMinutesPerRealSecond)
       bus.emit(events)
+      if (st.tab === 'calle' && !st.title && events.some(e => e.type === 'sale' && e.storeId === st.storeId)) sfx.coin()
+      if (events.some(e => e.type === 'dayEnd')) sfx.cash()
       uiAcc += dt
       if ((uiAcc > 0.4 && !touching) || events.some(e => e.type === 'dayEnd')) { uiAcc = 0; useApp.setState({ game: st.game, rev: st.rev + 1 }) }
     }

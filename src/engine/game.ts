@@ -14,7 +14,7 @@ import { HISTORIC_EVENTS } from '../data/eras'
 import {
   defaultMargins, unitCost, unitPrice, priceFactor, arrivalsPerHour, serviceRate, shelfCapacity, salaryFor, monthlyRent, priceIndex, purchaseCost
 } from './pricing'
-import type { GameState, Store, Result, GameEvent, DayStats, DayReport, Candidate, BasketLine, CatMap, LogEntry } from './types'
+import type { CompanyProfile, GameState, Store, Result, GameEvent, DayStats, DayReport, Candidate, BasketLine, CatMap, LogEntry } from './types'
 
 export const SAVE_VERSION = 6
 const STREETS = ['Av. Insurgentes', 'Calle Morelos', 'Av. Juárez', 'Calle Hidalgo', 'Av. Revolución', 'Calle Allende', 'Av. Universidad', 'Calle Zaragoza', 'Calle Madero', 'Av. Reforma', 'Calle Guerrero', 'Av. Cuauhtémoc']
@@ -23,15 +23,21 @@ const fail = (msg: string): Result<never> => ({ ok: false, msg })
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
 // ---------- partida ----------
-export function newGame (seed: number, company = 'Tienda MX Inc.', startYear = 2027): GameState {
+export const DIFFICULTY = {
+  facil: { cash: 1.6, rivals: 0.6, label: 'Tranquilo', desc: 'Más dinero inicial y rivales calmados. Ideal para aprender.' },
+  normal: { cash: 1, rivals: 1, label: 'Normal', desc: 'La experiencia de un emprendedor real.' },
+  dificil: { cash: 0.6, rivals: 1.4, label: 'Tiburón', desc: 'Poco capital y rivales agresivos.' }
+}
+export function newGame (seed: number, company = 'Tienda MX Inc.', startYear = 2027, profile?: CompanyProfile): GameState {
   setEpoch(startYear)
   const s: GameState = {
     version: SAVE_VERSION, seed: seed >>> 0, rng: seed >>> 0, company, startYear, cities: ['cdmx'],
-    minute: 6 * 60 + 30, carry: 0, cash: ECONOMY.startCash, loan: 0,
+    minute: 6 * 60 + 30, carry: 0, cash: ECONOMY.startCash * DIFFICULTY[profile?.difficulty ?? 'normal'].cash, loan: 0, profile, here: 'cdmx', trip: null, tutorial: 0,
     stores: [], candidates: [], nextId: 1, log: [], reports: [], todayFees: 0, cedis: null, labels: [], tripsToday: 0,
     market: null as unknown as GameState['market']
   }
   s.market = generateMarket(s)
+  for (const r of s.market.rivals) r.aggression = +(r.aggression * DIFFICULTY[profile?.difficulty ?? 'normal'].rivals).toFixed(2)
   refreshCandidates(s)
   log(s, `¡Bienvenido a ${company}! Abre tu tienda piloto en la Ciudad de México.`, 'info')
   return s
@@ -58,10 +64,32 @@ export const ownIn = (s: GameState, colonyId: string) => s.stores.filter(x => x.
 
 // ---------- ciudades ----------
 export const canExpand = (s: GameState) => s.stores.length >= 4
+// ---------- viajes: para abrir o administrar otra ciudad tienes que ir ----------
+export function tripQuote (s: GameState, to: string) {
+  const a = cityOf(s.here ?? 'cdmx'); const b = cityOf(to)
+  const km = Math.round(Math.hypot((a.nx - b.nx) * 1.49, a.ny - b.ny) * 23)
+  return { km, bus: { hours: Math.max(2, Math.round(km / 75)), cost: Math.round(200 + km * 1.1) }, avion: { hours: Math.round(2.5 + km / 700), cost: Math.round(2200 + km * 2.2) } }
+}
+export function travel (s: GameState, to: string, mode: 'bus' | 'avion'): Result {
+  if (s.trip) return fail('Ya vas en camino')
+  if ((s.here ?? 'cdmx') === to) return fail('Ya estás aquí')
+  const q = tripQuote(s, to)[mode]
+  if (s.cash < q.cost) return fail('No alcanza para el boleto')
+  s.cash -= q.cost
+  s.trip = { to, arrive: s.minute + q.hours * 60, mode }
+  log(s, `${mode === 'avion' ? '✈️ Vuelo' : '🚌 Autobús'} a ${cityOf(to).name}: llegas en ${q.hours} h`, 'info')
+  return ok(`Buen viaje: llegas en ${q.hours} horas`)
+}
+export function updateTrip (s: GameState) {
+  if (s.trip && s.minute >= s.trip.arrive) {
+    s.here = s.trip.to; log(s, `📍 Llegaste a ${cityOf(s.trip.to).name}`, 'good'); s.trip = null
+  }
+}
 export function unlockCity (s: GameState, cityId: string): Result {
   const c = cityOf(cityId)
   if (s.cities.includes(cityId)) return fail('Ya operas en esa ciudad')
   if (!canExpand(s)) return fail('Primero llega a Clúster Urbano: 4 tiendas en la CDMX')
+  if ((s.here ?? 'cdmx') !== cityId) return fail(`Primero viaja a ${c.name} para conocer la plaza`)
   if (s.cash < c.unlock) return fail('No alcanza el efectivo')
   s.cash -= c.unlock; s.cities.push(cityId)
   log(s, `🗺️ Expansión: ya puedes abrir tiendas en ${c.name}`, 'good')
@@ -107,6 +135,7 @@ export function canOpen (s: GameState, cityId: string, colonyId: string, formatI
   if (!fa.ok) return fa
   if (!s.cities.includes(cityId)) return fail(`Primero desbloquea ${cityOf(cityId).name} en el mapa nacional`)
   if (ownIn(s, colonyId) >= colonyOf(cityId, colonyId).slots) return fail('Ya no hay locales disponibles en esta colonia')
+  if ((s.here ?? 'cdmx') !== cityId) return fail(`Estás en ${cityOf(s.here ?? 'cdmx').name}: viaja a ${cityOf(cityId).name} para abrir ahí`)
   const cost = openingCost(cityId, colonyId, formatId)
   if (s.cash < cost) return fail('No alcanza el efectivo')
   return ok()
@@ -358,7 +387,7 @@ function stepMinute (s: GameState, events: GameEvent[]) {
     const canServe = st.cashiers.length + st.selfCheckouts > 0
     // llegadas
     if (canServe) {
-      const n = poisson(s, arrivalsPerHour(st, hour, mult * historicMultiplier(date, st.cityId), s) / 60)
+      const n = poisson(s, arrivalsPerHour(st, hour, mult * historicMultiplier(date, st.cityId) * (s.profile?.perk === 'ventas' ? 1.1 : 1), s) / 60)
       for (let i = 0; i < n; i++) {
         const basket = makeBasket(s, st)
         if (!basket.length) continue
@@ -478,6 +507,7 @@ export function advance (s: GameState, minutes: number, events: GameEvent[] = []
   s.carry -= n
   n = Math.min(n, 3 * MIN_PER_DAY) // tope de seguridad
   for (let i = 0; i < n; i++) stepMinute(s, events)
+  updateTrip(s)
   return events
 }
 

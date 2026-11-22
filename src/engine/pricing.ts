@@ -26,6 +26,7 @@ export function purchaseFactor (g: GameState | null | undefined, cat: CategoryId
   if (g.stores.length >= VOLUME_DISCOUNT.minStores) f *= VOLUME_DISCOUNT.factor
   if (g.cedis && (!st || cityOf(st.cityId).cedisRadius)) f *= 1 - CEDIS.savings[g.cedis.level - 1]
   for (const l of PRIVATE_LABELS) if (l.cat === cat && g.labels.includes(l.id)) f *= LABEL_COST_FACTOR
+  if (g.profile?.perk === 'logistica') f *= 0.95
   return f
 }
 export const purchaseCost = (g: GameState | null | undefined, cat: CategoryId, st?: Store) => unitCost(cat) * purchaseFactor(g, cat, st)

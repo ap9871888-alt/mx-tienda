@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MapPin } from 'lucide-react'
-import { CITIES, HOUR_PROFILE, cityOf, type City } from '../../data/cities'
+import { CITIES, HOUR_PROFILE, cityOf, colonyById, type City } from '../../data/cities'
 import { FORMATS, formatOf, type FormatId } from '../../data/formats'
 import { RIVAL_STYLES } from '../../data/market'
 import * as E from '../../engine'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
+import { sfx } from '../sound'
 import { Card, Btn, Pill, Modal, Kpi, BarChart, Icon, AnalystCard } from '../components/kit'
 
 // qué colonia hay en un punto del mapa (usa la máscara de colores de tu lámina)
@@ -26,6 +27,14 @@ export function Mapa () {
   const [selBy, setSelBy] = useState<Record<string, string>>({ cdmx: 'roma' })
   const sel = selBy[cityId] ?? CITY.colonies[0].id
   const setSel = (id: string) => setSelBy(m => ({ ...m, [cityId]: id }))
+  // al llegar desde un letrero de SE RENTA, abre directo esa colonia
+  const focus = useApp(s => s.mapFocus)
+  useEffect(() => {
+    if (!focus) return
+    const c = colonyById(focus).city.id
+    setCityId(c); setNational(false); setSelBy(m => ({ ...m, [c]: focus })); useApp.setState({ mapFocus: null })
+  }, [focus])
+  const here = game.here ?? 'cdmx'
   const [confirm, setConfirm] = useState<FormatId | null>(null)
   const col = CITY.colonies.find(c => c.id === sel) ?? CITY.colonies[0]
   const used = E.ownIn(game, col.id)
@@ -62,8 +71,10 @@ export function Mapa () {
         <button onClick={() => setNational(true)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-sm font-semibold border ${national ? 'bg-corp text-white border-corp' : 'bg-white border-borde'}`}>🇲🇽 México</button>
         {CITIES.filter(c => game.cities.includes(c.id)).map(c => (
           <button key={c.id} onClick={() => { setCityId(c.id); setNational(false) }} className={`shrink-0 px-3 min-h-[36px] rounded-full text-sm font-semibold border ${!national && c.id === cityId ? 'bg-corp text-white border-corp' : 'bg-white border-borde'}`}>
-            {c.name} <span className='opacity-70'>· {game.stores.filter(s => s.cityId === c.id).length}</span></button>))}
+            {c.id === here ? '📍 ' : ''}{c.name} <span className='opacity-70'>· {game.stores.filter(s => s.cityId === c.id).length}</span></button>))}
       </div>
+      {game.trip && <div className='rounded-xl bg-corp text-white px-3 py-2 text-sm font-semibold flex items-center gap-2'>{game.trip.mode === 'avion' ? '✈️' : '🚌'} En camino a {cityOf(game.trip.to).name} · llegas en {Math.max(0, Math.ceil((game.trip.arrive - game.minute) / 60))} h</div>}
+      {!national && cityId !== here && !game.trip && <Travel to={cityId} />}
       {national ? <Nacional onCity={id => { if (game.cities.includes(id)) { setCityId(id); setNational(false) } else setUnlock(id) }} /> : <>
       <div className='flex items-baseline justify-between'><h1 className='font-display text-2xl uppercase'>{CITY.name}</h1><span className='text-xs text-tenue'>{CITY.map ? 'Toca una colonia' : 'Elige una zona'}</span></div>
       {CITY.map ? <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#EDE8DC] aspect-square select-none' onClick={onMap} role='img' aria-label='Mapa de la Ciudad de México con colonias, tráfico y tiendas'>
@@ -218,8 +229,24 @@ function UnlockModal ({ id, onClose, onDone }: { id: string; onClose: () => void
   return (
     <Modal title={`Expandirte a ${c.name}`} onClose={onClose}>
       <p className='text-sm'>Permisos, estudio de mercado y bodega regional en {c.state}. Después abres tiendas en sus {c.colonies.length} zonas.</p>
+      {(game.here ?? 'cdmx') !== id && (game.trip ? <p className='text-sm font-semibold'>Vas en camino…</p> : <><p className='text-sm font-semibold'>Primero tienes que ir a {c.name} a conocer la plaza:</p><Travel to={id} /></>)}
       {!c.cedisRadius && <p className='text-xs text-tenue'>Tu CEDIS del Valle de México no llega hasta aquí: compras al mayorista local sin el descuento del CEDIS.</p>}
-      <Btn onClick={go} disabled={!can || game.cash < c.unlock}>{!can ? 'Necesitas 4 tiendas' : game.cash < c.unlock ? 'No alcanza el efectivo' : `Desbloquear por ${fmt(c.unlock)}`}</Btn>
+      <Btn onClick={go} disabled={!can || game.cash < c.unlock || (game.here ?? 'cdmx') !== id}>{!can ? 'Necesitas 4 tiendas' : (game.here ?? 'cdmx') !== id ? 'Viaja primero' : game.cash < c.unlock ? 'No alcanza el efectivo' : `Desbloquear por ${fmt(c.unlock)}`}</Btn>
     </Modal>
+  )
+}
+
+function Travel ({ to }: { to: string }) {
+  const game = useApp(s => s.game)!
+  const q = E.tripQuote(game, to)
+  const go = (m: 'bus' | 'avion') => { const r = useApp.getState().run(g => E.travel(g, to, m)); if (r?.ok) sfx.travel() }
+  return (
+    <div className='rounded-xl border border-borde bg-white p-3 flex flex-col gap-2'>
+      <span className='text-sm'>Estás en <b>{cityOf(game.here ?? 'cdmx').name}</b>. {cityOf(to).name} está a {q.km.toLocaleString('es-MX')} km. Para abrir tiendas ahí tienes que viajar:</span>
+      <div className='grid grid-cols-2 gap-2'>
+        <button onClick={() => go('bus')} className='rounded-xl border border-borde bg-arena p-2.5 text-left min-h-[56px]'><b className='block'>🚌 Autobús</b><span className='text-xs text-tenue num'>{q.bus.hours} h · {fmt(q.bus.cost)}</span></button>
+        <button onClick={() => go('avion')} className='rounded-xl border border-corp bg-corp text-white p-2.5 text-left min-h-[56px]'><b className='block'>✈️ Avión</b><span className='text-xs opacity-85 num'>{q.avion.hours} h · {fmt(q.avion.cost)}</span></button>
+      </div>
+    </div>
   )
 }

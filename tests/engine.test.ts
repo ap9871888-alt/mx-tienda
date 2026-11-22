@@ -241,12 +241,22 @@ describe('Épocas, ciudades y muchas tiendas', () => {
     const g = E.newGame(3); g.cash = 1e9
     expect(E.unlockCity(g, 'mty').ok).toBe(false)
     for (const c of ['roma', 'polanco', 'coyoacan', 'iztapalapa']) E.openStore(g, 'cdmx', c, 'tiendita')
+    expect(E.unlockCity(g, 'mty').ok).toBe(false) // hay que viajar primero
+    expect(E.travel(g, 'mty', 'avion').ok).toBe(true)
+    E.advance(g, 60 * 8)
+    expect(g.here).toBe('mty')
     expect(E.unlockCity(g, 'mty').ok).toBe(true)
     const m = E.openStore(g, 'mty', 'sanpedro', 'tiendita').data!
     E.buildCedis(g)
     const local = g.stores[0]
     expect(E.purchaseFactor(g, 'abarrotes', local)).toBeLessThan(E.purchaseFactor(g, 'abarrotes', m))
     expect(E.orderQuote(m, g).via).toBe('mayorista')
+  })
+  it('dificultad y perfil del fundador cambian el arranque', () => {
+    const f = E.newGame(5, 'A', 2027, { icon: 'carrito', color: '#D63B2F', founder: 'm', perk: 'ventas', difficulty: 'facil' })
+    const d = E.newGame(5, 'A', 2027, { icon: 'carrito', color: '#D63B2F', founder: 'h', perk: 'logistica', difficulty: 'dificil' })
+    expect(f.cash).toBeGreaterThan(d.cash)
+    expect(E.purchaseFactor(d, 'abarrotes')).toBeLessThan(E.purchaseFactor(f, 'abarrotes'))
   })
   it('con varias ciudades abiertas los rivales crecen a decenas de tiendas', () => {
     const g = E.newGame(4); g.cash = 1e9; g.cities = ['cdmx', 'pue', 'gdl', 'mty']

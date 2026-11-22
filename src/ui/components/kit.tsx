@@ -1,3 +1,4 @@
+import { sfx } from '../sound'
 // Piezas de interfaz compartidas: tarjetas, KPIs, botones, gráficas y modal.
 import { type ReactNode, useEffect } from 'react'
 import { X } from 'lucide-react'
@@ -26,7 +27,7 @@ type BtnKind = 'primary' | 'ghost' | 'blue' | 'green' | 'gold'
 export function Btn ({ children, onClick, kind = 'primary', disabled, small, className = '', title }: { children: ReactNode; onClick?: () => void; kind?: BtnKind; disabled?: boolean; small?: boolean; className?: string; title?: string }) {
   const k = { primary: 'bg-rojo text-white', ghost: 'bg-arena text-urbano border border-borde', blue: 'bg-corp text-white', green: 'bg-ahorro text-white', gold: 'bg-oferta text-urbano' }[kind]
   return (
-    <button title={title} onClick={onClick} disabled={disabled}
+    <button title={title} onClick={() => { sfx.click(); onClick?.() }} disabled={disabled}
       className={`${k} ${small ? 'px-3 py-1.5 text-[13px] min-h-[34px]' : 'px-4 py-2.5 min-h-[42px]'} rounded-xl font-semibold inline-flex items-center justify-center gap-1.5 transition-colors active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed select-none ${className}`}>
       {children}
     </button>

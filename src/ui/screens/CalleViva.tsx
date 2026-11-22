@@ -105,9 +105,12 @@ function Colonia ({ onStreet }: { onStreet: () => void }) {
   let i = 0
   const put = (l: Omit<Lot, 'x' | 'y'>) => { if (i < items.length) Object.assign(items[i++], l) }
   put({ ed: `city/ed-banco-${tod}.webp`, pin: 'banco', label: 'Banco', go: () => useApp.getState().setTab('banco') })
+  const officeCol = ['', 'roma', 'polanco', 'santafe'][game.office ?? 0]
+  if (officeCol === colony.id) put({ ed: `city/ed-${(game.office ?? 0) >= 3 ? 'torre' : 'oficinas'}-${tod}.webp`, pin: 'oficina', label: 'Tu sede', go: () => useApp.getState().setTab('banco') })
+  if (game.cedis && colony.id === 'iztapalapa') put({ ed: `city/ed-mercado-${tod}.webp`, pin: 'cedis', label: 'Tu CEDIS', go: () => useApp.getState().setTab('logistica') })
   for (const s of mine) put({ ed: `sprites/tienda-${s.formatId}-${E.isOpen(s, E.hourOf(game.minute)) ? (night ? 'noche' : 'dia') : 'cerrada'}.webp`, pin: 'tienda', label: E.storeShort(s), go: () => { useApp.getState().selectStore(s.id); onStreet() } })
   for (const r of rivals.slice(0, Math.max(0, items.length - i - 2))) put({ ed: `city/ed-plaza-${tod}.webp`, pin: 'rival', label: r.name, go: () => useApp.getState().say(`${r.name}: ${r.style === 'precio' ? 'baja precios donde ganas' : r.style === 'premium' ? 'busca clientes con dinero' : r.style === 'barrio' ? 'tienditas de barrio' : 'abre por todos lados'}`) })
-  for (let k = 0; k < free && i < items.length; k++) put({ pin: 'renta', label: 'Se renta', go: () => useApp.getState().setTab('mapa') })
+  for (let k = 0; k < free && i < items.length; k++) put({ pin: 'renta', label: 'Se renta', go: () => useApp.getState().focusColony(colony.id) })
   let d = 0
   while (i < items.length) put({ ed: `city/ed-${DECOR[(d++ + colony.id.length) % DECOR.length]}-${tod}.webp` })
   const coloniesHere = [...new Set([colId, ...game.stores.map(s => s.colonyId)])]

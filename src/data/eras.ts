@@ -36,5 +36,6 @@ export const START_YEARS: { year: number; title: string; desc: string }[] = [
   { year: 2008, title: '2008 · Crisis mundial', desc: 'Empiezas justo antes de la crisis y la influenza.' },
   { year: 2015, title: '2015 · Expansión', desc: 'Hard discount, autocobro y taxis rosas. Mercado competido.' },
   { year: 2019, title: '2019 · Antes de la pandemia', desc: 'Prepárate para 2020: ¿sobrevivirás al confinamiento?' },
-  { year: 2027, title: '2027 · Hoy', desc: 'Mercado maduro, rivales fuertes y todas las tecnologías.' }
+  { year: 2027, title: '2027 · Hoy', desc: 'Mercado maduro, rivales fuertes y todas las tecnologías.' },
+  { year: 2035, title: '2035 · Futuro', desc: 'Precios más altos y competencia madura. Autos eléctricos pronto.' }
 ]

@@ -61,6 +61,10 @@ export interface GameState {
   seed: number
   rng: number
   company: string
+  profile?: CompanyProfile
+  here?: string // ciudad donde estás (para operar otra ciudad hay que viajar)
+  trip?: { to: string; arrive: number; mode: 'bus' | 'avion' } | null
+  tutorial?: number
   minute: number // minutos de juego desde el inicio (entero)
   carry: number // fracción de minuto pendiente
   cash: number
@@ -90,3 +94,6 @@ export type GameEvent =
   | { type: 'log'; entry: LogEntry }
 
 export interface Result<T = undefined> { ok: boolean; msg: string; data?: T }
+
+export type Difficulty = 'facil' | 'normal' | 'dificil'
+export interface CompanyProfile { icon: string; color: string; founder: 'h' | 'm'; perk: 'ventas' | 'logistica'; difficulty: Difficulty }
