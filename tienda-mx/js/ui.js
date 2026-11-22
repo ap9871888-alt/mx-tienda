@@ -1,8 +1,9 @@
 // Tienda MX Inc. — interfaz móvil. Vistas como HTML, eventos delegados con data-a.
 import * as E from './engine.js'
-import { GIROS, GIRO_IDS, REGIONS, CEDIS, CORP, CAMPAIGNS, PROPERTIES, STOCKS, PHASES, ADVISORS, MONTHS } from './data.js'
+import { GIROS, GIRO_IDS, REGIONS, CEDIS, CORP, CAMPAIGNS, PROPERTIES, STOCKS, PHASES, ADVISORS, MONTHS, HOLDING, GROUPS, PROCESOS } from './data.js'
+import { createStreet } from './street.js'
 
-const SAVE_KEY = 'tiendamx-save-v1'
+const SAVE_KEY = 'tiendamx-save-v2'
 const SPEEDS = { 0: 0, 1: 1400, 2: 650, 3: 260 }
 const DOW = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 let S = null; let rng = null; let speed = 1; let timer = null
@@ -10,6 +11,8 @@ let view = 'mapa'; let viewArg = null; let sheet = null
 let interacting = false; let interactTimer = null; let confirmKey = null; let lastSave = 0
 let filtro = 'todos'
 let comal = null // turno del jugador en el comal de una taquería (no se guarda)
+let corpTab = 'expansion'
+let street = null // escena animada de la sucursal abierta
 const $ = s => document.querySelector(s)
 
 // ---------- formato ----------
@@ -129,6 +132,13 @@ const H = {
   building: d => act(E.buyBuilding(S, +d.id)),
   close: d => { const k = `close-${d.id}`; if (confirmKey !== k) { confirmKey = k; renderView(); return } confirmKey = null; act(E.closeStore(S, +d.id), () => go('tiendas')) },
   camp: d => act(E.runCampaign(S, d.region, d.c)),
+  restock: d => act(E.restock(S, +d.id)),
+  corpTab: d => { corpTab = d.t; renderView() },
+  holdBuy: d => act(E.buyHolding(S, d.id)),
+  holdToggle: d => act(E.toggleHolding(S, d.id)),
+  alianza: d => act(E.alianza(S, d.id)),
+  guerra: d => { const k = `war-${d.id}`; if (confirmKey !== k) { confirmKey = k; renderView(); return } confirmKey = null; act(E.guerra(S, d.id)) },
+  adquirir: d => act(E.adquirir(S, d.id)),
   cedis: d => act(E.buildCedis(S, d.r)),
   expand: d => act(E.expandCedis(S, d.r)),
   corp: d => act(E.buyCorp(S, d.k)),
@@ -258,8 +268,8 @@ function mainTip () {
   if (noStaff) return advisor('encargado', `La sucursal de <b>${esc(E.locOf(noStaff.region, noStaff.loc).name)}</b> no tiene personal. Así no vende nada.`)
   const busy = S.stores.find(s => !s.franq && s.today?.customers && s.today.lost / s.today.customers > 0.15)
   if (busy) return advisor('encargado', `En <b>${esc(storeName(busy))}</b> se fueron ${Math.round(busy.today.lost)} clientes por la fila. Contrata o sube un poco los precios.`)
-  const out = S.stores.find(s => s.today?.stockout)
-  if (out) return advisor('logistica', `Hubo desabasto en <b>${esc(storeName(out))}</b>. Con un CEDIS propio no vuelve a pasar y la mercancía sale 25 % más barata.`)
+  const out = S.stores.find(s => s.today?.stockout || s.today?.restocked === 'falla')
+  if (out) return advisor('logistica', `¡Reabastecer! El anaquel de <b>${esc(storeName(out))}</b> está casi vacío${out.today?.restocked === 'falla' ? ' y el mayorista no llegó' : ''}. Con un CEDIS propio se resurte cada noche.`)
   if (S.cash < 0) return advisor('finanzas', '¡Números rojos! Pide un crédito en <b>Finanzas</b> o recorta costos antes de 45 días.')
   const next = PHASES[S.phase + 1]
   if (next) return advisor('finanzas', `Siguiente meta, fase ${next.n}: <b>${next.goal}</b>.`)
@@ -294,6 +304,19 @@ function renderView () {
   const m = $('#main'); if (!m || !S) return
   const fn = { mapa: vMapa, tiendas: vTiendas, store: vStore, logistica: vLogistica, corporativo: vCorp, finanzas: vFinanzas }[view]
   m.innerHTML = (S.over ? '<div class="over"><b>Quiebra.</b> Pasaste 45 días en números rojos. <button class="btn ghost sm" data-a="company">Empezar de nuevo</button></div>' : '') + fn()
+  mountStreet()
+}
+function mountStreet () {
+  const slot = document.getElementById('street-slot')
+  if (!slot) return
+  const s = E.storeById(S, viewArg)
+  const key = `${s.id}-${s.tier}`
+  if (!street || street.key !== key) {
+    street = createStreet({ getStore: () => E.storeById(S, s.id), getDay: () => S.day, background: art(s.giro, s.tier), fmt })
+    street.key = key
+  }
+  slot.replaceWith(street.el)
+  street.start()
 }
 function phaseStrip () {
   return `<div class="phase-strip">${PHASES.map((p, i) => `<div class="ph ${i < S.phase ? 'done' : i === S.phase ? 'cur' : ''}"><img src="${p.img}" alt="">${p.name}</div>`).join('')}</div>
@@ -366,12 +389,13 @@ function vTiendas () {
   const sum = k => S.stores.reduce((a, s) => a + (s.today?.[k] || 0), 0)
   return `<h1 class="h-view">Sucursales</h1>${mainTip()}
     <div class="grid3"><div class="kpi"><span>Ventas hoy</span><b>${fmtK(sum('rev'))}</b></div><div class="kpi"><span>Utilidad hoy</span><b class="${sum('profit') >= 0 ? 'good' : 'bad'}">${fmtK(sum('profit'))}</b></div><div class="kpi"><span>Clientes hoy</span><b>${Math.round(sum('served')).toLocaleString('es-MX')}</b></div></div>
+    ${corteHTML()}
     <div class="giro-tabs" style="grid-template-columns:repeat(4,1fr)">${[['todos', 'Todas'], ...GIRO_IDS.map(g => [g, GIROS[g].icon + ' ' + GIROS[g].plural])].map(([f, l]) => `<button data-a="filtro" data-f="${f}" aria-pressed="${filtro === f}">${l}</button>`).join('')}</div>
     ${list.map(s => {
       const f = E.formatOf(s); const td = s.today; const al = []
       if (!s.staff.length) al.push('<span class="pill bad">Sin personal</span>')
       else if (!s.franq && td?.customers && td.lost / td.customers > 0.12) al.push(`<span class="pill warn">${Math.round(td.lost)} sin atender</span>`)
-      if (td?.stockout) al.push('<span class="pill bad">Desabasto</span>')
+      if (td?.stockout) al.push('<span class="pill bad">¡Reabastecer!</span>')
       if (td?.covered) al.push('<span class="pill blue">CEDIS</span>')
       if (s.franq) al.push('<span class="pill blue">Franquicia</span>')
       return `<button class="store-card" data-a="store" data-id="${s.id}"><div class="art">${art(s.giro, s.tier)}</div>
@@ -406,11 +430,16 @@ function vStore () {
   const costs = E.storeDailyCosts(S, s); const season = E.seasonInfo(S.day, r)
   let hint = ''
   if (!s.staff.length) hint = `<span class="pill bad">Contrata al menos un ${g.staff.toLowerCase()} para abrir</span>`
-  else if (td.stockout) hint = '<span class="pill bad">Desabasto hoy: el mayorista no surtió a tiempo</span>'
+  else if (td.stockout) hint = '<span class="pill bad">Anaquel casi vacío: se pierden ventas. ¡Reabastece!</span>'
   else if (td.customers && td.lost / td.customers > 0.1) hint = `<span class="pill warn">${Math.round(td.lost)} clientes se fueron por la fila</span>`
   const next = s.tier < 4 ? g.formats[s.tier] : null
   const head = `<button class="btn ghost sm back" data-a="back">‹ Sucursales</button>
-    <div class="hero">${art(s.giro, s.tier)}<div class="cap"><h2>${l.name}</h2><span>${r.name} · ${g.name} · ${f.name}</span></div></div>${hint}
+    <div class="row between"><div><h2 class="h-view" style="font-size:20px">${l.name}</h2><span class="sub">${r.name} · ${g.name} · ${f.name}</span></div><span class="pill blue">🔴 Calle en vivo</span></div>
+    <div id="street-slot"></div>${hint}
+    ${s.franq ? '' : `<div class="card" style="gap:6px"><div class="row between"><span class="h-sec" style="flex:1">Anaquel · resurtido</span><b class="num ${s.stock < 25 ? 'bad' : s.stock < 50 ? 'warn' : ''}">${Math.round(s.stock ?? 100)} %</b></div>
+      <div class="bar"><i style="width:${Math.round(s.stock ?? 100)}%;background:${s.stock < 25 ? 'var(--bad)' : s.stock < 50 ? 'var(--oro)' : 'var(--agave)'}"></i></div>
+      <div class="row between"><span class="sub">${td.covered ? 'El CEDIS resurte cada noche.' : 'El mayorista resurte bajo 50 % (a veces falla) y cobra flete de $600.'}</span>
+      <button class="btn sm gold" data-a="restock" data-id="${s.id}" ${(s.stock ?? 100) >= 95 || S.cash < E.EXPRESS_RESTOCK ? 'disabled' : ''}>Flete exprés ${fmt(E.EXPRESS_RESTOCK)}</button></div></div>`}
     <div class="grid2"><div class="kpi"><span>Clientes hoy</span><b>${Math.round(td.served)} <small class="sub">/ ${Math.round(td.customers)}</small></b></div>
       <div class="kpi"><span>${s.franq ? 'Regalía hoy' : 'Utilidad hoy'}</span><b class="${td.profit >= 0 ? 'good' : 'bad'}">${fmt(td.profit)}</b></div>
       <div class="kpi"><span>Satisfacción</span><b class="${satClass(s.sat)}">${s.sat.toFixed(0)} / 100</b></div>
@@ -459,11 +488,33 @@ function sHire (id) {
       <button class="btn sm green" data-a="hire" data-id="${id}" data-i="${i}" ${full ? 'disabled' : ''}>Contratar</button></div>`).join('') || '<span class="sub">Ya contrataste a todos. Vuelve la próxima semana.</span>'}</div>
     <span class="sub">${s.staff.length}/${E.formatOf(s).maxStaff} en esta sucursal.</span><button class="btn ghost" data-a="closeSheet">Listo</button>`
 }
+function corteHTML () {
+  const c = S.corte
+  if (!c) return ''
+  return `<div class="card"><div class="row between"><span class="h-sec" style="flex:1">Corte de caja · día ${c.day}</span><b class="${c.utilidad >= 0 ? 'good' : 'bad'}">${fmt(c.utilidad)}</b></div>
+    <div class="grid3"><div class="kpi"><span>Ventas</span><b>${fmtK(c.ventas)}</b></div><div class="kpi"><span>Clientes</span><b>${c.clientes.toLocaleString('es-MX')}</b></div><div class="kpi"><span>Resurtidos</span><b>${c.resurtidos}${c.fallas ? ` <small class="bad">· ${c.fallas} fallas</small>` : ''}</b></div></div>
+    ${c.bajos ? `<span class="pill bad">📦 ${c.bajos} sucursal${c.bajos > 1 ? 'es' : ''} por reabastecer</span>` : ''}</div>`
+}
+function procesosHTML () {
+  const c = S.corte || {}
+  const own = S.stores.filter(s => !s.franq).length
+  const cedisN = Object.keys(S.cedis).length
+  const st = [
+    own ? `${own} sucursal${own === 1 ? '' : 'es'} compran` : 'Sin sucursales',
+    cedisN ? `${cedisN} CEDIS reciben` : 'Sin CEDIS: directo del mayorista',
+    `${(c.cedis || 0)} por ruta CEDIS · ${(c.resurtidos || 0) - (c.cedis || 0)} por flete`,
+    c.fallas ? `${c.fallas} entregas fallaron` : `${c.resurtidos || 0} anaqueles llenos`,
+    `${(c.clientes || 0).toLocaleString('es-MX')} cobros${S.corp.fintech ? ' + pagos y remesas' : ''}`,
+    `Utilidad ${fmt(c.utilidad || 0)}`
+  ]
+  return `<div class="card"><span class="h-sec">Procesos operativos · flujo en tiempo real</span><div class="procesos">
+    ${PROCESOS.map((p, i) => `<div class="proc ${i === 1 && !cedisN ? 'off' : ''} ${i === 3 && c.fallas ? 'alert' : ''}"><img src="${p.img}" alt=""><b>${p.n}. ${p.name}</b><span class="sub">${st[i]}</span></div>`).join('')}</div></div>`
+}
 function vLogistica () {
   const tip = !E.canBuildCedis(S) ? 'Para justificar un CEDIS necesitamos un <b>clúster urbano</b>: 8 sucursales propias en una misma región. Mientras, compramos a mayoristas y a veces no surten.'
     : !Object.keys(S.cedis).length ? '¡Ya tenemos clúster! Con un CEDIS la mercancía sale <b>25 % más barata</b> y se acaba el desabasto en las tiendas.'
       : 'Vigila la capacidad: las sucursales que no caben en el CEDIS vuelven a comprar a mayoristas.'
-  return `<h1 class="h-view">Logística y CEDIS</h1>${advisor('logistica', tip)}
+  return `<h1 class="h-view">Logística y CEDIS</h1>${advisor('logistica', tip)}${procesosHTML()}
     <div class="card"><span class="h-sec">Capacidad CEDIS</span>
       ${REGIONS.filter(r => S.unlocked.includes(r.id)).map(r => {
         const own = E.ownStoresIn(S, r.id).length; const cap = E.cedisCapacity(S, r.id); const use = cap ? own / cap : 0
@@ -473,21 +524,22 @@ function vLogistica () {
             : `<button class="btn sm blue" data-a="cedis" data-r="${r.id}" ${!E.canBuildCedis(S) || S.cash < CEDIS.cost ? 'disabled' : ''}>${E.canBuildCedis(S) ? `Construir ${fmtK(CEDIS.cost)}` : '🔒 Fase 2'}</button>`}</div>`
       }).join('')}
       <span class="sub">Cada CEDIS surte ${CEDIS.capacity} sucursales propias (ampliable), baja 25 % el costo de mercancía e insumos y cuesta ${fmt(CEDIS.upkeep)}/mes por nivel. Las franquicias se surten solas.</span></div>
-    <div class="card"><span class="h-sec">Desabasto sin CEDIS</span><span class="sub">Las tiendas que compran a mayoristas tienen 6 % de probabilidad diaria de desabasto: −35 % de ventas y clientes molestos.</span>
+    <div class="card"><span class="h-sec">Resurtido sin CEDIS</span><span class="sub">Sin CEDIS, el mayorista llega cuando el anaquel baja de 50 %, cobra flete de ${fmt(E.FLETE)} y 15 % de las veces no llega. Con el anaquel bajo 25 % se pierden ventas.</span>
       <div class="row between"><span>Sucursales cubiertas por CEDIS</span><b>${S.stores.filter(s => E.isCovered(S, s)).length} / ${S.stores.filter(s => !s.franq).length}</b></div></div>`
 }
 function vCorp () {
-  const p3 = S.phase >= 2; const p4 = S.phase >= 3
-  return `<h1 class="h-view">Corporativo</h1>
-    ${advisor('comprador', !p3 ? 'Cuando tengamos CEDIS propio podremos lanzar <b>Marca Propia</b>: margen alto y clientes fieles.' : !S.corp.marcaPropia ? 'Lancemos la <b>Marca Propia</b>: los abarrotes con nuestro nombre dejan casi el doble de margen.' : 'La marca propia ya está en anaquel. Que no falte en ninguna tienda.')}
+  const tabs = `<div class="giro-tabs">${[['expansion', 'Expansión'], ['holding', 'Marcas y Holding'], ['grupos', 'Conglomerados']].map(([t, l]) => `<button data-a="corpTab" data-t="${t}" aria-pressed="${corpTab === t}">${l}</button>`).join('')}</div>`
+  const body = corpTab === 'holding' ? corpHolding() : corpTab === 'grupos' ? corpGrupos() : corpExpansion()
+  return `<h1 class="h-view">Corporativo</h1>${tabs}${body}`
+}
+function corpExpansion () {
+  const p4 = S.phase >= 3
+  return `${advisor('finanzas', PHASES[S.phase + 1] ? `Meta de la fase ${PHASES[S.phase + 1].n}: <b>${PHASES[S.phase + 1].goal}</b>.` : 'Ya eres un imperio nacional.')}
     <div class="card"><span class="h-sec">Del local al imperio</span>
       ${PHASES.map((p, i) => `<div class="phase-card ${i > S.phase ? 'locked' : ''}"><img src="${p.img}" alt=""><div><b>Fase ${p.n}: ${p.name}</b> ${i < S.phase ? '<span class="pill good">✓</span>' : i === S.phase ? '<span class="pill warn">actual</span>' : '<span class="pill">🔒</span>'}
         <br><span class="sub">${i === 0 ? 'Inicio' : `Meta: ${p.goal}`}</span><ul>${p.perks.map(x => `<li>${x}</li>`).join('')}</ul></div></div>`).join('')}</div>
-    <div class="card"><span class="h-sec">Marcas propias, fintech y pagos</span>
-      ${Object.entries(CORP).map(([k, c]) => `<div class="prop"><div><b>${c.name}</b><br><span class="sub">${c.desc}</span></div>
-        ${S.corp[k] ? '<span class="pill good">Activo</span>' : `<button class="btn sm" data-a="corp" data-k="${k}" ${!p3 || S.cash < c.cost || (c.needs && !S.corp[c.needs]) ? 'disabled' : ''}>${p3 ? fmtK(c.cost) : '🔒 Fase 3'}</button>`}</div>`).join('')}</div>
-    <div class="card"><span class="h-sec">Adquisiciones</span>
-      ${REGIONS.filter(r => S.unlocked.includes(r.id)).map(r => `<div class="prop"><div><b>Cadena rival de ${r.name}</b><br><span class="sub">Compra a la competencia: baja 50 % y +20 de reconocimiento.</span></div>
+    <div class="card"><span class="h-sec">Cadenas locales en venta</span>
+      ${REGIONS.filter(r => S.unlocked.includes(r.id)).map(r => `<div class="prop"><div><b>Cadena local de ${r.name}</b><br><span class="sub">Compra a la competencia de la región: baja 50 % y +20 de reconocimiento.</span></div>
         ${S.rivals[r.id] ? '<span class="pill good">Adquirida</span>' : `<button class="btn sm blue" data-a="rival" data-r="${r.id}" ${!p4 || S.cash < E.RIVAL_COST ? 'disabled' : ''}>${p4 ? fmtK(E.RIVAL_COST) : '🔒 Fase 4'}</button>`}</div>`).join('')}</div>
     <div class="bmv"><div class="row between"><div><b style="font-size:20px">BMV</b><br><span class="muted">Salida a bolsa · ${esc(S.company)}</span></div>${S.ipo ? `<b class="num" style="font-size:18px">TMX $${S.ipo.price.toFixed(2)}</b>` : ''}</div>
       ${S.ipo ? chartSVG([{ values: S.ipo.hist, color: '#5CC18E', fill: true }], { h: 70, zero: false, labels: false }) + `<span class="muted">Recaudaste ${fmtK(S.ipo.raised)} por el 25 % de la empresa.</span>`
@@ -495,17 +547,56 @@ function vCorp () {
         <button class="btn gold" data-a="ipo" ${!p4 || E.netWorth(S) < E.IPO_MIN ? 'disabled' : ''}>🔔 Tocar la campana</button>`}</div>
     <div class="card"><span class="h-sec">Franquicias</span><span class="sub">${E.canFranchise(S) ? 'Desbloqueadas: al abrir una sucursal marca “Abrir como franquicia”. No inviertes y cobras cuota más regalías.' : '🔒 Se desbloquean en la fase 4.'}</span></div>`
 }
+function corpHolding () {
+  const p3 = S.phase >= 2; const p4 = S.phase >= 3
+  return `${advisor('comprador', !p3 ? 'Cuando tengamos CEDIS propio podremos lanzar <b>Marca Propia</b>: margen alto y clientes fieles.' : !p4 ? 'Marca propia y fintech nos abren la fase 4 y el <b>holding del futuro</b>.' : 'Con el holding el negocio deja de ser solo tiendas: banco, telecom, energía y logística express.')}
+    <div class="card"><span class="h-sec">Marcas propias, fintech y pagos</span>
+      ${Object.entries(CORP).map(([k, c]) => `<div class="prop"><div><b>${c.name}</b><br><span class="sub">${c.desc}</span></div>
+        ${S.corp[k] ? '<span class="pill good">Activo</span>' : `<button class="btn sm" data-a="corp" data-k="${k}" ${!p3 || S.cash < c.cost || (c.needs && !S.corp[c.needs]) ? 'disabled' : ''}>${p3 ? fmtK(c.cost) : '🔒 Fase 3'}</button>`}</div>`).join('')}</div>
+    <div class="card"><span class="h-sec">Holding del futuro</span>
+      ${HOLDING.map(h => {
+        const own = S.holding[h.id]; const inc = E.holdingIncome(S, h.id)
+        return `<div class="hold"><img src="${h.img}" alt=""><div><b>${h.name}</b><br><span class="sub">${h.desc}</span><br>
+          <span class="sub">Cuesta ${fmtK(h.upkeep)}/mes${inc ? ` · genera ~${fmtK(inc * 30)}/mes` : ''}</span></div>
+          ${own ? `<input type="checkbox" class="switch" data-a="holdToggle" data-id="${h.id}" ${own.on ? 'checked' : ''} aria-label="Encender ${h.name}">`
+            : `<button class="btn sm" data-a="holdBuy" data-id="${h.id}" ${!p4 || S.cash < h.cost || (h.needs && !S.corp[h.needs]) ? 'disabled' : ''}>${p4 ? fmtK(h.cost) : '🔒 Fase 4'}</button>`}</div>`
+      }).join('')}</div>`
+}
+function corpGrupos () {
+  const mine = E.myShare(S)
+  return `${advisor('finanzas', 'Los conglomerados se reparten el mercado. Alíate para ganar ventajas, cómprales acciones, hazles <b>guerra de precios</b> para quitarles mercado y, cuando bajen de 12 %, <b>adquiérelos</b>.')}
+    <div class="card"><span class="h-sec">Participación de mercado</span>
+      <div class="share-bar">${GROUPS.map(g => `<i style="width:${E.groupShare(S, g.id)}%;background:${g.color}" title="${g.name}"></i>`).join('')}<i style="width:${mine}%;background:var(--oro)" title="Tú"></i></div>
+      <div class="row" style="flex-wrap:wrap;gap:8px;font-size:12px">${GROUPS.map(g => `<span><b style="color:${g.color}">■</b> ${g.name.replace('Grupo ', '')} ${E.groupShare(S, g.id).toFixed(0)} %</span>`).join('')}<span><b style="color:var(--oro)">■</b> Tú ${mine.toFixed(1)} %</span></div></div>
+    ${GROUPS.map(g => {
+      const st = S.groups[g.id]; const sh = E.groupShare(S, g.id); const m = S.market[g.ticker]
+      const d = m.hist.length > 1 ? m.price / m.hist[m.hist.length - 2] - 1 : 0
+      const wk = confirmKey === `war-${g.id}`
+      return `<div class="card grupo" style="border-left:5px solid ${g.color}"><div class="row between"><span class="h-sec" style="flex:1">Rival · ${g.ticker}</span>
+        ${st.acquired ? '<span class="pill good">Tuyo</span>' : st.war > 0 ? `<span class="pill bad">⚡ Guerra ${st.war} d</span>` : st.alliance ? '<span class="pill blue">🤝 Aliado</span>' : ''}</div>
+        <h3 class="g-name">${g.name}</h3><div class="row" style="flex-wrap:wrap;gap:6px">${g.sectors.map(x => `<span class="pill">${x}</span>`).join('')}</div>
+        <div class="grid2" style="align-items:center"><span><b>${g.tagline}</b><br><span class="sub">${st.acquired || st.alliance ? 'Beneficio: ' : 'Con alianza: '}${g.perkTxt}</span></span>
+          <div class="stack" style="gap:4px">${g.stats.map(([k, v]) => `<div class="row" style="gap:6px;font-size:11.5px"><span style="width:76px">${k}</span><div class="bar grow"><i style="width:${v * 100}%;background:#2B4A5A"></i></div></div>`).join('')}</div></div>
+        <div class="row between"><span class="sub">Mercado del ${sh.toFixed(0)} %</span><span class="num">$${m.price.toFixed(2)} <span class="${d >= 0 ? 'good' : 'bad'}">${pct(d, 2)}</span></span></div>
+        <div class="bar"><i style="width:${Math.min(100, sh * 2.5)}%;background:${g.color}"></i></div>
+        ${st.acquired ? '' : `<div class="acciones">
+          <button class="btn sm" data-a="alianza" data-id="${g.id}" ${st.alliance || st.war > 0 || S.phase < 1 || S.cash < E.allianceCost(S, g.id) ? 'disabled' : ''}>🤝 Alianza ${S.phase < 1 ? '🔒' : fmtK(E.allianceCost(S, g.id))}</button>
+          <button class="btn sm gold" data-a="stockSheet" data-id="${g.ticker}">📈 Invertir</button>
+          <button class="btn sm ${wk ? 'blue' : 'ghost'}" data-a="guerra" data-id="${g.id}" ${st.war > 0 || S.cash < E.WAR_COST ? 'disabled' : ''}>${wk ? '¿Seguro? −8 % precios 30 d' : `⚡ Guerra ${fmtK(E.WAR_COST)}`}</button>
+          <button class="btn sm green" data-a="adquirir" data-id="${g.id}" ${S.phase < 3 || sh > 12 || S.cash < E.acquireCost(S, g.id) ? 'disabled' : ''}>💼 M&A ${S.phase < 3 ? '🔒' : fmtK(E.acquireCost(S, g.id))}</button></div>`}</div>`
+    }).join('')}`
+}
 function monthPL (key) {
   const L = S.ledger[key] || {}; const g = k => L[k] || 0
-  const income = g('ventas') + g('regalias') + g('fintech') + g('rentas')
-  const costs = ['mercancia', 'sueldos', 'renta', 'mantenimiento', 'logistica', 'marketing', 'intereses', 'otros'].reduce((a, k) => a + g(k), 0)
+  const income = g('ventas') + g('regalias') + g('fintech') + g('holding') + g('rentas')
+  const costs = ['mercancia', 'sueldos', 'renta', 'mantenimiento', 'logistica', 'holdingGasto', 'marketing', 'intereses', 'otros'].reduce((a, k) => a + g(k), 0)
   return { ...L, net: income - costs }
 }
 function vFinanzas () {
   const keys = Object.keys(S.ledger).sort(); const cur = keys[keys.length - 1]; const prev = keys[keys.length - 2]
   const A = monthPL(cur); const B = prev ? monthPL(prev) : null
   const last30 = S.hist.slice(-30).reduce((a, h) => a + h.profit, 0)
-  const rows = [['Ventas', 'ventas'], ['Regalías de franquicias', 'regalias'], ['Comisiones fintech', 'fintech'], ['Rentas cobradas', 'rentas'], ['Mercancía e insumos', 'mercancia', -1], ['Sueldos', 'sueldos', -1], ['Renta de locales', 'renta', -1], ['Mantenimiento', 'mantenimiento', -1], ['CEDIS y logística', 'logistica', -1], ['Publicidad', 'marketing', -1], ['Intereses', 'intereses', -1], ['Otros', 'otros', -1]]
+  const rows = [['Ventas', 'ventas'], ['Regalías de franquicias', 'regalias'], ['Comisiones fintech', 'fintech'], ['Ingresos del holding', 'holding'], ['Rentas cobradas', 'rentas'], ['Mercancía e insumos', 'mercancia', -1], ['Sueldos', 'sueldos', -1], ['Renta de locales', 'renta', -1], ['Mantenimiento', 'mantenimiento', -1], ['CEDIS y logística', 'logistica', -1], ['Operación del holding', 'holdingGasto', -1], ['Publicidad', 'marketing', -1], ['Intereses', 'intereses', -1], ['Otros', 'otros', -1]]
   const ml = k => { if (!k) return ''; const [y, m] = k.split('-'); return `${MONTHS[+m - 1]} ${y.slice(2)}` }
   const limit = E.loanLimit(S)
   const idx = E.ipc(S)
@@ -533,14 +624,14 @@ function vFinanzas () {
     <div class="bmv"><div class="row between"><div><b style="font-size:20px">BMV</b><br><span class="muted">Bolsa del juego · IPC</span></div><div style="text-align:right"><b class="num">${idx.toLocaleString('es-MX')}</b><br><span class="num" style="color:${ch >= 0 ? '#5CC18E' : '#F2786B'}">${pct(ch, 1)} 30d</span></div></div>
       ${chartSVG([{ values: histIdx, color: ch >= 0 ? '#5CC18E' : '#F2786B', fill: true }], { h: 60, zero: false, labels: false })}
       ${S.ipo ? `<div class="stock"><div><span class="tk">TMX</span> <span class="muted">${esc(S.company)}</span></div><div class="num" style="text-align:right">$${S.ipo.price.toFixed(2)}</div><span class="pill good">Tuya</span></div>` : ''}
-      ${STOCKS.map(s => {
+      ${[...GROUPS.filter(g => !S.groups[g.id].acquired).map(g => ({ id: g.ticker, name: g.name })), ...STOCKS].map(s => {
         const m = S.market[s.id]; const h = S.holdings[s.id]; const d = m.hist.length > 1 ? m.price / m.hist[m.hist.length - 2] - 1 : 0
         return `<div class="stock"><div><span class="tk">${s.id}</span> <span class="muted">${s.name}</span>${h ? `<br><span class="muted">${h.shares.toLocaleString('es-MX')} acc. · ${fmtK(h.shares * m.price)}</span>` : ''}</div>
           <div class="num" style="text-align:right">$${m.price.toFixed(2)}<br><span style="color:${d >= 0 ? '#5CC18E' : '#F2786B'};font-size:12px">${pct(d, 2)}</span></div><button class="btn sm gold" data-a="stockSheet" data-id="${s.id}">Operar</button></div>`
       }).join('')}</div>`
 }
 function sStock (id) {
-  const def = STOCKS.find(s => s.id === id); const m = S.market[id]; const h = S.holdings[id]
+  const def = STOCKS.find(s => s.id === id) || (g => g && { id, name: g.name })(GROUPS.find(g => g.ticker === id)); const m = S.market[id]; const h = S.holdings[id]
   return `<div class="sheet-head"><h2>${id} · ${def.name}</h2><button class="x" data-a="closeSheet" aria-label="Cerrar">×</button></div>
     <div class="bmv"><b class="num" style="font-size:22px">$${m.price.toFixed(2)}</b>${chartSVG([{ values: m.hist, color: '#F2B705', fill: true }], { h: 90, zero: false })}</div>
     <div class="row between"><span>Tienes</span><b>${h ? `${h.shares.toLocaleString('es-MX')} acciones · ${fmt(h.shares * m.price)}` : 'Nada'}</b></div>
@@ -583,7 +674,7 @@ function startGame (st) {
 function renderIntro () {
   const has = !!loadSave()
   document.getElementById('root').innerHTML = `<div class="intro">
-    <div class="phase-strip">${PHASES.map(p => `<div class="ph done"><img src="${p.img}" alt=""></div>`).join('')}</div>
+    <img src="assets/calle.jpg" alt="Calle mexicana con tiendas, metrobús y jacarandas" class="intro-hero">
     <h1 style="font-family:var(--f-display);font-weight:400;text-transform:uppercase">Tienda <em>MX</em> Inc.</h1>
     <p style="margin:0;font-size:17px">Del local al imperio. Abre tienditas, cafeterías y taquerías, arma tu red de CEDIS, lanza tu marca propia y tu fintech, y sal a la Bolsa Mexicana.</p>
     ${advisor('finanzas', 'Tienes <b>$350,000 MXN</b> de capital semilla para tu tienda piloto.')}

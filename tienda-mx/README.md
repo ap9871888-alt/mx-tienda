@@ -26,6 +26,15 @@ En cada colonia puedes tener una sucursal de cada giro. Cada giro tiene su catá
 4. **Marca Propia y Fintech**: categoría de alto margen, comisiones por pagos y remesas, programa de lealtad. Desbloquea franquicias, adquisiciones de cadenas rivales y salida a bolsa.
 5. **Imperio Nacional**: cotizas en la BMV como TMX y operas en las 5 regiones.
 
+## Operación en vivo
+- **Calle en vivo**: cada sucursal muestra su calle animada con los fotogramas de personajes: clientes que entran y salen con bolsas, el camión del CEDIS (o del mayorista) que llega a resurtir, y avisos de **+$MXN**, **¡Cliente feliz!**, **¡Fila larga!** y **¡Reabastecer!**.
+- **Procesos operativos**: compra a proveedores → recepción en CEDIS → ruta de reparto → resurtido en tienda → cobro y servicios → corte y utilidad. El anaquel de cada sucursal se vacía con las ventas; el CEDIS lo resurte cada noche y el mayorista solo bajo 50 %, con flete y a veces falla. Hay flete exprés y **corte de caja** diario.
+
+## Corporativo
+- **Expansión**: fases, cadenas locales en venta, salida a la BMV y franquicias.
+- **Marcas y Holding**: marca propia, fintech, lealtad y el holding del futuro (Banco Digital MX, Telecom/Chip Propio, Energía Solar en Tiendas, Dark Stores 15 min y Flotilla EV), que se encienden y apagan.
+- **Conglomerados**: cuatro grupos rivales ficticios (Altiplano, Ébano, Norte 24, Trigal) que se reparten el mercado. Contra cada uno: alianza comercial (beneficio propio), comprar acciones en la BMV, guerra de precios (les quita mercado y rompe alianzas) y adquisición cuando bajan de 12 %.
+
 ## Mapa
 Valle de México / Puebla, Guadalajara, Monterrey, Tijuana y Mérida. Cada colonia tiene renta, tráfico, poder adquisitivo y **competencia**.
 
@@ -36,5 +45,6 @@ Valle de México / Puebla, Guadalajara, Monterrey, Tijuana y Mérida. Cada colon
 - `assets/`: arte recortado de las láminas del proyecto. Las taquerías se dibujan en SVG hasta tener su concept art.
 
 ## Antes de publicar
-- El concept art original trae logos de marcas reales (refrescos y una cadena de descuento): en los recortes están difuminados. Para la versión final conviene encargar arte sin marcas.
+- El concept art original trae logos de marcas reales (refrescos, cadenas de descuento): en los recortes están difuminados. Para la versión final conviene encargar arte sin marcas.
+- Los conglomerados del diseño eran grupos reales; en el juego son ficticios para evitar problemas de marcas y difamación.
 - Para Android/iOS: Capacitor con `webDir: "tienda-mx"`. Para PC: Tauri o Electron.

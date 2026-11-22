@@ -296,3 +296,43 @@ nav.tabs button[aria-current="page"] svg { transform: translateY(-1px) }
 .comal .big:active { transform: translateY(3px); box-shadow: none }
 .float { position: fixed; z-index: 70; pointer-events: none; font: 20px/1 var(--f-display); color: var(--oro); text-shadow: 2px 2px 0 var(--terracota); animation: rise .9s ease-out forwards }
 @keyframes rise { to { transform: translateY(-60px); opacity: 0 } }
+
+/* calle en vivo */
+.street { position: relative; border-radius: var(--r); overflow: hidden; aspect-ratio: 16 / 10; max-width: 100%; box-shadow: var(--shadow); background: var(--surface-2); isolation: isolate }
+.street-bg, .street-bg img, .street-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block }
+.street-walk { position: absolute; left: 0; right: 0; bottom: 0; height: 24%; background: linear-gradient(transparent, rgba(60,62,70,.55) 35%, rgba(60,62,70,.75)); border-top: 2px dashed rgba(255,255,255,.35) }
+.street-layer { position: absolute; inset: 0; pointer-events: none }
+.walker { position: absolute; bottom: 7%; height: 26%; transform: translateX(-50%); image-rendering: auto; filter: drop-shadow(0 2px 1px rgba(0,0,0,.35)) }
+.walker.out { bottom: 2%; height: 28% }
+.walker.rep { bottom: 5%; height: 30%; filter: none }
+.van { position: absolute; bottom: 4%; height: 40%; transform: translateX(-50%); filter: drop-shadow(0 3px 2px rgba(0,0,0,.35)) }
+.bub { position: absolute; bottom: 40%; transform: translateX(-50%); white-space: nowrap; font: 800 13px/1 var(--f-ui); padding: 6px 10px; border-radius: 12px; animation: bubUp 1.5s ease-out forwards; box-shadow: 0 2px 6px rgba(0,0,0,.25) }
+.bub.money { background: #E9F8EE; color: #1E7A45; border: 2px solid #2E7D5B }
+.bub.happy { background: #FFF6CC; color: #6A4D00; border: 2px solid #F2B705 }
+.bub.info { background: #fff; color: #1B4D8F; border: 2px solid #1B4D8F }
+@keyframes bubUp { 0% { opacity: 0; transform: translate(-50%, 10px) } 15% { opacity: 1 } 100% { opacity: 0; transform: translate(-50%, -46px) } }
+.street-notes { position: absolute; top: 8px; left: 8px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start }
+.note { font: 800 12px/1 var(--f-ui); padding: 6px 9px; border-radius: 10px; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3) }
+.note.bad { background: #D63B2F } .note.warn { background: #F28C05 }
+.street-hud { position: absolute; left: 8px; right: 8px; bottom: 8px; background: rgba(255,255,255,.94); color: #2B2D33; border-radius: 10px; padding: 5px 9px; display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: center; font-size: 12px; font-weight: 700 }
+.street-hud .fila { height: 8px; border-radius: 9px; background: #E1DDD4; overflow: hidden }
+.street-hud .fila i { display: block; height: 100%; background: linear-gradient(90deg, #D63B2F, #F2B705 45%, #2E7D5B 75%); transition: width .6s }
+/* procesos */
+.procesos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px }
+.proc { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 12px }
+.proc img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 8px; border: 2px solid var(--line) }
+.proc b { font-size: 11.5px; line-height: 1.2 }
+.proc .sub { font-size: 11px; line-height: 1.25 }
+.proc.off img { filter: grayscale(1); opacity: .5 }
+.proc.alert img { border-color: var(--bad) }
+/* holding y conglomerados */
+.hold { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line) }
+.hold:first-of-type { border-top: 0 }
+.hold img { width: 52px; height: 52px; object-fit: contain; border-radius: 10px; background: #fff }
+.g-name { font-family: var(--f-display); font-weight: 400; font-size: 24px; text-transform: uppercase; letter-spacing: .01em }
+.acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 6px }
+.acciones .btn { white-space: normal; line-height: 1.15 }
+.share-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--surface-2) }
+.share-bar i { display: block; height: 100% }
+.intro-hero { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 18px; box-shadow: var(--shadow) }
+@media (max-width: 380px) { .procesos { grid-template-columns: repeat(2, 1fr) } }

@@ -1,9 +1,13 @@
 // Tienda MX Inc. — motor de simulación (puro, sin DOM). Un día por paso.
 import {
-  START, GIROS, REGIONS, CEDIS, CORP, CAMPAIGNS, PROPERTIES, STOCKS, PHASES, FIRST_NAMES, LAST_NAMES
+  START, GIROS, REGIONS, CEDIS, CORP, CAMPAIGNS, PROPERTIES, STOCKS, PHASES, FIRST_NAMES, LAST_NAMES, HOLDING, GROUPS, SHELF
 } from './data.js'
 
-export const SAVE_VERSION = 1
+export const SAVE_VERSION = 2
+export const EXPRESS_RESTOCK = 1500
+export const FLETE = 600
+export const WAR_COST = 800000
+export const WAR_DAYS = 30
 export const LOAN_RATE = 0.16
 export const FRANQ_FEE = 150000
 export const ROYALTY = 0.06
@@ -69,7 +73,10 @@ export function newGame (seed = Date.now(), company = 'Tienda MX Inc.') {
     candidates: [],
     campaigns: [],
     props: [],
-    market: Object.fromEntries(STOCKS.map(s => [s.id, { price: s.price, hist: [s.price] }])),
+    market: Object.fromEntries([...STOCKS, ...GROUPS.map(g => ({ id: g.ticker, price: g.price }))].map(s => [s.id, { price: s.price, hist: [s.price] }])),
+    holding: {},
+    groups: Object.fromEntries(GROUPS.map(g => [g.id, { share: g.share, alliance: false, war: 0, acquired: false }])),
+    corte: null,
     holdings: {},
     effects: [],
     ledger: {},
@@ -91,7 +98,7 @@ export function log (st, text, kind = 'info') {
 function ledger (st) {
   const k = monthKey(st.day)
   if (!st.ledger[k]) {
-    st.ledger[k] = { ventas: 0, mercancia: 0, sueldos: 0, renta: 0, mantenimiento: 0, logistica: 0, marketing: 0, intereses: 0, regalias: 0, fintech: 0, rentas: 0, otros: 0, inversiones: 0 }
+    st.ledger[k] = { ventas: 0, mercancia: 0, sueldos: 0, renta: 0, mantenimiento: 0, logistica: 0, marketing: 0, intereses: 0, regalias: 0, fintech: 0, holding: 0, holdingGasto: 0, rentas: 0, otros: 0, inversiones: 0 }
     const keys = Object.keys(st.ledger).sort()
     while (keys.length > 24) delete st.ledger[keys.shift()]
   }
@@ -162,7 +169,7 @@ export function openStore (st, regionId, locId, giro, tier = 1, franq = false) {
     staff: franq ? Array.from({ length: fmt.maxStaff }, () => ({ name: 'Franquiciatario', skill: 3, salary: 0 })) : [],
     menu: g.products.filter(p => p.tier <= tier).map(p => p.id),
     prices: Object.fromEntries(g.products.map(p => [p.id, defaultPrice(p, loc)])),
-    sat: 55, owned: false, opened: st.day, hist: [], today: null
+    sat: 55, stock: 100, owned: false, opened: st.day, hist: [], today: null
   }
   st.stores.push(s)
   if (franq) earn(st, FRANQ_FEE, 'regalias')
@@ -349,7 +356,9 @@ export function netWorth (st) {
   const props = st.props.reduce((a, p) => a + p.value, 0)
   const stocks = Object.entries(st.holdings).reduce((a, [id, h]) => a + h.shares * st.market[id].price, 0)
   const cedis = Object.values(st.cedis).reduce((a, c) => a + CEDIS.cost * 0.7 + (c.level - 1) * CEDIS.expand * 0.7, 0)
-  const corp = Object.entries(st.corp).reduce((a, [k, v]) => a + (v ? CORP[k].cost * 0.8 : 0), 0)
+  const corp = Object.entries(st.corp).reduce((a, [k, v]) => a + (v ? CORP[k].cost * 0.8 : 0), 0) +
+    HOLDING.reduce((a, h) => a + (st.holding?.[h.id] ? h.cost * 0.8 : 0), 0) +
+    GROUPS.reduce((a, g) => a + (st.groups?.[g.id]?.acquired ? 20000000 : 0), 0)
   return Math.round(st.cash + stores + props + stocks + cedis + corp - st.loan)
 }
 export function phaseReady (st, i) {
@@ -397,6 +406,9 @@ export function unitCost (st, s, p) {
   let c = p.cost * st.costMult
   if (isCovered(st, s)) c *= 1 - CEDIS.saving
   if (st.corp.marcaPropia && s.giro !== 'tienda') c *= 0.95
+  if (perk(st, 'supply')) c *= 0.92
+  if (p.heat && perk(st, 'bebidas')) c *= 0.8
+  if (p.id === 'servicios' && holdingOn(st, 'telecom')) c *= 0.7
   return c
 }
 export function simulateStore (st, s, mods = {}) {
@@ -406,9 +418,9 @@ export function simulateStore (st, s, mods = {}) {
   if (!s.staff.length || !avail.length) return { closed: true, customers: 0, served: 0, lost: 0, rev: 0, cogs: 0, sales: {}, value: 0, quality: 0 }
   const skill = s.staff.reduce((a, b) => a + b.skill, 0) / s.staff.length
   const quality = (0.7 + skill * 0.1) * fmt.ambience
-  const comp = 1 - loc.comp * 0.35 * st.compMult[s.region]
+  const comp = 1 - loc.comp * 0.35 * st.compMult[s.region] * rivalPressure(st)
   const potential = g.base * loc.traffic * (fmt.traffic || 1) * region.pop * comp * (0.35 + st.aware[s.region] / 100 * 0.9) *
-    season.mult * (mods.evMult ?? 1) * (0.85 + st.brand / 100 * 0.3) * (st.corp.lealtad ? 1.06 : 1) * (mods.stockout ? 0.65 : 1)
+    season.mult * (mods.evMult ?? 1) * (0.85 + st.brand / 100 * 0.3) * (st.corp.lealtad ? 1.06 : 1) * (mods.stockFactor ?? 1) * (warOn(st) ? 1.1 : 1) * (holdingOn(st, 'dark') && st.cedis[s.region] ? 1.08 : 1)
   const elastic = fmt.elastic || 1
   const attrs = avail.map(p => {
     const ref = p.ref * loc.wealth
@@ -426,14 +438,115 @@ export function simulateStore (st, s, mods = {}) {
   for (const x of attrs) {
     const n = served * x.a / score * g.basket
     sales[x.p.id] = n
-    rev += n * s.prices[x.p.id]
+    rev += n * s.prices[x.p.id] * (warOn(st) ? 0.92 : 1)
     cogs += n * unitCost(st, s, x.p)
   }
   return { closed: false, customers, capacity, served, lost: Math.max(0, customers - served), rev, cogs, sales, value, quality }
 }
 export function storeDailyCosts (st, s) {
   if (s.franq) return { rent: 0, wages: 0, upkeep: 0 }
-  return { rent: s.owned ? 0 : locOf(s.region, s.loc).rent / 30, wages: s.staff.reduce((a, b) => a + b.salary, 0) / 30, upkeep: formatOf(s).upkeep }
+  return {
+    rent: s.owned ? 0 : locOf(s.region, s.loc).rent / 30 * (perk(st, 'rent') ? 0.85 : 1),
+    wages: s.staff.reduce((a, b) => a + b.salary, 0) / 30,
+    upkeep: formatOf(s).upkeep * (holdingOn(st, 'solar') ? 0.65 : 1)
+  }
+}
+
+// ---------- anaquel y resurtido ----------
+export const shelfUnits = s => SHELF[s.giro] * s.tier
+export const stockFactor = s => s.stock >= 25 ? 1 : Math.max(0.2, s.stock / 25)
+export function restock (st, id) {
+  const s = storeById(st, id)
+  if (!s || s.franq) return fail('No disponible')
+  if (s.stock >= 95) return fail('El anaquel ya está lleno')
+  if (st.cash < EXPRESS_RESTOCK) return fail('No alcanza el efectivo')
+  spend(st, EXPRESS_RESTOCK, 'logistica')
+  s.stock = 100
+  s.restockedDay = st.day
+  return ok('Flete exprés: anaquel lleno')
+}
+
+// ---------- holding del futuro ----------
+export const holdingOn = (st, id) => !!st.holding?.[id]?.on
+export function buyHolding (st, id) {
+  const h = HOLDING.find(x => x.id === id)
+  if (!h || st.holding[id]) return fail('Ya es tuyo')
+  if (st.phase < 3) return fail('El holding se desbloquea en la fase 4')
+  if (h.needs && !st.corp[h.needs]) return fail(`Requiere ${CORP[h.needs].name}`)
+  if (st.cash < h.cost) return fail('No alcanza el efectivo')
+  invest(st, h.cost)
+  st.holding[id] = { on: true }
+  log(st, `🏢 Nueva empresa del holding: ${h.name}`, 'good')
+  return ok(`${h.name} operando`)
+}
+export function toggleHolding (st, id) {
+  if (!st.holding[id]) return fail('Primero cómprala')
+  st.holding[id].on = !st.holding[id].on
+  return ok(st.holding[id].on ? 'Encendida' : 'Apagada: no cobra ni cuesta')
+}
+export function holdingIncome (st, id) {
+  const own = st.stores.filter(s => !s.franq).length
+  const fin = perk(st, 'fintech') ? 1.4 : 1
+  if (id === 'banco') return own * 350 * fin
+  if (id === 'telecom') return own * 200
+  if (id === 'dark') return Object.keys(st.cedis).length * 15000
+  return 0
+}
+
+// ---------- conglomerados ----------
+export const groupOf = id => GROUPS.find(g => g.id === id)
+export function myShare (st) {
+  const own = st.stores.filter(s => !s.franq).length; const fr = st.stores.length - own
+  return Math.min(60, own * 0.35 + fr * 0.25 + Object.keys(st.cedis).length * 1.5)
+}
+export function groupShare (st, id) {
+  const g = st.groups[id]
+  if (g.acquired) return 0
+  return g.share * (1 - myShare(st) / 100)
+}
+export function rivalPressure (st) {
+  return GROUPS.reduce((a, g) => a + groupShare(st, g.id), 0) / 100
+}
+export const warOn = st => GROUPS.some(g => st.groups[g.id].war > 0)
+export function perk (st, key) {
+  return GROUPS.some(g => g.perk === key && (st.groups?.[g.id]?.acquired || (st.groups?.[g.id]?.alliance && !(st.groups[g.id].war > 0))))
+}
+export const allianceCost = (st, id) => Math.round(1500000 + st.groups[id].share * 50000)
+export function alianza (st, id) {
+  const g = st.groups[id]; const d = groupOf(id)
+  if (!g || g.acquired || g.alliance) return fail('Ya hay alianza')
+  if (st.phase < 1) return fail('Las alianzas se abren en la fase 2: Clúster Urbano')
+  if (g.war > 0) return fail('Están en guerra de precios contigo')
+  if (st.cash < allianceCost(st, id)) return fail('No alcanza el efectivo')
+  invest(st, allianceCost(st, id))
+  g.alliance = true
+  log(st, `🤝 Alianza comercial con ${d.name}: ${d.perkTxt}`, 'good')
+  return ok('Alianza firmada')
+}
+export function guerra (st, id) {
+  const g = st.groups[id]; const d = groupOf(id)
+  if (!g || g.acquired) return fail('No disponible')
+  if (g.war > 0) return fail('Ya están en guerra')
+  if (st.cash < WAR_COST) return fail('No alcanza el efectivo')
+  spend(st, WAR_COST, 'marketing')
+  g.war = WAR_DAYS
+  if (g.alliance) { g.alliance = false; log(st, `Rompiste la alianza con ${d.name}`, 'bad') }
+  log(st, `⚡ Guerra de precios contra ${d.name}: −8 % en tus precios, +10 % de clientes por ${WAR_DAYS} días`, 'info')
+  return ok('¡Guerra de precios!')
+}
+export const acquireCost = (st, id) => Math.round(20000000 + st.groups[id].share * 2500000)
+export function adquirir (st, id) {
+  const g = st.groups[id]; const d = groupOf(id)
+  if (!g || g.acquired) return fail('Ya es tuyo')
+  if (st.phase < 3) return fail('Las fusiones se desbloquean en la fase 4')
+  if (groupShare(st, id) > 12) return fail(`Su mercado es muy grande (${groupShare(st, id).toFixed(0)} %). Bájalo a 12 % con guerras de precios.`)
+  if (st.cash < acquireCost(st, id)) return fail('No alcanza el efectivo')
+  invest(st, acquireCost(st, id))
+  g.acquired = true; g.alliance = false; g.war = 0
+  for (const r of REGIONS) st.aware[r.id] = clamp(st.aware[r.id] + 10, 0, 100)
+  st.brand = clamp(st.brand + 5, 0, 100)
+  log(st, `💼 ¡Adquiriste ${d.name}! Su beneficio es tuyo para siempre: ${d.perkTxt}`, 'good')
+  return ok(`${d.name} ahora es parte de tu holding`)
 }
 
 // ---------- eventos ----------
@@ -462,8 +575,9 @@ export function step (st, rng) {
     const region = regionOf(s.region)
     let evMult = st.effects.filter(e => e.type === 'demand' && e.region === s.region).reduce((a, e) => a * e.mult, 1)
     if (futbol && s.giro !== 'cafe') evMult *= 1.2
-    const stockout = !s.franq && !isCovered(st, s) && s.giro === 'tienda' ? rng() < 0.06 : false
-    const r = simulateStore(st, s, { evMult, heatwave, stockout })
+    if (s.stock == null) s.stock = 100
+    const stockout = !s.franq && s.stock < 25
+    const r = simulateStore(st, s, { evMult, heatwave, stockFactor: s.franq ? 1 : stockFactor(s) })
     const c = storeDailyCosts(st, s)
     let profit
     if (s.franq) {
@@ -476,10 +590,20 @@ export function step (st, rng) {
       profit = r.rev - r.cogs - c.rent - c.wages - c.upkeep
       dayRev += r.rev
     }
-    if (st.corp.fintech) { const f = r.served * 0.05 * 12; earn(st, f, 'fintech'); profit += f }
+    if (st.corp.fintech) { const f = r.served * 0.05 * 12 * (perk(st, 'fintech') ? 1.4 : 1); earn(st, f, 'fintech'); profit += f }
+    // el anaquel se vacía con las ventas y se resurte en la noche
+    let restocked = null
+    if (!s.franq) {
+      const units = Object.values(r.sales).reduce((a, b) => a + b, 0)
+      s.stock = Math.max(0, s.stock - units / shelfUnits(s) * 100)
+      if (isCovered(st, s)) { if (s.stock < 98) { s.stock = 100; restocked = 'cedis' } } else if (s.stock < 50) {
+        if (rng() < 0.85) { s.stock = 100; restocked = 'mayorista'; spend(st, FLETE, 'logistica'); profit -= FLETE } else restocked = 'falla'
+      }
+      if (restocked === 'cedis' || restocked === 'mayorista') s.restockedDay = st.day
+    }
     dayProfit += profit
     customers += r.served
-    s.today = { ...r, profit, stockout, covered: isCovered(st, s) }
+    s.today = { ...r, profit, stockout, restocked, covered: isCovered(st, s) }
     s.hist.push(Math.round(r.rev)); if (s.hist.length > 60) s.hist.shift()
     if (!s.franq) {
       let target = r.closed ? 20 : 55 + (r.quality - 0.85) * 70 + r.value * 30 - (r.customers ? r.lost / r.customers : 0) * 50 + (st.phase >= 1 ? 4 : 0)
@@ -487,6 +611,19 @@ export function step (st, rng) {
       s.sat = clamp(s.sat + (clamp(target, 0, 100) - s.sat) * 0.08, 0, 100)
     } else s.sat = 60
     st.aware[s.region] = clamp(st.aware[s.region] + r.served / 200 * (s.sat - 35) / 50 / region.pop, 0, 100)
+  }
+  // holding del futuro
+  for (const h of HOLDING) {
+    if (!holdingOn(st, h.id)) continue
+    spend(st, h.upkeep / 30, 'holdingGasto'); dayProfit -= h.upkeep / 30
+    const inc = holdingIncome(st, h.id)
+    if (inc) { earn(st, inc, 'holding'); dayProfit += inc }
+  }
+  // conglomerados: guerras, crecimiento y acciones
+  for (const gd of GROUPS) {
+    const g = st.groups[gd.id]
+    if (g.acquired) continue
+    if (g.war > 0) { g.war--; g.share = Math.max(3, g.share - 0.25) } else g.share = Math.min(gd.share * 1.3, g.share + 0.01)
   }
   // CEDIS: costo de operación
   for (const r of Object.keys(st.cedis)) spend(st, CEDIS.upkeep * st.cedis[r].level / 30, 'logistica')
@@ -508,15 +645,28 @@ export function step (st, rng) {
   }
   for (const s of st.stores) if (s.owned) s.ownedValue *= 1.00013
   const shock = gauss(rng) * 0.004
+  for (const gd of GROUPS) {
+    const m = st.market[gd.ticker]; const g = st.groups[gd.id]
+    if (!m) continue
+    m.price = Math.max(1, m.price * Math.exp(0.0002 + gd.vol * gauss(rng) + shock - (g.war > 0 ? 0.004 : 0)))
+    m.hist.push(+m.price.toFixed(2)); if (m.hist.length > 90) m.hist.shift()
+  }
   for (const def of STOCKS) {
     const m = st.market[def.id]
     m.price = Math.max(1, m.price * Math.exp(def.drift + def.vol * gauss(rng) + shock))
     m.hist.push(+m.price.toFixed(2)); if (m.hist.length > 90) m.hist.shift()
   }
-  if (st.loan > 0) { const i = st.loan * LOAN_RATE / 365; spend(st, i, 'intereses'); dayProfit -= i }
+  if (st.loan > 0) { const i = st.loan * (holdingOn(st, 'banco') ? 0.10 : LOAN_RATE) / 365; spend(st, i, 'intereses'); dayProfit -= i }
   if (st.day % 7 === 0) refreshCandidates(st, rng)
 
   st.hist.push({ rev: Math.round(dayRev), profit: Math.round(dayProfit) })
+  st.corte = {
+    day: st.day, ventas: Math.round(dayRev), utilidad: Math.round(dayProfit), clientes: Math.round(customers),
+    resurtidos: st.stores.filter(s => s.today?.restocked === 'cedis' || s.today?.restocked === 'mayorista').length,
+    cedis: st.stores.filter(s => s.today?.restocked === 'cedis').length,
+    fallas: st.stores.filter(s => s.today?.restocked === 'falla').length,
+    bajos: st.stores.filter(s => !s.franq && s.stock < 25).length
+  }
   if (st.hist.length > 120) st.hist.shift()
   st.stats.customers += customers
   st.stats.bestDay = Math.max(st.stats.bestDay, dayRev)
@@ -547,6 +697,6 @@ export function comalSale (st, storeId, amount) {
 export function serialize (st) { return JSON.stringify(st) }
 export function deserialize (t) {
   const s = JSON.parse(t)
-  if (!s || s.v !== SAVE_VERSION || !Array.isArray(s.stores) || !s.cedis) throw new Error('Partida incompatible')
+  if (!s || s.v !== SAVE_VERSION || !Array.isArray(s.stores) || !s.cedis || !s.groups) throw new Error('Partida incompatible')
   return s
 }

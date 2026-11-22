@@ -5,7 +5,7 @@ export const START = { year: 2027, month: 0, day: 1, cash: 350000 }
 // Cada giro tiene 4 formatos (del más chico al flagship) y su propio catálogo.
 export const GIROS = {
   tienda: {
-    id: 'tienda', name: 'Tienda', plural: 'Tiendas', icon: '🏪', staff: 'Cajero', staffPl: 'Cajeros', base: 260, serve: [60, 15], basket: 2.4,
+    id: 'tienda', name: 'Tienda', plural: 'Tiendas', icon: '🏪', staff: 'Cajero', staffPl: 'Cajeros', base: 290, serve: [60, 15], basket: 2.4,
     formats: [
       { name: 'Tiendita de Esquina', cost: 80000, maxStaff: 2, ambience: 0.85, upkeep: 200, img: 'assets/formato-1.jpg', desc: 'La de toda la vida: fiado, refrescos fríos y dulces a granel.' },
       { name: 'Conveniencia 24/7', cost: 380000, maxStaff: 5, ambience: 1.05, upkeep: 750, img: 'assets/formato-2.jpg', desc: 'Abierta día y noche: +20 % de tráfico, cobro de servicios.', traffic: 1.2 },
@@ -155,3 +155,36 @@ export const FIRST_NAMES = ['Ana', 'Luis', 'Carmen', 'Diego', 'Lupita', 'Jorge',
 export const LAST_NAMES = ['López', 'Hernández', 'García', 'Martínez', 'Ramírez', 'Cruz', 'Flores', 'Morales', 'Reyes', 'Jiménez',
   'Ortiz', 'Mendoza', 'Ruiz', 'Vázquez', 'Castillo', 'Santiago']
 export const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+// Holding del futuro (se desbloquea en la fase 4)
+export const HOLDING = [
+  { id: 'banco', name: 'Banco Digital MX', desc: 'Transacciones y crédito: ingreso por sucursal y tu crédito baja a 10 % anual.', cost: 8000000, upkeep: 120000, img: 'assets/holding-1.jpg', needs: 'fintech' },
+  { id: 'telecom', name: 'Telecom / Chip Propio', desc: 'Red de datos móviles: recargas 30 % más baratas e ingreso por chip vendido.', cost: 12000000, upkeep: 150000, img: 'assets/holding-2.jpg' },
+  { id: 'solar', name: 'Energía Solar en Tiendas', desc: 'Ahorro sustentable: −35 % de mantenimiento y servicios, y más prestigio.', cost: 4000000, upkeep: 20000, img: 'assets/holding-3.jpg' },
+  { id: 'dark', name: 'Dark Stores 15 min & Flotilla EV', desc: 'Logística express eléctrica: +8 % de clientes y pedidos en línea donde tengas CEDIS.', cost: 10000000, upkeep: 200000, img: 'assets/holding-4.jpg' }
+]
+
+// Conglomerados rivales (ficticios). Cada uno tiene acciones en la BMV del juego.
+export const GROUPS = [
+  { id: 'altiplano', name: 'Grupo Altiplano', ticker: 'ALTP', color: '#D63B2F', share: 28, price: 182, vol: 0.015,
+    tagline: 'Mucho capital y sinergia inmobiliaria', sectors: ['Telecomunicaciones', 'Plazas comerciales', 'Infraestructura', 'Retail'],
+    stats: [['Capital', 0.9], ['Presencia', 0.8], ['Infraestructura', 0.7]], perk: 'rent', perkTxt: '−15 % de renta en todas tus sucursales (acceso a sus plazas)' },
+  { id: 'ebano', name: 'Grupo Ébano', ticker: 'EBNO', color: '#1B4D8F', share: 22, price: 64, vol: 0.022,
+    tagline: 'Crédito al consumo y fintech', sectors: ['Banca y crédito', 'Retail popular', 'Motocicletas', 'Medios'],
+    stats: [['Crédito', 0.85], ['Medios', 0.65], ['Retail', 0.5]], perk: 'fintech', perkTxt: '+40 % en comisiones de fintech y banco' },
+  { id: 'norte24', name: 'Grupo Norte 24', ticker: 'NT24', color: '#2E7D5B', share: 35, price: 210, vol: 0.013,
+    tagline: 'Densidad masiva de tiendas', sectors: ['Conveniencia 24/7', 'Bebidas', 'Farmacias', 'Pagos digitales'],
+    stats: [['Distribución', 0.85], ['Cobertura', 0.9], ['Digital', 0.75]], perk: 'bebidas', perkTxt: 'Bebidas frías, aguas y cold brew −20 % de costo' },
+  { id: 'trigal', name: 'Grupo Trigal', ticker: 'TRGL', color: '#F28C05', share: 15, price: 88, vol: 0.014,
+    tagline: 'Red de abasto imbatible', sectors: ['Alimentos', 'Logística nacional', 'Distribución masiva'],
+    stats: [['Logística', 0.88], ['Alcance', 0.75], ['Producción', 0.88]], perk: 'supply', perkTxt: '−8 % en toda la mercancía e insumos' }
+]
+export const SHELF = { tienda: 900, cafe: 500, taqueria: 600 }
+export const PROCESOS = [
+  { n: 1, name: 'Compra a proveedores', img: 'assets/proceso-1.jpg' },
+  { n: 2, name: 'Recepción en CEDIS', img: 'assets/proceso-2.jpg' },
+  { n: 3, name: 'Ruta de reparto', img: 'assets/proceso-3.jpg' },
+  { n: 4, name: 'Resurtido en tienda', img: 'assets/proceso-4.jpg' },
+  { n: 5, name: 'Cobro y servicios', img: 'assets/proceso-5.jpg' },
+  { n: 6, name: 'Corte y utilidad', img: 'assets/proceso-6.jpg' }
+]

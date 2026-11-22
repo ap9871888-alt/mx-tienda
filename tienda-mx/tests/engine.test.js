@@ -79,12 +79,50 @@ test('franquicia paga regalías sin costos', () => {
   assert.ok(st.today.rev > 0)
   assert.ok(Math.abs(s.cash - c - st.today.rev * E.ROYALTY) < 1)
 })
-test('desabasto solo afecta tiendas sin CEDIS', () => {
-  const { s } = g(); s.cash = 1e6
+test('anaquel: se vacía con las ventas, el mayorista resurte y el CEDIS resurte cada noche', () => {
+  const { s, rng } = g(); s.cash = 1e6
   const st = staffed(s, 'vdm', 'roma', 'tienda')
-  const a = E.simulateStore(s, st).customers
-  const b = E.simulateStore(s, st, { stockout: true }).customers
-  assert.ok(Math.abs(b / a - 0.65) < 1e-9)
+  E.step(s, rng)
+  assert.ok(st.stock < 100)
+  st.stock = 10
+  const a = E.simulateStore(s, st, { stockFactor: E.stockFactor(st) }).customers
+  const b = E.simulateStore(s, st).customers
+  assert.ok(Math.abs(a / b - 0.4) < 1e-9)
+  assert.ok(E.restock(s, st.id).ok); assert.equal(st.stock, 100)
+  s.phase = 1; s.cash = 1e7; E.buildCedis(s, 'vdm')
+  E.step(s, rng)
+  assert.equal(st.stock, 100); assert.equal(st.today.restocked, 'cedis')
+})
+test('holding: se desbloquea en fase 4, cobra y se puede apagar', () => {
+  const { s, rng } = g(); s.cash = 5e7
+  staffed(s, 'vdm', 'roma', 'tienda')
+  assert.equal(E.buyHolding(s, 'solar').ok, false)
+  s.phase = 3
+  assert.ok(E.buyHolding(s, 'solar').ok)
+  const st = s.stores[0]
+  assert.equal(E.storeDailyCosts(s, st).upkeep, 200 * 0.65)
+  E.toggleHolding(s, 'solar')
+  assert.equal(E.storeDailyCosts(s, st).upkeep, 200)
+  assert.equal(E.buyHolding(s, 'banco').ok, false, 'requiere fintech')
+})
+test('conglomerados: alianza da beneficio, guerra lo rompe y baja su mercado; fusión cuando son chicos', () => {
+  const { s, rng } = g(); s.cash = 1e8; s.phase = 1
+  const st = staffed(s, 'vdm', 'roma', 'tienda')
+  const rent = E.storeDailyCosts(s, st).rent
+  assert.ok(E.alianza(s, 'altiplano').ok)
+  assert.ok(Math.abs(E.storeDailyCosts(s, st).rent - rent * 0.85) < 1e-9)
+  assert.ok(E.guerra(s, 'altiplano').ok)
+  assert.equal(s.groups.altiplano.alliance, false)
+  const sh = s.groups.altiplano.share
+  for (let i = 0; i < 30; i++) E.step(s, rng)
+  assert.ok(s.groups.altiplano.share < sh - 7)
+  s.phase = 3
+  assert.equal(E.adquirir(s, 'norte24').ok, false, 'muy grande')
+  s.groups.trigal.share = 10
+  const p = E.rivalPressure(s)
+  assert.ok(E.adquirir(s, 'trigal').ok)
+  assert.ok(E.rivalPressure(s) < p)
+  assert.ok(E.perk(s, 'supply'))
 })
 test('comal: el jugador cobra tacos solo en taquerías', () => {
   const { s } = g(); s.cash = 1e6
