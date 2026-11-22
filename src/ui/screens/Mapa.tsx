@@ -73,7 +73,7 @@ export function Mapa () {
           <button key={c.id} onClick={() => { setCityId(c.id); setNational(false) }} className={`shrink-0 px-3 min-h-[36px] rounded-full text-sm font-semibold border ${!national && c.id === cityId ? 'bg-corp text-white border-corp' : 'bg-white border-borde'}`}>
             {c.id === here ? '📍 ' : ''}{c.name} <span className='opacity-70'>· {game.stores.filter(s => s.cityId === c.id).length}</span></button>))}
       </div>
-      {game.trip && <div className='rounded-xl bg-corp text-white px-3 py-2 text-sm font-semibold flex items-center gap-2'>{game.trip.mode === 'avion' ? '✈️' : '🚌'} En camino a {cityOf(game.trip.to).name} · llegas en {Math.max(0, Math.ceil((game.trip.arrive - game.minute) / 60))} h</div>}
+      {game.trip && <TripBanner />}
       {!national && cityId !== here && !game.trip && <Travel to={cityId} />}
       {national ? <Nacional onCity={id => { if (game.cities.includes(id)) { setCityId(id); setNational(false) } else setUnlock(id) }} /> : <>
       <div className='flex items-baseline justify-between'><h1 className='font-display text-2xl uppercase'>{CITY.name}</h1><span className='text-xs text-tenue'>{CITY.map ? 'Toca una colonia' : 'Elige una zona'}</span></div>
@@ -262,8 +262,30 @@ function Travel ({ to }: { to: string }) {
     <div className='rounded-xl border border-borde bg-white p-3 flex flex-col gap-2'>
       <span className='text-sm'>Estás en <b>{cityOf(game.here ?? 'cdmx').name}</b>. {cityOf(to).name} está a {q.km.toLocaleString('es-MX')} km. Para abrir tiendas ahí tienes que viajar:</span>
       <div className='grid grid-cols-2 gap-2'>
-        <button onClick={() => go('bus')} className='rounded-xl border border-borde bg-arena p-2.5 text-left min-h-[56px]'><b className='block'>🚌 Autobús</b><span className='text-xs text-tenue num'>{q.bus.hours} h · {fmt(q.bus.cost)}</span></button>
-        <button onClick={() => go('avion')} className='rounded-xl border border-corp bg-corp text-white p-2.5 text-left min-h-[56px]'><b className='block'>✈️ Avión</b><span className='text-xs opacity-85 num'>{q.avion.hours} h · {fmt(q.avion.cost)}</span></button>
+        <button onClick={() => go('bus')} className='rounded-xl border border-borde bg-arena p-2.5 text-left min-h-[56px]'><img src={assetUrl('ui/autobus-0.webp')} alt='' className='h-10' /><b className='block'>Autobús</b><span className='text-xs text-tenue num'>{q.bus.hours} h · {fmt(q.bus.cost)}</span></button>
+        <button onClick={() => go('avion')} className='rounded-xl border border-corp bg-corp text-white p-2.5 text-left min-h-[56px]'><img src={assetUrl('ui/avion-1.webp')} alt='' className='h-10' /><b className='block'>Avión</b><span className='text-xs opacity-85 num'>{q.avion.hours} h · {fmt(q.avion.cost)}</span></button>
+      </div>
+    </div>
+  )
+}
+
+// viaje en curso: el avión despega cuadro por cuadro o el autobús avanza por la carretera
+function TripBanner () {
+  const game = useApp(s => s.game)!
+  const trip = game.trip!
+  const q = E.tripQuote(game, trip.to)
+  const total = (trip.mode === 'avion' ? q.avion.hours : q.bus.hours) * 60
+  const left = Math.max(0, trip.arrive - game.minute); const prog = Math.min(1, 1 - left / total)
+  const frame = trip.mode === 'avion' ? `ui/avion-${Math.min(3, Math.floor(prog * 4))}.webp` : 'ui/autobus-1.webp'
+  return (
+    <div className='rounded-2xl bg-gradient-to-r from-corp to-[#4F8FD0] text-white p-3 overflow-hidden'>
+      <div className='flex items-center gap-2 text-sm font-semibold'>
+        <img src={assetUrl(`city/pin-${trip.mode === 'avion' ? 'aeropuerto' : 'central'}.webp`)} alt='' className='h-8' />
+        <span className='flex-1'>Rumbo a {cityOf(trip.to).name} · llegas en {Math.ceil(left / 60)} h</span>
+      </div>
+      <div className='relative h-16 mt-1'>
+        <div className='absolute bottom-2 inset-x-0 h-1 rounded-full bg-white/30' />
+        <img src={assetUrl(frame)} alt='' className='absolute bottom-1 h-14 transition-[left] duration-500' style={{ left: `calc(${prog * 100}% - ${prog * 90}px)` }} />
       </div>
     </div>
   )

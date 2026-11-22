@@ -21,7 +21,7 @@ const LOTS: { x: number; y: number; v: number }[] = []
   add([3, 1, -1, -3, -5], [9, 11, 13, 15]) // cuadra suroeste
 }
 const overlaps = (l: { x: number; y: number }, r: { x: number; y: number; w: number; d: number }) => l.x < r.x + r.w && l.x + 2 > r.x && l.y < r.y + r.d && l.y + 2 > r.y
-const SPRITES = ['sprites/edificio-0-dia.webp', 'sprites/cliente-0.webp', 'sprites/camioneta-0.webp', 'sprites/camion-0.webp', 'sprites/moto-0.webp']
+const SPRITES = ['sprites/edificio-0-dia.webp', 'sprites/cliente-0.webp', 'sprites/camioneta-0.webp', 'sprites/camion-0.webp', 'sprites/moto-0.webp', 'sprites/veh-ev-dron-0.webp']
 
 export interface SceneSource { game: () => GameState | null; storeId: () => number | null; speed: () => number }
 
@@ -86,7 +86,7 @@ const LIGHTS: [P, 'A' | 'B'][] = [[{ x: 5.15, y: 5.15 }, 'A'], [{ x: 8.85, y: 5.
 // qué columna de cada lámina mira a SW (de frente) y a NE (de espaldas)
 const VEH_VIEWS: Record<string, { sw: number; ne: number; swIsSE?: boolean }> = {
   taxi: { sw: 1, ne: 2 }, vocho: { sw: 0, ne: 2 }, 'sedan-azul': { sw: 0, ne: 2 }, 'sedan-rojo': { sw: 0, ne: 2, swIsSE: true },
-  pickup: { sw: 0, ne: 2 }, micro: { sw: 0, ne: 2 }, metrobus: { sw: 0, ne: 2 }
+  pickup: { sw: 0, ne: 2 }, micro: { sw: 0, ne: 2 }, metrobus: { sw: 0, ne: 2 }, 'ev-auto': { sw: 0, ne: 2 }, 'ev-bus': { sw: 0, ne: 2 }
 }
 const LANES = [
   // se circula por la derecha, como en México
@@ -113,7 +113,7 @@ export class StreetScene {
     this.ro.observe(canvas)
     preload([...SPRITES, ...Array.from({ length: 8 }, (_, i) => `sprites/edificio-${i}-dia.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/cliente-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/repartidor-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/cajero-${i}.webp`), ...Array.from({ length: 8 }, (_, i) => `sprites/peaton-${i}.webp`), 'sprites/cliente-grande.webp',
       ...['jacaranda', 'arbol', 'poste-luz', 'semaforo-rojo', 'semaforo-amarillo', 'semaforo-verde', 'parada', 'puesto', 'bote', 'banca', 'hidrante', 'bici', 'cono'].map(n => `sprites/obj-${n}.webp`),
-      ...['taxi', 'vocho', 'sedan-rojo', 'sedan-azul', 'pickup', 'micro', 'metrobus'].flatMap(n => [0, 1, 2, 3].map(i => `sprites/veh-${n}-${i}.webp`))])
+      ...['taxi', 'vocho', 'sedan-rojo', 'sedan-azul', 'pickup', 'micro', 'metrobus', 'ev-auto', 'ev-bus'].flatMap(n => [0, 1, 2, 3].map(i => `sprites/veh-${n}-${i}.webp`))])
     this.resize()
   }
 
@@ -249,7 +249,8 @@ export class StreetScene {
         const bus = lane === 1 && this.rnd() < 0.12
         const v: VehicleLook = bus ? { kind: 'bus', color: '#D63B2F' } : pre
         // antes de 2014 los taxis eran vochos verdes; antes de 2005 no había Metrobús
-        const skin = bus ? (this.year >= 2005 ? 'metrobus' : 'micro')
+        const ev = this.year >= 2033 && this.rnd() < 0.7 // en el futuro casi todo es eléctrico
+        const skin = bus ? (this.year >= 2033 ? 'ev-bus' : this.year >= 2005 ? 'metrobus' : 'micro') : ev && (v.kind === 'car' || v.kind === 'taxi') ? 'ev-auto'
           : v.kind === 'taxi' ? (this.year >= 2014 ? 'taxi' : 'vocho-taxi')
             : v.kind === 'vocho' ? 'vocho' : v.kind === 'car' ? ['sedan-rojo', 'sedan-azul', 'pickup', 'sedan-rojo'][Math.floor(this.rnd() * 4)] : undefined
         if (skin === 'vocho-taxi') v.color = '#3E9E4A'
@@ -419,6 +420,14 @@ export class StreetScene {
     }
     items.sort((a, b) => a.k - b.k)
     for (const it of items) it.f()
+    // 2030+: drones de reparto cruzan el cielo
+    if (this.year >= 2030) {
+      const dr = sprite('sprites/veh-ev-dron-0.webp')
+      if (dr) {
+        const ph = (this.t * 0.06) % 1.4
+        if (ph < 1) { const p = toScreen(cam, -2 + ph * 18, 3 + ph * 4, 0); const w = 0.9 * TW * cam.zoom; ctx.drawImage(dr, p.sx - w / 2, p.sy - 120 * cam.zoom + Math.sin(this.t * 3) * 4, w, w * dr.height / dr.width) }
+      }
+    }
     // noche
     const dark = (1 - day) * 0.55
     if (dark > 0.01) {
@@ -513,7 +522,7 @@ export class StreetScene {
       if (!back && view.swIsSE) mirror = !mirror
       if (img) {
         const z = this.cam.zoom; const p = toScreen(this.cam, x, y)
-        const width = (sk === 'metrobus' ? 2.5 : sk === 'micro' ? 2 : sk === 'pickup' ? 1.35 : sk === 'vocho' ? 1.05 : 1.2) * TW * z
+        const width = (sk === 'metrobus' || sk === 'ev-bus' ? 2.5 : sk === 'ev-auto' ? 1.05 : sk === 'micro' ? 2 : sk === 'pickup' ? 1.35 : sk === 'vocho' ? 1.05 : 1.2) * TW * z
         const h = width * img.height / img.width
         if (c.skin === 'vocho-taxi') this.ctx.filter = 'hue-rotate(95deg) saturate(1.3)'
         this.ctx.save(); this.ctx.translate(p.sx, p.sy); if (mirror) this.ctx.scale(-1, 1)

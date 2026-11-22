@@ -160,7 +160,7 @@ function Logros ({ onClose }: { onClose: () => void }) {
       <div className='grid grid-cols-2 gap-2'>
         {ACHIEVEMENTS.map(a => { const ok = !!game && a.ok(game); return (
           <div key={a.id} className={`rounded-xl border p-2.5 ${ok ? 'bg-oferta/20 border-oferta' : 'bg-white border-borde opacity-60'}`}>
-            <span className={`text-2xl ${ok ? '' : 'grayscale'}`}>{a.icon}</span><b className='block text-sm'>{a.name}</b><span className='text-[11px] text-tenue'>{a.desc}</span>
+            <img src={assetUrl(`ui/medalla-${ACHIEVEMENTS.indexOf(a)}.webp`)} alt='' className={`w-12 h-12 ${ok ? '' : 'grayscale opacity-60'}`} /><b className='block text-sm'>{a.name}</b><span className='text-[11px] text-tenue'>{a.desc}</span>
           </div>) })}
       </div>
     </Modal>

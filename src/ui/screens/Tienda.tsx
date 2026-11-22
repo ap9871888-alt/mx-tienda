@@ -163,14 +163,17 @@ function Interior ({ st }: { st: Store }) {
   const lvl = st.remodel ?? 0; const next = REMODEL[lvl + 1]
   const f = formatOf(st.formatId)
   const floor = ['#E7DFD0', '#EDE6DA', '#F4EFE6', '#FFFFFF'][lvl]
+  const group = { tiendita: 'tiendita', conveniencia: 'conveniencia', hardDiscount: 'bodega', bodega: 'bodega' }[st.formatId as string]
+  const art = group ? assetUrl(`ui/interior-${group}-${Math.min(2, lvl)}.webp`) : ''
   const things: [string, number][] = [['anaquel', f.food ? 2 : 4], ['caja', Math.max(1, st.cashiers.length)], ['autocobro', st.selfCheckouts], ['camara', st.security], ['limpieza', st.cleaning]]
   return (
     <Card title={`Interior · ${REMODEL[lvl].name}`}>
-      <div className='relative rounded-2xl border-4 border-urbano/80 p-3 grid grid-cols-4 gap-2 min-h-[170px]' style={{ background: `repeating-linear-gradient(45deg, ${floor} 0 14px, ${lvl >= 2 ? '#E9E2D6' : '#DCD3C2'} 14px 28px)` }}>
+      {art && <div className='relative'><img src={art} alt={`Interior ${REMODEL[lvl].name}`} className='w-full rounded-2xl bg-white' />{lvl >= 1 && <span className='absolute top-2 left-2 bg-oferta text-urbano text-[10px] font-black rounded-full px-2 py-0.5'>✨ {REMODEL[lvl].name.toUpperCase()}</span>}</div>}
+      <div className={`relative rounded-2xl ${art ? 'p-1 grid grid-cols-6 gap-1.5' : 'border-4 border-urbano/80 p-3 grid grid-cols-4 gap-2 min-h-[170px]'}`} style={art ? undefined : { background: `repeating-linear-gradient(45deg, ${floor} 0 14px, ${lvl >= 2 ? '#E9E2D6' : '#DCD3C2'} 14px 28px)` }}>
         {things.flatMap(([n, k]) => Array.from({ length: k }, (_, j) => (
           <div key={n + j} className='bg-white/80 rounded-xl grid place-items-center p-1.5 shadow-sm'>{assetUrl(`ui/${n}.webp`) ? <img src={assetUrl(`ui/${n}.webp`)} alt={n} className='w-full aspect-square object-contain' /> : <span className='text-2xl'>📦</span>}</div>
         )))}
-        {lvl >= 1 && <span className='absolute -top-3 left-3 bg-oferta text-urbano text-[10px] font-black rounded-full px-2'>✨ {REMODEL[lvl].name.toUpperCase()}</span>}
+        {lvl >= 1 && !art && <span className='absolute -top-3 left-3 bg-oferta text-urbano text-[10px] font-black rounded-full px-2'>✨ {REMODEL[lvl].name.toUpperCase()}</span>}
       </div>
       <p className='text-xs text-tenue'>Anaqueles, cajas, autocobro, cámaras y limpieza que tienes hoy. Cada remodelación atrae +8 % de clientes y sube la satisfacción.</p>
       {next ? <div className='rounded-xl border border-dashed border-borde p-3 flex items-center gap-3'>
