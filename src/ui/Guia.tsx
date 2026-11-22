@@ -32,20 +32,20 @@ export function GuiaButton () {
   return (
     <>
       <button onClick={() => setOpen(true)} aria-label='Guía' className='relative w-10 h-10 rounded-full bg-white border-2 border-oferta shrink-0 overflow-hidden'>
-        <img src={assetUrl('ui/asesor-encargado.webp')} alt='' className='w-full h-full object-cover' />
+        <img src={assetUrl('ui/chema-guino.webp')} alt='' className='w-full h-full object-cover object-top scale-[1.9] origin-top' />
         {i >= 0 && <span className='absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-oferta border-2 border-white animate-pulse' />}
       </button>
       {open && (<div className='text-urbano'>
         <Modal title='Guía · Don Chema' onClose={() => setOpen(false)}>
           {i >= 0 ? (
             <div className='rounded-2xl bg-oferta/20 border border-oferta p-3 flex gap-3 items-start'>
-              <img src={assetUrl('ui/asesor-encargado.webp')} alt='' className='w-14 h-14 rounded-full shrink-0' />
+              <img src={assetUrl(`ui/chema-${game.cash < 0 ? 'preocupado' : i === 0 ? 'saluda' : STEPS[i].tab ? 'senala' : 'piensa'}.webp`)} alt='' className='w-20 shrink-0' />
               <div className='flex-1'><span className='text-[11px] uppercase font-bold text-tenue'>Paso {i + 1} de {STEPS.length}</span>
                 <p className='text-[15px] font-semibold'>{STEPS[i].text}</p>
                 {STEPS[i].tab && <button onClick={() => { useApp.getState().setTab(STEPS[i].tab!); setOpen(false) }} className='mt-2 bg-rojo text-white rounded-xl px-4 min-h-[40px] font-bold'>Llévame ahí →</button>}
               </div>
             </div>
-          ) : <p className='text-sm font-semibold'>¡Ya dominas lo básico! Ahora crece tu imperio a tu manera.</p>}
+          ) : <div className='flex items-center gap-3'><img src={assetUrl('ui/chema-festeja.webp')} alt='' className='w-20' /><p className='text-sm font-semibold'>¡Ya dominas lo básico! Ahora crece tu imperio a tu manera.</p></div>}
           <div className='flex gap-1'>{STEPS.map((s, k) => <span key={k} className={`h-1.5 flex-1 rounded-full ${s.done(game) ? 'bg-ahorro' : 'bg-borde'}`} />)}</div>
           <h3 className='font-bold text-sm mt-1'>¿Dónde está…?</h3>
           <div className='grid grid-cols-1 gap-1.5'>

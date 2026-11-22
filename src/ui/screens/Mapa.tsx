@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MapPin } from 'lucide-react'
-import { CITIES, HOUR_PROFILE, cityOf, colonyById, type City } from '../../data/cities'
+import { CITIES, HOUR_PROFILE, cityOf, colonyById, STATES, NATIONAL_MAP, CITY_STATE, stateAt, type City } from '../../data/cities'
 import { FORMATS, formatOf, type FormatId } from '../../data/formats'
 import { RIVAL_STYLES } from '../../data/market'
 import * as E from '../../engine'
@@ -197,26 +197,44 @@ function Row ({ k, v, bold, tone = '' }: { k: string; v: string; bold?: boolean;
 
 function Nacional ({ onCity }: { onCity: (id: string) => void }) {
   const game = useApp(s => s.game)!
+  const [st, setSt] = useState<string>('cdmx')
+  const state = STATES.find(x => x.id === st)!
+  const citiesHere = CITIES.filter(c => CITY_STATE[c.id] === st)
+  const onMap = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const s2 = stateAt((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
+    if (s2) { sfx.click(); setSt(s2.id) }
+  }
   return (
     <div className='flex flex-col gap-3'>
-      <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#DCEAF2] select-none' style={{ aspectRatio: '1.49' }}>
-        <img src={assetUrl('map/mexico.webp')} alt='Mapa de México' className='absolute inset-0 w-full h-full' draggable={false} />
+      <div onClick={onMap} className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#B9D7EE] select-none' style={{ aspectRatio: `${NATIONAL_MAP.aspect}` }} role='img' aria-label='Mapa de México por estados'>
+        <img src={assetUrl('map/estados.webp')} alt='' className='absolute inset-0 w-full h-full' draggable={false} />
+        <span className='absolute w-4 h-4 rounded-full bg-rojo border-2 border-white shadow animate-ping pointer-events-none' style={{ left: `${state.x}%`, top: `${state.y}%`, transform: 'translate(-50%,-50%)' }} />
         {CITIES.map(c => {
           const on = game.cities.includes(c.id); const n = game.stores.filter(s => s.cityId === c.id).length
-          return <button key={c.id} onClick={() => onCity(c.id)} className='absolute flex flex-col items-center' style={{ left: `${c.nx}%`, top: `${c.ny}%`, transform: 'translate(-50%,-50%)' }}>
-            <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded-md shadow whitespace-nowrap ${on ? 'bg-corp text-white' : 'bg-white/95 text-urbano'}`}>{on ? '' : '🔒 '}{c.name}{on ? ` · ${n}` : ''}</span>
-          </button>
+          return <span key={c.id} className='absolute pointer-events-none flex flex-col items-center' style={{ left: `${c.nx}%`, top: `${c.ny}%`, transform: 'translate(-50%,-100%)' }}>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shadow whitespace-nowrap ${on ? 'bg-corp text-white' : 'bg-white/95 text-urbano'}`}>{(game.here ?? 'cdmx') === c.id ? '📍' : on ? '' : '🔒'}{c.name}{on ? ` · ${n}` : ''}</span>
+          </span>
         })}
       </div>
+      <Card title={state.name}>
+        {citiesHere.length ? citiesHere.map(c => {
+          const on = game.cities.includes(c.id)
+          return <div key={c.id} className='flex items-center gap-3'>
+            <div className='flex-1 min-w-0'><b className='text-sm'>{c.name}</b> <span className='text-xs text-tenue'>{c.colonies.length} zonas{c.cedisRadius ? ' · cerca de tu CEDIS' : ''}</span></div>
+            {on ? <Btn small onClick={() => onCity(c.id)}>Ver ciudad</Btn> : <Btn small onClick={() => onCity(c.id)}>Expandirme · {fmtK(c.unlock)}</Btn>}
+          </div>
+        }) : <p className='text-sm text-tenue'>Todavía no hay plaza disponible en {state.name}. Llegará en una próxima actualización.</p>}
+      </Card>
       <Card title='Expansión nacional'>
         {CITIES.map(c => {
           const on = game.cities.includes(c.id)
           return <div key={c.id} className='flex items-center gap-3 py-1.5 border-t border-borde first:border-t-0'>
-            <div className='flex-1 min-w-0'><b className='text-sm'>{c.name}</b> <span className='text-xs text-tenue'>{c.state} · {c.colonies.length} zonas{c.cedisRadius ? ' · la surte tu CEDIS' : ''}</span></div>
+            <div className='flex-1 min-w-0'><b className='text-sm'>{c.name}</b> <span className='text-xs text-tenue'>{c.state} · {c.colonies.length} zonas</span></div>
             {on ? <Pill tone='good'>{game.stores.filter(s => s.cityId === c.id).length} tiendas</Pill> : <Btn small onClick={() => onCity(c.id)}>{fmtK(c.unlock)}</Btn>}
           </div>
         })}
-        <p className='text-xs text-tenue'>Necesitas 4 tiendas para expandirte. Los rivales también crecen más rápido cuantas más ciudades abres.</p>
+        <p className='text-xs text-tenue'>Toca un estado del mapa. Para abrir una ciudad nueva necesitas 4 tiendas y viajar hasta allá.</p>
       </Card>
     </div>
   )

@@ -1,7 +1,7 @@
 // Ciudades y colonias. Valores base: cada partida los varía con la IA de mercado (engine/market.ts).
 // `traffic` = peatones por hora en promedio; `wealth` = tolerancia a precios; `competition` = presión rival base.
 import mask from './cdmxMask.json'
-import national from './mexicoMask.json'
+import national from './statesMask.json'
 
 export interface Colony {
   id: string
@@ -27,7 +27,9 @@ const pos = (id: string) => (mask.info as Record<string, { x: number; y: number 
 const col = (c: Omit<Colony, 'x' | 'y' | 'slots'> & { slots?: number }): Colony => ({ slots: 8, ...c, ...(pos(c.id) ?? { x: 0, y: 0 }) })
 const zone = (id: string, name: string, traffic: number, rentMult: number, wealth: number, competition: number, blurb: string): Colony =>
   ({ id, name, traffic, rentMult, wealth, competition, blurb, x: 0, y: 0, slots: 6 })
-const npos = (id: string) => (national.info as Record<string, { x: number; y: number }>)[id]
+// posición de cada ciudad en el mapa por estados (%)
+const CITY_POS: Record<string, { x: number; y: number }> = { cdmx: { x: 58.2, y: 73.6 }, pue: { x: 60.4, y: 75.2 }, gdl: { x: 42.6, y: 66.5 }, mty: { x: 53.6, y: 41.5 }, tij: { x: 6.2, y: 6.5 }, mer: { x: 87.2, y: 62.5 } }
+const npos = (id: string) => CITY_POS[id]
 
 export const CITIES: City[] = [
   {
@@ -80,7 +82,17 @@ export const CITIES: City[] = [
       zone('altabrisa', 'Altabrisa', 330, 1.25, 1.25, 0.35, 'Plazas nuevas y fraccionamientos al norte.')
     ] }
 ]
-export const NATIONAL_MAP = { nx: national.nx, ny: national.ny, grid: national.grid, ids: national.ids, aspect: national.aspect }
+export const STATES = national.states
+export const NATIONAL_MAP = { n: national.n, ny: national.ny, grid: national.grid, aspect: national.aspect }
+export const CITY_STATE: Record<string, string> = { cdmx: 'cdmx', pue: 'pue', gdl: 'jal', mty: 'nl', tij: 'bc', mer: 'yuc' }
+// qué estado hay en un punto del mapa nacional (0–1)
+export function stateAt (px: number, py: number) {
+  const near = STATES.filter(s => ['cdmx', 'tlax', 'mor', 'ags', 'col'].includes(s.id)).find(s => Math.hypot((s.x / 100 - px) * national.aspect, s.y / 100 - py) < 0.018)
+  if (near) return near
+  const gx = Math.min(national.n - 1, Math.max(0, Math.floor(px * national.n))); const gy = Math.min(national.ny - 1, Math.max(0, Math.floor(py * national.ny)))
+  const v = parseInt(national.grid[gy * national.n + gx], 36)
+  return v ? STATES[v - 1] : null
+}
 export function colonyById (colonyId: string) {
   for (const c of CITIES) { const z = c.colonies.find(x => x.id === colonyId); if (z) return { city: c, colony: z } }
   throw new Error(`Colonia desconocida: ${colonyId}`)
