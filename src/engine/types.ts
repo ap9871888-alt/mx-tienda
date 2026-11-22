@@ -34,6 +34,7 @@ export interface Store {
   cashiers: Cashier[]
   selfCheckouts: number
   remodel?: number
+  equipment?: string[]
   security: number // 0–2
   cleaning: number // 0–2
   bonus: boolean
@@ -66,6 +67,7 @@ export interface GameState {
   here?: string // ciudad donde estás (para operar otra ciudad hay que viajar)
   trip?: { to: string; arrive: number; mode: 'bus' | 'avion' } | null
   tutorial?: number
+  products?: { id: string; quality: number; sold: number }[]
   minute: number // minutos de juego desde el inicio (entero)
   carry: number // fracción de minuto pendiente
   cash: number

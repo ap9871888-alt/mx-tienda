@@ -11,6 +11,7 @@ import { Tienda } from './screens/Tienda'
 import { Logistica } from './screens/Logistica'
 import { Corporativo } from './screens/Corporativo'
 import { Banco } from './screens/Banco'
+import { Productos } from './screens/Productos'
 
 const TABS: [Tab, string, typeof Map][] = [['calle', 'Calle Viva', Footprints], ['mapa', 'Mapa', Map], ['tienda', 'Tienda', Store], ['logistica', 'Logística', Truck]]
 const SPEEDS: [Speed, typeof Play, string][] = [[0, Pause, 'Pausa'], [1, Play, '1x'], [2, FastForward, '2x'], [4, ChevronsRight, '4x']]
@@ -61,7 +62,7 @@ export function App () {
   }, [])
   const [more, setMore] = useState(false)
   if (!hasGame || title) return <><Portada /><Toast /></>
-  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco }[tab]
+  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco, productos: Productos }[tab]
   return (
     <div className='max-w-[620px] mx-auto min-h-full flex flex-col'>
       <TopBar />
@@ -73,7 +74,7 @@ export function App () {
             <Icon size={22} />{l}
           </button>
         ))}
-        <button onClick={() => setMore(m => !m)} aria-expanded={more} className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10.5px] font-semibold ${more || ['corporativo', 'banco'].includes(tab) ? 'text-rojo bg-rojo/5' : 'text-tenue'}`}>
+        <button onClick={() => setMore(m => !m)} aria-expanded={more} className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10.5px] font-semibold ${more || ['corporativo', 'banco', 'productos'].includes(tab) ? 'text-rojo bg-rojo/5' : 'text-tenue'}`}>
           <Menu size={22} />Más
         </button>
       </nav>
@@ -89,7 +90,7 @@ function MasMenu ({ onClose }: { onClose: () => void }) {
   const items: [string, string, string, () => void][] = [
     ['🏦', 'Banco', 'Préstamos, inversiones y oficinas', () => go('banco')],
     ['📊', 'Corporativo', 'Ganancias, cortes y partida', () => go('corporativo')],
-    ['🏷️', 'Marca propia', 'Crea tus productos', () => go('logistica')],
+    ['🏷️', 'Marca propia', 'Crea tus productos', () => go('productos')],
     ['🗺️', 'Viajar', 'Otras ciudades y estados', () => go('mapa')],
     ['🏆', 'Logros', 'Tus medallas', () => { useApp.getState().setTitle(true); onClose() }],
     ['🏠', 'Menú principal', 'Partidas y ajustes', () => { useApp.getState().setTitle(true); onClose() }]

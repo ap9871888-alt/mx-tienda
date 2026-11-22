@@ -8,6 +8,7 @@ import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/lo
 import { nextRandom, pick, poisson, randInt } from './rng'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
+import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
 import { OFFICES, OFFICE_CREDIT, OFFICE_RATE_CUT, TERM_LOANS } from '../data/bank'
 import { priceLevelAt, loanRateAt, hasFeature, historicMultiplier, historicEvents } from './era'
 import { HISTORIC_EVENTS } from '../data/eras'
@@ -63,6 +64,33 @@ export function formatAvailable (s: GameState, formatId: FormatId): Result {
 export const ownIn = (s: GameState, colonyId: string) => s.stores.filter(x => x.colonyId === colonyId).length
 
 // ---------- ciudades ----------
+// productos propios y equipo: cada uno empuja las ventas de su línea
+export function lineBoost (s: GameState, st: Store, cat: CategoryId) {
+  let b = 1
+  for (const p of s.products ?? []) { const d = PRODUCTS.find(x => x.id === p.id); if (d?.cat === cat && (!d.only || d.only.includes(st.formatId))) b *= 1 + QUALITY[p.quality].attract }
+  for (const id of st.equipment ?? []) { const e = EQUIPMENT.find(x => x.id === id); if (e?.cat === cat) b *= 1 + (e.boost ?? 0); if (id === 'farmacia') b *= 1.08 }
+  return b
+}
+export function createProduct (s: GameState, id: string, quality: number): Result {
+  const q = QUALITY[quality]; const d = PRODUCTS.find(x => x.id === id)
+  if (!q || !d) return fail('Producto no válido')
+  const cur = (s.products ??= []).find(p => p.id === id)
+  if (cur && cur.quality >= quality) return fail('Ya lo tienes en esa calidad')
+  const cost = q.cost - (cur ? QUALITY[cur.quality].cost : 0)
+  if (s.cash < cost) return fail('No alcanza el efectivo')
+  s.cash -= cost
+  if (cur) cur.quality = quality; else s.products.push({ id, quality, sold: 0 })
+  log(s, `🏷️ Lanzaste ${d.name} (${q.name}) con tu marca`, 'good')
+  return ok(`${d.name} ya está en tus anaqueles`)
+}
+export function buyEquipment (s: GameState, storeId: number, id: string): Result {
+  const st = s.stores.find(x => x.id === storeId); const e = EQUIPMENT.find(x => x.id === id)
+  if (!st || !e) return fail('No aplica')
+  if ((st.equipment ??= []).includes(id)) return fail('Ya lo tienes')
+  if (s.cash < e.cost) return fail('No alcanza el efectivo')
+  s.cash -= e.cost; st.equipment.push(id)
+  return ok(`${e.name} instalado`)
+}
 // remodelación: más gente entra y sale contenta
 export const remodelCost = (st: Store) => Math.round(formatOf(st.formatId).capex * 0.3 * ((st.remodel ?? 0) + 1))
 export function remodelStore (s: GameState, storeId: number): Result {
@@ -344,7 +372,7 @@ function makeBasket (s: GameState, st: Store): BasketLine[] {
   for (const c of CATEGORIES) {
     if (c.service && f.noServices) continue
     const era = c.service && !recargas ? 0.4 : 1 // sin celulares solo se pagan recibos
-    if (nextRandom(s) < c.basketProb * era * spend * priceFactor(st, c.id, s)) {
+    if (nextRandom(s) < c.basketProb * era * spend * priceFactor(st, c.id, s) * lineBoost(s, st, c.id)) {
       const qty = Math.max(1, Math.round(randInt(s, c.qty[0], c.qty[1]) * (c.service ? 1 : f.basketMult)))
       basket.push({ cat: c.id, qty })
     }

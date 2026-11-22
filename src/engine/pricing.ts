@@ -1,3 +1,4 @@
+import { PRODUCTS, QUALITY } from '../data/products'
 // Precios, costos, demanda y capacidad: funciones puras.
 import { CATEGORIES, PRODUCT_CATEGORIES, categoryOf, type CategoryId } from '../data/categories'
 import { formatOf, type FormatId } from '../data/formats'
@@ -27,6 +28,7 @@ export function purchaseFactor (g: GameState | null | undefined, cat: CategoryId
   if (g.cedis && (!st || cityOf(st.cityId).cedisRadius)) f *= 1 - CEDIS.savings[g.cedis.level - 1]
   for (const l of PRIVATE_LABELS) if (l.cat === cat && g.labels.includes(l.id)) f *= LABEL_COST_FACTOR
   if (g.profile?.perk === 'logistica') f *= 0.95
+  for (const p of g.products ?? []) if (PRODUCTS.find(x => x.id === p.id)?.cat === cat) f *= 1 - QUALITY[p.quality].saving
   return f
 }
 export const purchaseCost = (g: GameState | null | undefined, cat: CategoryId, st?: Store) => unitCost(cat) * purchaseFactor(g, cat, st)
@@ -75,7 +77,7 @@ export function labelLoyalty (g: GameState | null | undefined, store: Store) {
 export function arrivalsPerHour (store: Store, hour: number, dayMult: number, g?: GameState | null) {
   if (!isOpen(store, hour)) return 0
   const f = formatOf(store.formatId)
-  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * (1 + 0.08 * (store.remodel ?? 0)) * dayMult *
+  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * (1 + 0.08 * (store.remodel ?? 0)) * (store.equipment?.includes('atm') ? 1.05 : 1) * dayMult *
     (1 - effectiveCompetition(g, store.cityId, store.colonyId) * 0.3) *
     reputationFactor(store.reputation) * priceAttraction(store, g) * cannibalization(g, store) * labelLoyalty(g, store)
 }
@@ -83,7 +85,7 @@ export function arrivalsPerHour (store: Store, hour: number, dayMult: number, g?
 export const cashierRate = (stars: number, bonus: boolean) =>
   (ECONOMY.cashierBaseRate + ECONOMY.cashierRatePerStar * stars) * (bonus ? 1 + ECONOMY.bonusSpeed : 1)
 export function serviceRate (store: Store) {
-  return store.cashiers.reduce((a, c) => a + cashierRate(c.stars, store.bonus), 0) + store.selfCheckouts * ECONOMY.selfCheckoutRate
+  return (store.cashiers.reduce((a, c) => a + cashierRate(c.stars, store.bonus), 0) + store.selfCheckouts * ECONOMY.selfCheckoutRate) * (store.equipment?.includes('pos') ? 1.12 : 1)
 }
 export const shelfCapacity = (store: Store) => formatOf(store.formatId).shelfUnits
 export const salaryFor = (stars: number) => ECONOMY.salaryBase + ECONOMY.salaryPerStar * stars

@@ -5,6 +5,7 @@ import { CATEGORIES } from '../../data/categories'
 import { ECONOMY } from '../../data/economy'
 import { formatOf, catLabel, REMODEL } from '../../data/formats'
 import { assetUrl } from '../../renderer/assets'
+import { equipFor } from '../../data/products'
 import type { Store } from '../../engine/types'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { Card, Btn, Kpi, Pill, Stars, BarChart, Modal, AnalystCard, Advisor } from '../components/kit'
@@ -163,9 +164,9 @@ function Interior ({ st }: { st: Store }) {
   const lvl = st.remodel ?? 0; const next = REMODEL[lvl + 1]
   const f = formatOf(st.formatId)
   const floor = ['#E7DFD0', '#EDE6DA', '#F4EFE6', '#FFFFFF'][lvl]
-  const group = { tiendita: 'tiendita', conveniencia: 'conveniencia', hardDiscount: 'bodega', bodega: 'bodega' }[st.formatId as string]
+  const group = { tiendita: 'tiendita', conveniencia: 'conveniencia', hardDiscount: 'bodega', bodega: 'bodega', taqueria: 'taqueria', paleteria: 'paleteria' }[st.formatId as string]
   const art = group ? assetUrl(`ui/interior-${group}-${Math.min(2, lvl)}.webp`) : ''
-  const things: [string, number][] = [['anaquel', f.food ? 2 : 4], ['caja', Math.max(1, st.cashiers.length)], ['autocobro', st.selfCheckouts], ['camara', st.security], ['limpieza', st.cleaning]]
+  const things: [string, number][] = art ? [] : [['anaquel', f.food ? 2 : 4], ['caja', Math.max(1, st.cashiers.length)], ['autocobro', st.selfCheckouts], ['camara', st.security], ['limpieza', st.cleaning]]
   return (
     <Card title={`Interior · ${REMODEL[lvl].name}`}>
       {art && <div className='relative'><img src={art} alt={`Interior ${REMODEL[lvl].name}`} className='w-full rounded-2xl bg-white' />{lvl >= 1 && <span className='absolute top-2 left-2 bg-oferta text-urbano text-[10px] font-black rounded-full px-2 py-0.5'>✨ {REMODEL[lvl].name.toUpperCase()}</span>}</div>}
@@ -175,7 +176,16 @@ function Interior ({ st }: { st: Store }) {
         )))}
         {lvl >= 1 && !art && <span className='absolute -top-3 left-3 bg-oferta text-urbano text-[10px] font-black rounded-full px-2'>✨ {REMODEL[lvl].name.toUpperCase()}</span>}
       </div>
-      <p className='text-xs text-tenue'>Anaqueles, cajas, autocobro, cámaras y limpieza que tienes hoy. Cada remodelación atrae +8 % de clientes y sube la satisfacción.</p>
+      <p className='text-xs text-tenue'>Cada remodelación atrae +8 % de clientes y sube la satisfacción. El equipo empuja las ventas de su línea.</p>
+      <h3 className='font-bold text-sm'>Equipo</h3>
+      <div className='grid grid-cols-2 gap-2'>
+        {equipFor(st.formatId).map(e => { const has = st.equipment?.includes(e.id); return (
+          <div key={e.id} className={`rounded-xl border p-2 flex flex-col items-center text-center gap-1 ${has ? 'bg-ahorro/10 border-ahorro' : 'bg-white border-borde'}`}>
+            <img src={assetUrl(`ui/eq-${e.id}.webp`)} alt='' className='h-16 object-contain' />
+            <b className='text-[12px] leading-tight'>{e.name}</b><span className='text-[10.5px] text-tenue leading-tight'>{e.desc}</span>
+            {has ? <span className='text-xs font-bold text-ahorro'>Instalado</span> : <Btn small disabled={game.cash < e.cost} onClick={() => run(g => E.buyEquipment(g, st.id, e.id))}>{fmtK(e.cost)}</Btn>}
+          </div>) })}
+      </div>
       {next ? <div className='rounded-xl border border-dashed border-borde p-3 flex items-center gap-3'>
         <div className='flex-1'><b className='text-sm'>Remodelar a «{next.name}»</b><p className='text-xs text-tenue'>{next.desc}</p></div>
         <Btn small disabled={game.cash < E.remodelCost(st)} onClick={() => run(g => E.remodelStore(g, st.id))}>{fmtK(E.remodelCost(st))}</Btn>

@@ -266,3 +266,17 @@ describe('Épocas, ciudades y muchas tiendas', () => {
     expect(count()).toBeGreaterThan(before + 10)
   })
 })
+
+describe('Marca propia y equipo', () => {
+  it('lanzar un producto abarata su línea y el equipo empuja ventas', () => {
+    const g = E.newGame(9); g.cash = 1e7
+    const st = E.openStore(g, 'cdmx', 'roma', 'tiendita').data!
+    const before = E.purchaseFactor(g, 'bebidas', st)
+    expect(E.createProduct(g, 'refresco', 1).ok).toBe(true)
+    expect(E.purchaseFactor(g, 'bebidas', st)).toBeLessThan(before)
+    expect(E.createProduct(g, 'refresco', 1).ok).toBe(false)
+    const b0 = E.lineBoost(g, st, 'bebidas')
+    expect(E.buyEquipment(g, st.id, 'refri').ok).toBe(true)
+    expect(E.lineBoost(g, st, 'bebidas')).toBeGreaterThan(b0)
+  })
+})

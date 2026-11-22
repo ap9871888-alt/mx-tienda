@@ -20,7 +20,7 @@ const STEPS: Step[] = [
 const WHERE: [string, Tab, string][] = [
   ['🏪', 'mapa', 'Abrir tiendas y ver colonias'], ['✈️', 'mapa', 'Viajar a otra ciudad'], ['👥', 'tienda', 'Contratar cajeros'],
   ['🏷️', 'tienda', 'Cambiar precios'], ['📦', 'tienda', 'Pedir mercancía'], ['🚚', 'logistica', 'CEDIS y camiones'],
-  ['🏦', 'banco', 'Préstamos e inversiones'], ['🏢', 'banco', 'Oficinas corporativas'], ['📊', 'corporativo', 'Ganancias y cortes']
+  ['🏷️', 'productos', 'Crear productos de tu marca'], ['🏦', 'banco', 'Préstamos e inversiones'], ['🏢', 'banco', 'Oficinas corporativas'], ['📊', 'corporativo', 'Ganancias y cortes']
 ]
 export function currentStep (g: GameState) { return STEPS.findIndex(s => !s.done(g)) }
 
