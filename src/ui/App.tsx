@@ -9,6 +9,7 @@ import { Mapa } from './screens/Mapa'
 import { Tienda } from './screens/Tienda'
 import { Logistica } from './screens/Logistica'
 import { Corporativo } from './screens/Corporativo'
+import { Banco } from './screens/Banco'
 
 const TABS: [Tab, string, typeof Map][] = [['calle', 'Calle Viva', Footprints], ['mapa', 'Mapa', Map], ['tienda', 'Tienda', Store], ['logistica', 'Logística', Truck], ['corporativo', 'Corporativo', Building2]]
 const SPEEDS: [Speed, typeof Play, string][] = [[0, Pause, 'Pausa'], [1, Play, '1x'], [2, FastForward, '2x'], [4, ChevronsRight, '4x']]
@@ -22,7 +23,7 @@ function TopBar () {
   return (
     <header className='sticky top-0 z-30 bg-rojo text-white pt-[calc(8px+env(safe-area-inset-top))] pb-2 px-3 flex flex-col gap-1.5 shadow-md'>
       <div className='flex items-center gap-2'>
-        <div className={`num font-bold text-[17px] px-3 py-1 rounded-full border-[1.5px] border-oferta whitespace-nowrap min-w-[150px] text-center ${game.cash < 0 ? 'bg-urbano' : 'bg-black/15'}`}>{fmt(game.cash)}<small className='text-[11px] opacity-80 ml-1'>MXN</small></div>
+        <button onClick={() => useApp.getState().setTab('banco')} aria-label='Abrir banco' className={`num font-bold text-[17px] px-3 py-1 rounded-full border-[1.5px] border-oferta whitespace-nowrap min-w-[150px] text-center ${game.cash < 0 ? 'bg-urbano' : 'bg-black/15'}`}>{fmt(game.cash)}<small className='text-[11px] opacity-80 ml-1'>MXN</small></button>
         <div className='flex-1 min-w-0 text-right leading-tight h-[30px] overflow-hidden'>
           <div className='text-[12px] font-semibold num whitespace-nowrap'>{d.date.replace(/ \d{4}$/, '')} · {E.clockLabel(game.minute)}</div>
           <div className='text-[11px] opacity-85 truncate'>{d.weekday}{tags.length ? ` · ${tags.join(' · ')}` : ''}</div>
@@ -85,15 +86,15 @@ export function App () {
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k)
   }, [])
   if (!hasGame) return <><Intro /><Toast /></>
-  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo }[tab]
+  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco }[tab]
   return (
     <div className='max-w-[620px] mx-auto min-h-full flex flex-col'>
       <TopBar />
       <main className='flex-1 px-4 pt-3 pb-[calc(92px+env(safe-area-inset-bottom))]'><Screen /></main>
       <nav aria-label='Secciones' className='fixed bottom-0 inset-x-0 mx-auto w-full max-w-[620px] z-30 [transform:translateZ(0)] bg-white border-t border-borde grid grid-cols-5 px-1 pt-1 pb-[calc(4px+env(safe-area-inset-bottom))]'>
         {TABS.map(([t, l, Icon]) => (
-          <button key={t} onClick={() => { useApp.getState().setTab(t); window.scrollTo(0, 0) }} aria-current={tab === t ? 'page' : undefined}
-            className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10.5px] font-semibold ${tab === t ? 'text-rojo bg-rojo/5' : 'text-tenue'}`}>
+          <button key={t} onClick={() => { useApp.getState().setTab(t); window.scrollTo(0, 0) }} aria-current={tab === t || (tab === 'banco' && t === 'corporativo') ? 'page' : undefined}
+            className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10.5px] font-semibold ${tab === t || (tab === 'banco' && t === 'corporativo') ? 'text-rojo bg-rojo/5' : 'text-tenue'}`}>
             <Icon size={22} />{l}
           </button>
         ))}

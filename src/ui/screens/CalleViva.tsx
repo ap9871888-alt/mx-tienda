@@ -42,6 +42,7 @@ export function CalleViva () {
       )}
       <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#CFC9BD]'>
         <canvas ref={canvas} className='block w-full aspect-[4/3.4] sm:aspect-[16/11]' aria-label='Calle viva: vista animada de tu tienda y su esquina' role='img' />
+        <button onClick={() => useApp.getState().setTab('banco')} className='absolute left-2 top-2 bg-corp text-white rounded-full px-3 min-h-[36px] text-[12.5px] font-bold shadow flex items-center gap-1'>🏦 Banco</button>
         {store && (
           <div className='absolute left-2 right-2 bottom-2 bg-white/95 rounded-xl px-3 py-2 flex items-center gap-3 text-[12.5px] font-semibold'>
             <span>Fila y satisfacción</span>

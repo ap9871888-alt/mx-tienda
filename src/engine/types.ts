@@ -65,6 +65,8 @@ export interface GameState {
   carry: number // fracción de minuto pendiente
   cash: number
   loan: number
+  office?: number // nivel de oficina corporativa
+  terms?: { id: string; balance: number; daily: number; rate: number }[] // créditos a plazo
   stores: Store[]
   candidates: Candidate[]
   nextId: number

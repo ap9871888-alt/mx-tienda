@@ -8,6 +8,7 @@ import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/lo
 import { nextRandom, pick, poisson, randInt } from './rng'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
+import { OFFICES, OFFICE_CREDIT, OFFICE_RATE_CUT, TERM_LOANS } from '../data/bank'
 import { priceLevelAt, loanRateAt, hasFeature, historicMultiplier, historicEvents } from './era'
 import { HISTORIC_EVENTS } from '../data/eras'
 import {
@@ -261,7 +262,28 @@ export function launchLabel (s: GameState, id: LabelId): Result {
 export const logisticsDaily = (s: GameState) => s.cedis ? (CEDIS.monthly + s.cedis.trucks * CEDIS.truckMonthly) / 30 : 0
 
 // ---------- crédito ----------
-export const loanLimit = (s: GameState) => ECONOMY.loanLimitBase + s.stores.length * 150000
+export const loanLimit = (s: GameState) => Math.round((ECONOMY.loanLimitBase + s.stores.length * 150000) * OFFICE_CREDIT[s.office ?? 0])
+export const lineRate = (s: GameState) => Math.max(0.04, loanRateAt(dateOfDay(dayOf(s.minute))) - OFFICE_RATE_CUT[s.office ?? 0])
+export const termDebt = (s: GameState) => (s.terms ?? []).reduce((a, t) => a + t.balance, 0)
+export function buyOffice (s: GameState): Result {
+  const lvl = (s.office ?? 0) + 1; const o = OFFICES[lvl]
+  if (!o) return fail('Ya tienes la torre corporativa')
+  if (s.cash < o.cost) return fail('No alcanza el efectivo')
+  s.cash -= o.cost; s.office = lvl
+  log(s, `🏢 Nueva sede: ${o.name} en ${o.place}`, 'good')
+  return ok(`${o.name} lista`)
+}
+export function takeTerm (s: GameState, id: string): Result {
+  const d = TERM_LOANS.find(t => t.id === id)!
+  if ((s.terms ?? []).some(t => t.id === id)) return fail('Ya tienes ese crédito')
+  if (d.minStores && s.stores.length < d.minStores) return fail(`Necesitas ${d.minStores} tiendas`)
+  if ((s.office ?? 0) < 1) return fail('El banco pide una oficina regional')
+  const rate = Math.max(0.04, lineRate(s) - d.rateCut); const days = d.months * 30
+  const i = rate / 365; const daily = d.amount * i / (1 - Math.pow(1 + i, -days))
+  ;(s.terms ??= []).push({ id, balance: d.amount, daily, rate })
+  s.cash += d.amount
+  return ok(`Recibiste ${d.label.toLowerCase()}`)
+}
 export function takeLoan (s: GameState, amount: number): Result {
   if (amount <= 0 || s.loan + amount > loanLimit(s)) return fail('Excede tu línea de crédito PyME')
   s.loan += amount; s.cash += amount
@@ -411,7 +433,13 @@ function endOfDay (s: GameState, events: GameEvent[]) {
     for (const k of ['sales', 'commissions', 'cogs', 'payroll', 'rent', 'power', 'shrink', 'upkeep', 'fees', 'profit', 'tickets', 'abandoned'] as const) company[k] += rep[k]
     st.today = emptyDay()
   }
-  company.interest = s.loan * loanRateAt(dateOfDay(day)) / 365
+  company.interest = s.loan * lineRate(s) / 365 + OFFICES[s.office ?? 0].monthly / 30
+  // créditos a plazo: pago diario fijo (interés + capital)
+  for (const t of s.terms ?? []) {
+    const int = t.balance * t.rate / 365; const pay = Math.min(t.daily, t.balance + int)
+    t.balance = Math.max(0, t.balance + int - pay); s.cash -= pay - int; company.interest += int
+  }
+  s.terms = (s.terms ?? []).filter(t => t.balance > 1)
   company.logistics = logisticsDaily(s)
   s.cash -= company.interest + company.logistics
   company.profit -= company.interest + company.logistics
@@ -458,7 +486,7 @@ export function netWorth (s: GameState) {
   const stores = s.stores.reduce((a, st) => a + formatOf(st.formatId).capex * 0.6 +
     PRODUCT_CATEGORIES.reduce((b, c) => b + st.inventory[c.id] * unitCost(c.id), 0), 0)
   const cedis = s.cedis ? (CEDIS.cost + CEDIS.upgradeCost.slice(0, s.cedis.level).reduce((a, b) => a + b, 0) + s.cedis.trucks * CEDIS.truckCost) * 0.6 : 0
-  return Math.round(s.cash + stores + cedis + fundValue(s) - s.loan)
+  return Math.round(s.cash + stores + cedis + fundValue(s) + OFFICES.slice(1, (s.office ?? 0) + 1).reduce((a, o) => a + o.cost * 0.5, 0) - s.loan - termDebt(s))
 }
 export function phaseInfo (s: GameState) {
   const n = s.stores.length

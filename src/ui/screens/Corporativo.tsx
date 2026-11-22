@@ -4,10 +4,9 @@ import * as E from '../../engine'
 import type { DayReport } from '../../engine/types'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { Card, Btn, Kpi, BarChart, Bar, Modal, Advisor } from '../components/kit'
-import { FUNDS, FUND_FEE } from '../../data/market'
 
 const sum = (rs: DayReport[], k: keyof DayReport) => rs.reduce((a, r) => a + ((r[k] as number) || 0), 0)
-function Spark ({ values, color }: { values: number[]; color: string }) {
+export function Spark ({ values, color }: { values: number[]; color: string }) {
   if (values.length < 2) return null
   const min = Math.min(...values); const max = Math.max(...values); const span = max - min || 1
   const pts = values.map((v, i) => `${(i / (values.length - 1)) * 300},${38 - ((v - min) / span) * 34}`).join(' ')
@@ -17,13 +16,11 @@ function Spark ({ values, color }: { values: number[]; color: string }) {
 export function Corporativo () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
-  const run = useApp(s => s.run)
   const [resetOpen, setResetOpen] = useState(false)
   const file = useRef<HTMLInputElement>(null)
   const last = game.reports[game.reports.length - 1]
   const week = game.reports.slice(-7); const prev = game.reports.slice(-14, -7)
   const ph = E.phaseInfo(game)
-  const limit = E.loanLimit(game)
   const rows: [string, keyof DayReport, number][] = [['Ventas', 'sales', 1], ['Comisiones de servicios', 'commissions', 1], ['Costo de mercancía', 'cogs', -1], ['Nómina', 'payroll', -1], ['Renta', 'rent', -1], ['Luz CFE', 'power', -1], ['Merma y robo', 'shrink', -1], ['Servicios, seguridad y limpieza', 'upkeep', -1], ['Fletes', 'fees', -1], ['CEDIS y flotilla', 'logistics', -1], ['Intereses', 'interest', -1]]
 
   const exportGame = async () => {
@@ -81,38 +78,9 @@ export function Corporativo () {
 
       <Advisor who='finanzas'>{game.cash > 600000 ? 'Tienes efectivo de sobra: lo que no uses en tiendas puede rendir en el fondo de inversión. Deja siempre un colchón para nómina y renta.' : 'Cuida la caja: la nómina y la renta se cobran cada noche en el corte.'}</Advisor>
 
-      <Card title='Fondo de inversión' right={<span className='num text-sm font-bold'>{fmtK(E.fundValue(game))}</span>}>
-        {FUNDS.map(f => {
-          const st = game.market?.funds[f.id]
-          if (!st) return null
-          const value = st.units * st.nav; const gain = value - st.invested
-          const h = st.hist; const ch = h.length > 30 ? st.nav / h[h.length - 31] - 1 : st.nav / h[0] - 1
-          return (
-            <div key={f.id} className='flex flex-col gap-1.5 py-2 border-t border-borde first:border-t-0'>
-              <div className='flex items-center justify-between gap-2'>
-                <span className='flex items-center gap-2 min-w-0'><span className='w-2.5 h-2.5 rounded-full shrink-0' style={{ background: f.color }} /><b className='text-sm truncate'>{f.name}</b></span>
-                <span className={`num text-xs font-semibold ${ch >= 0 ? 'text-ahorro' : 'text-rojo'}`}>{ch >= 0 ? '+' : ''}{(ch * 100).toFixed(1)} % 30 días</span>
-              </div>
-              <p className='text-xs text-tenue'>{f.desc} Rendimiento esperado ~{Math.round(f.annual * 100)} % al año.</p>
-              <Spark values={h} color={f.color} />
-              {st.units > 0 && <div className='flex justify-between text-xs num'><span>Tienes {fmt(value)}</span><span className={gain >= 0 ? 'text-ahorro' : 'text-rojo'}>{gain >= 0 ? '+' : ''}{fmt(gain)}</span></div>}
-              <div className='flex flex-wrap gap-1.5'>
-                {[100000, 500000].map(n => <Btn key={n} small kind='ghost' disabled={game.cash < n} onClick={() => run(g => E.investFund(g, f.id, n))}>+{fmtK(n)}</Btn>)}
-                {st.units > 0 && <Btn small kind='ghost' onClick={() => run(g => E.withdrawFund(g, f.id, Infinity))}>Retirar todo</Btn>}
-              </div>
-            </div>
-          )
-        })}
-        <span className='text-xs text-tenue'>Comisión de {FUND_FEE * 100} % al entrar y al salir. Los fondos se mueven con la bolsa: un rally o una corrección afectan más a las acciones.</span>
-      </Card>
-
-      <Card title={`Crédito PyME · ${Math.round(18)} % anual`}>
-        <div className='flex justify-between text-sm'><span>Línea disponible</span><b className='num'>{fmt(Math.max(0, limit - game.loan))}</b></div>
-        <div className='flex flex-wrap gap-2'>
-          {[100000, 250000].map(n => <Btn key={n} small kind='blue' disabled={game.loan + n > limit} onClick={() => run(g => E.takeLoan(g, n))}>Pedir {fmtK(n)}</Btn>)}
-          {game.loan > 0 && <Btn small kind='ghost' onClick={() => run(g => E.repayLoan(g, g.loan))}>Liquidar</Btn>}
-        </div>
-      </Card>
+      <button onClick={() => useApp.getState().setTab('banco')} className='flex items-center gap-3 rounded-2xl border border-borde bg-corp text-white p-3 text-left shadow-card'>
+        <span className='text-3xl'>🏦</span><span className='flex-1'><b className='block'>Banco y oficinas</b><span className='text-xs opacity-80'>Créditos, inversiones y tu sede corporativa</span></span><span>›</span>
+      </button>
 
       <Card title='Partida'>
         <div className='flex flex-wrap gap-2'>

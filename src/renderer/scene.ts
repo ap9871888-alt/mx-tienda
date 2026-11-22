@@ -79,9 +79,15 @@ const PROPS: [string, number, number, number][] = [['bote', 6.6, 5.3, 26], ['ban
 const LAMPS: P[] = [{ x: 0.2, y: 5.15 }, { x: 8.85, y: 2.5 }, { x: 13.5, y: 5.15 }, { x: 5.15, y: 12.5 }, { x: 11, y: 8.85 }]
 const LIGHTS: [P, 'A' | 'B'][] = [[{ x: 5.15, y: 5.15 }, 'A'], [{ x: 8.85, y: 5.15 }, 'B'], [{ x: 5.15, y: 8.85 }, 'B'], [{ x: 8.85, y: 8.85 }, 'A']]
 // carriles: eje, coordenada fija, sentido, línea de alto
+// qué columna de cada lámina mira a SW (de frente) y a NE (de espaldas)
+const VEH_VIEWS: Record<string, { sw: number; ne: number; swIsSE?: boolean }> = {
+  taxi: { sw: 1, ne: 2 }, vocho: { sw: 0, ne: 2 }, 'sedan-azul': { sw: 0, ne: 2 }, 'sedan-rojo': { sw: 0, ne: 2, swIsSE: true },
+  pickup: { sw: 0, ne: 2 }, micro: { sw: 0, ne: 2 }, metrobus: { sw: 0, ne: 2 }
+}
 const LANES = [
-  { axis: 'x' as const, fixed: 6.5, dir: 1, stop: 5.0 }, { axis: 'x' as const, fixed: 7.5, dir: -1, stop: 9.0 },
-  { axis: 'y' as const, fixed: 7.5, dir: 1, stop: 5.0 }, { axis: 'y' as const, fixed: 6.5, dir: -1, stop: 9.0 }
+  // se circula por la derecha, como en México
+  { axis: 'x' as const, fixed: 6.5, dir: -1, stop: 9.0 }, { axis: 'x' as const, fixed: 7.5, dir: 1, stop: 5.0 },
+  { axis: 'y' as const, fixed: 7.5, dir: -1, stop: 9.0 }, { axis: 'y' as const, fixed: 6.5, dir: 1, stop: 5.0 }
 ]
 
 export class StreetScene {
@@ -270,7 +276,7 @@ export class StreetScene {
     const dv = this.delivery
     if (!dv) return
     if (dv.stage === 0) {
-      this.cars.push({ id: this.nextId++, lane: 0, pos: -4, v: { kind: 'van', color: dv.via === 'cedis' ? '#1B4D8F' : '#E9E4DA' }, wait: 0, parkAt: 3.7 })
+      this.cars.push({ id: this.nextId++, lane: 0, pos: 18, v: { kind: 'van', color: dv.via === 'cedis' ? '#1B4D8F' : '#E9E4DA' }, wait: 0, parkAt: 3.7 })
       dv.stage = 1
     }
     const van = this.cars.find(c => c.v.kind === 'van' && c.parkAt === 3.7)
@@ -486,16 +492,21 @@ export class StreetScene {
   private drawVehicleSprite (c: Car, x: number, y: number, axis: 'x' | 'y', dir: number) {
     if (c.skin) {
       const sk = c.skin === 'vocho-taxi' ? 'vocho' : c.skin
-      // columnas de la lámina: 0 SE (+x), 1 SW (+y), 2 NE (−y), 3 NW (−x)
-      const col = axis === 'x' ? (dir > 0 ? 0 : 3) : (dir > 0 ? 1 : 2)
-      const img = sprite(`sprites/veh-${sk}-${col}.webp`)
+      // de cada lámina se usan dos vistas: de frente hacia abajo-izquierda (SW) y de espaldas hacia arriba-derecha (NE);
+      // las otras dos direcciones salen reflejando. +x = SE, +y = SW, −y = NE, −x = NW
+      const back = axis === 'x' ? dir < 0 : dir < 0
+      const view = VEH_VIEWS[sk] ?? { sw: 0, ne: 2 }
+      const img = sprite(`sprites/veh-${sk}-${back ? view.ne : view.sw}.webp`)
+      let mirror = axis === 'x' // SE y NW son el espejo de SW y NE
+      if (!back && view.swIsSE) mirror = !mirror
       if (img) {
         const z = this.cam.zoom; const p = toScreen(this.cam, x, y)
         const width = (sk === 'metrobus' ? 2.5 : sk === 'micro' ? 2 : sk === 'pickup' ? 1.35 : sk === 'vocho' ? 1.05 : 1.2) * TW * z
         const h = width * img.height / img.width
         if (c.skin === 'vocho-taxi') this.ctx.filter = 'hue-rotate(95deg) saturate(1.3)'
-        this.ctx.drawImage(img, p.sx - width / 2, p.sy - h * 0.72, width, h)
-        this.ctx.filter = 'none'
+        this.ctx.save(); this.ctx.translate(p.sx, p.sy); if (mirror) this.ctx.scale(-1, 1)
+        this.ctx.drawImage(img, -width / 2, -h * 0.72, width, h)
+        this.ctx.restore(); this.ctx.filter = 'none'
         return true
       }
     }

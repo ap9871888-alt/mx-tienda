@@ -7,7 +7,7 @@ import type { GameState, Result } from '../engine/types'
 import { ECONOMY } from '../data/economy'
 import { bus } from './bus'
 
-export type Tab = 'calle' | 'mapa' | 'tienda' | 'logistica' | 'corporativo'
+export type Tab = 'calle' | 'mapa' | 'tienda' | 'logistica' | 'corporativo' | 'banco'
 export type Speed = 0 | 1 | 2 | 4
 
 interface AppState {
