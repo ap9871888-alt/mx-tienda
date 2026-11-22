@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Store as StoreIcon } from 'lucide-react'
 import { StreetScene } from '../../renderer/scene'
 import { bus } from '../../state/bus'
 import { useApp, fmt } from '../../state/store'
 import * as E from '../../engine'
 import { Btn, Kpi, Stars, Bar } from '../components/kit'
-import { colonyOf } from '../../data/cities'
+import { colonyOf, colonyById } from '../../data/cities'
+import LOTS from '../../data/cityLots.json'
+import { assetUrl } from '../../renderer/assets'
 
-export function CalleViva () {
+function Calle () {
   const canvas = useRef<HTMLCanvasElement>(null)
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
@@ -74,6 +76,81 @@ export function CalleViva () {
           <p className='text-xs text-tenue'>{E.storeName(store)} · {store.cashiers.length} cajero{store.cashiers.length === 1 ? '' : 's'}{store.selfCheckouts ? ` + ${store.selfCheckouts} autocobro` : ''} · capacidad {Math.round(E.serviceRate(store))} clientes/hora</p>
         </>
       )}
+    </div>
+  )
+}
+
+// ---------- vista principal: tu colonia desde arriba, estilo mapa de ciudad ----------
+type Kind = 'popular' | 'oficinas' | 'media'
+const kindOf = (id: string, wealth: number): Kind => ['santafe', 'polanco'].includes(id) || wealth >= 1.25 ? 'oficinas' : wealth < 0.95 ? 'popular' : 'media'
+const DECOR = ['depas', 'oficinas', 'depas', 'mercado', 'plaza', 'torre']
+
+function Colonia ({ onStreet }: { onStreet: () => void }) {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const storeId = useApp(s => s.storeId)
+  const store = game.stores.find(s => s.id === storeId) ?? game.stores[0]
+  const [colId, setColId] = useState<string>(store?.colonyId ?? 'roma')
+  const { city, colony } = colonyById(colId)
+  const kind = kindOf(colony.id, E.effectiveWealth(game, city.id, colony.id))
+  const lots = (LOTS as Record<Kind, number[][]>)[kind]
+  const night = E.daylight(game.minute) < 0.5
+  const tod = night ? 'noche' : 'dia'
+  const mine = game.stores.filter(s => s.colonyId === colony.id)
+  const rivals = game.market?.rivals.flatMap(r => Array.from({ length: r.stores[colony.id] || 0 }, () => r)) ?? []
+  const free = Math.max(0, colony.slots - mine.length)
+  // reparte los lotes: banco, tus tiendas, rivales, locales en renta y el resto, edificios
+  type Lot = { x: number; y: number; ed?: string; pin?: string; label?: string; go?: () => void }
+  const items: Lot[] = lots.map(([x, y]) => ({ x, y }))
+  let i = 0
+  const put = (l: Omit<Lot, 'x' | 'y'>) => { if (i < items.length) Object.assign(items[i++], l) }
+  put({ ed: `city/ed-banco-${tod}.webp`, pin: 'banco', label: 'Banco', go: () => useApp.getState().setTab('banco') })
+  for (const s of mine) put({ ed: `sprites/tienda-${s.formatId}-${E.isOpen(s, E.hourOf(game.minute)) ? (night ? 'noche' : 'dia') : 'cerrada'}.webp`, pin: 'tienda', label: E.storeShort(s), go: () => { useApp.getState().selectStore(s.id); onStreet() } })
+  for (const r of rivals.slice(0, Math.max(0, items.length - i - 2))) put({ ed: `city/ed-plaza-${tod}.webp`, pin: 'rival', label: r.name, go: () => useApp.getState().say(`${r.name}: ${r.style === 'precio' ? 'baja precios donde ganas' : r.style === 'premium' ? 'busca clientes con dinero' : r.style === 'barrio' ? 'tienditas de barrio' : 'abre por todos lados'}`) })
+  for (let k = 0; k < free && i < items.length; k++) put({ pin: 'renta', label: 'Se renta', go: () => useApp.getState().setTab('mapa') })
+  let d = 0
+  while (i < items.length) put({ ed: `city/ed-${DECOR[(d++ + colony.id.length) % DECOR.length]}-${tod}.webp` })
+  const coloniesHere = [...new Set([colId, ...game.stores.map(s => s.colonyId)])]
+
+  return (
+    <div className='flex flex-col gap-2'>
+      <div className='flex gap-2 overflow-x-auto pb-1'>
+        {coloniesHere.map(id => (
+          <button key={id} onClick={() => setColId(id)} className={`whitespace-nowrap px-3 min-h-[36px] rounded-full text-sm font-semibold border ${id === colId ? 'bg-urbano text-white border-urbano' : 'bg-white border-borde'}`}>{colonyById(id).colony.name}</button>
+        ))}
+      </div>
+      <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card'>
+        <div className='relative w-full' style={{ aspectRatio: '1438 / 2576' }}>
+          <img src={assetUrl(`city/${kind}.webp`)} alt={`Mapa de ${colony.name}`} className='absolute inset-0 w-full h-full' draggable={false} style={{ filter: night ? 'brightness(.55) saturate(.8) hue-rotate(10deg)' : undefined }} />
+          {[...items].sort((a, b) => a.y - b.y).map((l, k) => (
+            <button key={k} onClick={l.go} disabled={!l.go} aria-label={l.label} className='absolute' style={{ left: `${l.x}%`, top: `${l.y}%`, width: '24%', transform: 'translate(-50%, -78%)' }}>
+              {l.ed && <img src={assetUrl(l.ed)} alt='' className='w-full drop-shadow' draggable={false} />}
+              {l.pin && <img src={assetUrl(`city/pin-${l.pin}.webp`)} alt='' draggable={false} className='absolute left-1/2 -translate-x-1/2 w-[42%] animate-[bounce_2.4s_ease-in-out_infinite]' style={{ top: l.ed ? '-30%' : '38%' }} />}
+            </button>
+          ))}
+        </div>
+        <div className='absolute left-2 right-2 top-2 flex justify-between gap-2 pointer-events-none'>
+          <span className='bg-urbano/85 text-white rounded-xl px-3 py-1.5 text-[12.5px] font-bold'>{colony.name} · {city.name}</span>
+          <span className='bg-urbano/85 text-white rounded-xl px-3 py-1.5 text-[12.5px] font-bold num'>{mine.length} tuyas · {rivals.length} rivales</span>
+        </div>
+      </div>
+      <p className='text-xs text-tenue px-1'>Toca tu tienda para ver la calle, el banco para créditos o un letrero de SE RENTA para abrir otra.</p>
+    </div>
+  )
+}
+
+export function CalleViva () {
+  const [view, setView] = useState<'colonia' | 'calle'>('colonia')
+  const hasStore = useApp(s => !!s.game?.stores.length)
+  const v = hasStore ? view : 'colonia'
+  return (
+    <div className='flex flex-col gap-3'>
+      <div className='grid grid-cols-2 bg-white border border-borde rounded-full p-1'>
+        {(['colonia', 'calle'] as const).map(k => (
+          <button key={k} disabled={k === 'calle' && !hasStore} onClick={() => setView(k)} className={`min-h-[36px] rounded-full text-sm font-bold ${v === k ? 'bg-rojo text-white' : 'text-tenue'}`}>{k === 'colonia' ? '🏙️ Colonia' : '🚶 Calle'}</button>
+        ))}
+      </div>
+      {v === 'colonia' ? <Colonia onStreet={() => setView('calle')} /> : <Calle />}
     </div>
   )
 }
