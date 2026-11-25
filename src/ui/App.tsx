@@ -113,11 +113,11 @@ function MasMenu ({ onClose }: { onClose: () => void }) {
     ['ic-banco', 'Banco', 'Préstamos, inversiones y oficinas', () => go('banco')],
     ['ic-ventas', 'Corporativo', 'Ganancias, cortes y partida', () => go('corporativo')],
     ['ic-precios', 'Marca propia', 'Crea tus productos', () => go('productos')],
-    ['ic-personal', 'Inversionistas', 'Ofertas por tu empresa', () => go('inversion')],
+    ['ic-trato', 'Inversionistas', 'Ofertas por tu empresa', () => go('inversion')],
     ['ic-bolsa', 'Bolsa MX', 'Acciones, tu empresa y conglomerado', () => go('bolsa')],
     ['ic-calendario', 'Calendario', 'Temporadas y fiestas por ciudad', () => go('calendario')],
-    ['🕶️', 'Estilo de vida', 'Compras de estatus', () => go('estilo')],
-    ['✈️', 'Viajar', 'Otros estados', () => useApp.getState().openStates()],
+    ['ic-premium', 'Estilo de vida', 'Compras de estatus', () => go('estilo')],
+    ['ic-viajar', 'Viajar', 'Otros estados', () => useApp.getState().openStates()],
     ['ic-logros', 'Logros', 'Tus medallas', () => { useApp.getState().setTitle(true); onClose() }],
     ['ic-ajustes', 'Menú principal', 'Partidas y ajustes', () => { useApp.getState().setTitle(true); onClose() }]
   ]

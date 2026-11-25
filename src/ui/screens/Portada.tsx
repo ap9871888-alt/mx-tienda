@@ -9,7 +9,7 @@ import { Avatar, SKINS } from '../Avatar'
 import { musicVolume, setMusicVolume } from '../music'
 import type { CompanyProfile, Difficulty, GameState } from '../../engine/types'
 
-export const ICONS = ['carrito', 'tienda', 'estrella', 'caja', 'boleto']
+export const ICONS = ['marca-carrito', 'marca-tienda', 'marca-nopal', 'marca-sol', 'marca-chile', 'marca-maiz', 'marca-taco', 'marca-estrella', 'carrito', 'tienda']
 export const COLORS = ['#D63B2F', '#E0A100', '#1B4D8F', '#2E7D5B', '#7C4DDB', '#2B2D33']
 
 export function Logo ({ small }: { small?: boolean }) {
@@ -81,7 +81,7 @@ export const isPremium = () => { try { return localStorage.getItem(PREMIUM_KEY) 
 function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
   const has = useApp(s => !!s.game)
   const [name, setName] = useState('Tienda MX Inc.')
-  const [icon, setIcon] = useState('carrito'); const [color, setColor] = useState(COLORS[0])
+  const [icon, setIcon] = useState('marca-carrito'); const [color, setColor] = useState(COLORS[0])
   const [who, setWho] = useState('rosa'); const [perk, setPerk] = useState<'ventas' | 'logistica'>('ventas')
   const [cap, setCap] = useState('normal'); const [vip, setVip] = useState(5_000_000); const [pay, setPay] = useState(false)
   const [diff, setDiff] = useState<Difficulty>('normal')
@@ -129,7 +129,7 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
           </button>))}
         <div className={`${card(cap === 'vip')} p-3 flex flex-col gap-2`}>
           <button onClick={() => (premium ? setCap('vip') : setPay(true))} className='flex items-center gap-3 text-left'>
-            <span className='text-3xl'>💎</span>
+            <img src={assetUrl('ui/ic-premium.webp')} alt='' className='w-10 h-10 object-contain' />
             <span className='flex-1'><b className='block'>Inversionista {premium ? '' : '🔒'}</b><span className='text-xs text-tenue'>Elige tu capital hasta $10,000,000. {premium ? 'Desbloqueado.' : 'Pago único de $20 MXN.'}</span></span>
           </button>
           {premium && cap === 'vip' && <label className='text-sm font-semibold'>Capital: ${vip.toLocaleString('es-MX')}

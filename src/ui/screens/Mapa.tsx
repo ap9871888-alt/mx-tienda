@@ -138,7 +138,7 @@ export function Mapa () {
       <AnalystCard insights={insights} max={3} />
 
       <Card title='Formatos de tienda'>
-        {FORMATS.map(f => {
+        {[...FORMATS].sort((a, b) => (a.id === 'ambulante' ? (game.founder?.street ? -1 : 1) : 0) - (b.id === 'ambulante' ? (game.founder?.street ? -1 : 1) : 0)).map(f => {
           const e = f.available ? estimates[f.id] : null
           const full = used >= col.slots
           const here = game.stores.filter(s => s.colonyId === col.id && s.formatId === f.id).length

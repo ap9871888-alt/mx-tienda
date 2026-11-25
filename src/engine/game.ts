@@ -231,7 +231,7 @@ export function openStore (s: GameState, cityId: string, colonyId: string, forma
   }
   s.stores.push(st)
   log(s, `Abriste ${f.name} en ${colonyOf(cityId, colonyId).name}, ${cityOf(cityId).name}`, 'good')
-  return ok('Tienda abierta: contrata cajeros para empezar a vender', st)
+  return ok(f.ownerSells ? '¡Puesto listo! Tú mismo atiendes: a vender' : 'Tienda abierta: contrata cajeros para empezar a vender', st)
 }
 export function setMargin (s: GameState, storeId: number, cat: CategoryId, margin: number): Result {
   const st = storeById(s, storeId)
