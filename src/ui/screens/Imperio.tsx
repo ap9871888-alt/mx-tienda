@@ -3,7 +3,8 @@ import * as E from '../../engine'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
 import { Card, Btn, Bar, Kpi, Modal } from '../components/kit'
-import { DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE } from '../../data/empire'
+import { DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, IPO } from '../../data/empire'
+import { cityOf } from '../../data/cities'
 import { Spark } from './Corporativo'
 import { Avatar } from '../Avatar'
 
@@ -80,6 +81,18 @@ export function Estilo () {
 
 // ---------- Bolsa MX ----------
 export function Bolsa () {
+  const [tab, setTab] = useState<'mercado' | 'empresa' | 'grupo'>('mercado')
+  return (
+    <div className='flex flex-col gap-3'>
+      <div className='grid grid-cols-3 bg-white border border-borde rounded-full p-1'>
+        {([['mercado', '📈 Mercado'], ['empresa', '🔔 Tu empresa'], ['grupo', '🏢 Conglomerado']] as const).map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`min-h-[40px] rounded-full text-[13px] font-bold ${tab === k ? 'bg-corp text-white' : 'text-tenue'}`}>{l}</button>)}
+      </div>
+      {tab === 'mercado' ? <Mercado /> : tab === 'empresa' ? <TuEmpresa /> : <Conglomerado />}
+    </div>
+  )
+}
+
+function Mercado () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
   const run = useApp(s => s.run)
@@ -136,6 +149,95 @@ export function DilemmaModal () {
           <span className='text-[11px] text-tenue text-center'>El juego está en pausa hasta que decidas.</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---------- tu empresa en la Bolsa ----------
+function TuEmpresa () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const run = useApp(s => s.run)
+  const worth = E.netWorth(game)
+  const p = game.ipo
+  if (!p) {
+    const reasons = E.ipoCheck(game, worth); const val = E.companyValuation(game, worth)
+    return (
+      <Card title='Salir a la Bolsa MX'>
+        <p className='text-sm'>Vende el {Math.round(IPO.float * 100)} % de {game.company} al público y recibe dinero fresco para crecer. Tu empresa tendrá precio de acción todos los días.</p>
+        <div className='grid grid-cols-2 gap-2'><Kpi label='Valor estimado' value={fmtK(val)} /><Kpi label='Recaudarías' value={fmtK(val * IPO.float * (1 - IPO.fee))} tone='good' /></div>
+        {reasons.length ? <div className='flex flex-col gap-1'>{reasons.map(r => <span key={r} className='text-sm'>⬜ {r}</span>)}</div> : <p className='text-sm font-semibold text-ahorro'>✅ Cumples todos los requisitos</p>}
+        <Btn disabled={reasons.length > 0} onClick={() => run(g => E.goPublic(g, E.netWorth(g)))}>🔔 Tocar la campana</Btn>
+      </Card>
+    )
+  }
+  const ch = p.price / p.price0 - 1; const cap = p.price * IPO.shares
+  return (
+    <>
+      <Card title={`${game.company} · TMX`}>
+        <div className='flex items-end justify-between'><b className='font-display text-3xl num'>{fmt(p.price)}</b><span className={`num font-bold ${ch >= 0 ? 'text-ahorro' : 'text-rojo'}`}>{ch >= 0 ? '+' : ''}{(ch * 100).toFixed(1)} % desde la salida</span></div>
+        <Spark values={p.hist} color={ch >= 0 ? '#2E7D5B' : '#D63B2F'} />
+        <div className='grid grid-cols-2 gap-2'><Kpi label='Valor de mercado' value={fmtK(cap)} /><Kpi label='Tu parte' value={`${Math.round(p.own * 100)} %`} /></div>
+        <p className='text-xs text-tenue'>El precio sigue tus utilidades: si ganas más, tu acción sube.</p>
+      </Card>
+      <Card title='Mover tu participación'>
+        <div className='grid grid-cols-2 gap-2'>
+          <Btn kind='green' small disabled={game.cash < IPO.shares * 0.05 * p.price} onClick={() => run(g => E.tradeOwn(g, 0.05))}>Recomprar 5 % · {fmtK(IPO.shares * 0.05 * p.price)}</Btn>
+          <Btn kind='ghost' small onClick={() => run(g => E.tradeOwn(g, -0.05))}>Vender 5 % · {fmtK(IPO.shares * 0.05 * p.price)}</Btn>
+        </div>
+      </Card>
+    </>
+  )
+}
+
+// ---------- conglomerado: comprar cadenas rivales ----------
+function Conglomerado () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const run = useApp(s => s.run)
+  const subs = game.subsidiaries ?? []
+  const nSub = subs.reduce((a, x) => a + x.stores, 0)
+  return (
+    <>
+      <Card title='Tu grupo'>
+        <div className='grid grid-cols-3 gap-2'><Kpi label='Tiendas propias' value={game.stores.length} /><Kpi label='De tu grupo' value={nSub} /><Kpi label='Valor' value={fmtK(E.subsidiaryValue(game))} /></div>
+        {subs.map((x, i) => <div key={i} className='flex items-center gap-2 text-sm border-t border-borde pt-1.5'><span className='w-3 h-3 rounded-full' style={{ background: x.color }} /><b className='flex-1'>{x.name}</b><span className='text-tenue'>{x.stores} tiendas</span></div>)}
+        {!subs.length && <p className='text-xs text-tenue'>Compra cadenas rivales: dejan de competirte y sus tiendas te dan utilidades cada día.</p>}
+      </Card>
+      <Card title='Cadenas en venta'>
+        {(game.market?.rivals ?? []).map((r, i) => {
+          const n = E.rivalTotal(game, i); const c = E.buyoutCost(game, i)
+          return <div key={r.id} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
+            <span className='w-10 h-10 rounded-full grid place-items-center text-white font-black text-lg shrink-0' style={{ background: r.color }}>{r.name[0]}</span>
+            <div className='flex-1 min-w-0'><b className='text-sm block'>{r.name}</b><span className='text-xs text-tenue'>{n} tiendas · deja ~{fmtK(n * 1400 * 30)}/mes</span></div>
+            <Btn small disabled={game.cash < c || game.stores.length < 6} onClick={() => run(g => E.buyRival(g, i))}>{fmtK(c)}</Btn>
+          </div>
+        })}
+        {game.stores.length < 6 && <p className='text-xs text-tenue'>Necesitas 6 tiendas propias para comprar una cadena.</p>}
+      </Card>
+    </>
+  )
+}
+
+// ---------- calendario de temporadas y fiestas por ciudad ----------
+export function Calendario () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const today = E.dateOfDay(E.dayOf(game.minute))
+  const now = [...E.seasonsAt(today).map(s => ({ name: s.name, tip: s.tip, mult: s.mult, city: undefined as string | undefined })), ...E.cityEventsAt(today).map(e => ({ name: e.name, tip: e.tip, mult: e.mult, city: e.city }))]
+  const next = E.upcomingEvents(new Date(today.getTime() + 864e5), 120)
+  const mine = new Set(game.stores.map(s => s.cityId))
+  const Row = ({ name, tip, mult, city, when }: { name: string; tip: string; mult: number; city?: string; when?: string }) => (
+    <div className={`flex items-center gap-3 py-2 border-t border-borde first:border-t-0 ${city && !mine.has(city) ? 'opacity-60' : ''}`}>
+      <span className={`w-12 text-center text-xs font-black rounded-lg py-1 ${mult >= 0 ? 'bg-ahorro/15 text-ahorro' : 'bg-rojo/15 text-rojo'}`}>{mult >= 0 ? '+' : ''}{Math.round(mult * 100)} %</span>
+      <div className='flex-1 min-w-0'><b className='text-sm block'>{name}{city ? ` · ${cityOf(city).name}` : ''}</b><span className='text-xs text-tenue'>{when ? `${when} · ` : ''}{tip}</span></div>
+    </div>
+  )
+  return (
+    <div className='flex flex-col gap-3'>
+      <Card title='Hoy'>{now.length ? now.map((e, i) => <Row key={i} {...e} />) : <p className='text-sm text-tenue'>Día normal: sin temporada especial.</p>}</Card>
+      <Card title='Próximos 4 meses'>{next.map(e => <Row key={e.id} {...e} when={E.dateLabel(Math.round((e.date.getTime() - today.getTime()) / 864e5) + E.dayOf(game.minute)).date.slice(0, 6)} />)}</Card>
+      <p className='text-xs text-tenue px-1'>Las fiestas de ciudades donde no tienes tiendas salen en gris: abre ahí para aprovecharlas.</p>
     </div>
   )
 }

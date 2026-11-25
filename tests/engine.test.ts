@@ -306,3 +306,35 @@ describe('Imperio MX', () => {
     expect(E.portfolioValue(g)).toBeGreaterThan(0)
   })
 })
+
+describe('Hito 3: Bolsa, conglomerado y eventos', () => {
+  it('sale a la Bolsa solo cuando cumple requisitos y recauda dinero', () => {
+    const g = E.newGame(31); g.cash = 1e9
+    expect(E.goPublic(g, E.netWorth(g)).ok).toBe(false)
+    const cols = ['roma', 'polanco', 'coyoacan', 'iztapalapa', 'narvarte', 'delvalle', 'centro', 'santafe']
+    for (let i = 0; i < 10; i++) E.openStore(g, 'cdmx', cols[i % cols.length], 'tiendita')
+    g.office = 2
+    g.reports.push({ ...g.reports[0] ?? {}, day: 0, profit: 100000 } as never)
+    const cash = g.cash
+    expect(E.goPublic(g, E.netWorth(g)).ok).toBe(true)
+    expect(g.cash).toBeGreaterThan(cash)
+    expect(g.equity).toBeCloseTo(0.75)
+    expect(E.tradeOwn(g, 0.05).ok).toBe(true)
+    expect(g.equity).toBeCloseTo(0.8)
+  })
+  it('comprar una cadena rival la quita del mercado y da utilidades', () => {
+    const g = E.newGame(32); g.cash = 1e10
+    const cols = ['roma', 'polanco', 'coyoacan', 'iztapalapa', 'narvarte', 'delvalle']
+    for (const c of cols) E.openStore(g, 'cdmx', c, 'tiendita')
+    const n = g.market.rivals.length
+    expect(E.buyRival(g, 0).ok).toBe(true)
+    expect(g.market.rivals.length).toBe(n - 1)
+    expect(E.subsidiaryValue(g)).toBeGreaterThan(0)
+  })
+  it('eventos de ciudad: la Guelaguetza sube las ventas en Oaxaca', () => {
+    const d = new Date(Date.UTC(2027, 6, 20))
+    expect(E.cityEventsAt(d, 'oax').length).toBe(1)
+    expect(E.seasonMultiplier(d, 'oax')).toBeGreaterThan(E.seasonMultiplier(d, 'mty'))
+    expect(E.upcomingEvents(new Date(Date.UTC(2027, 6, 1)), 30).some(e => e.id === 'guelaguetza')).toBe(true)
+  })
+})

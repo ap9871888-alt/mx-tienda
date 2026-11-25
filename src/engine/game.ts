@@ -9,7 +9,7 @@ import { nextRandom, pick, poisson, randInt } from './rng'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
 import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
-import { initStocks, empireDaily, seasonMultiplier, lifestyleValue, portfolioValue } from './empire'
+import { subsidiaryValue, initStocks, empireDaily, seasonMultiplier, lifestyleValue, portfolioValue } from './empire'
 import { OFFICES, OFFICE_CREDIT, OFFICE_RATE_CUT, TERM_LOANS } from '../data/bank'
 import { priceLevelAt, loanRateAt, hasFeature, historicMultiplier, historicEvents } from './era'
 import { HISTORIC_EVENTS } from '../data/eras'
@@ -565,7 +565,7 @@ export function netWorth (s: GameState) {
   const stores = s.stores.reduce((a, st) => a + formatOf(st.formatId).capex * 0.6 +
     PRODUCT_CATEGORIES.reduce((b, c) => b + st.inventory[c.id] * unitCost(c.id), 0), 0)
   const cedis = s.cedis ? (CEDIS.cost + CEDIS.upgradeCost.slice(0, s.cedis.level).reduce((a, b) => a + b, 0) + s.cedis.trucks * CEDIS.truckCost) * 0.6 : 0
-  return Math.round(s.cash + stores + cedis + fundValue(s) + lifestyleValue(s) + portfolioValue(s) + OFFICES.slice(1, (s.office ?? 0) + 1).reduce((a, o) => a + o.cost * 0.5, 0) - s.loan - termDebt(s))
+  return Math.round(s.cash + stores + cedis + fundValue(s) + lifestyleValue(s) + portfolioValue(s) + subsidiaryValue(s) + OFFICES.slice(1, (s.office ?? 0) + 1).reduce((a, o) => a + o.cost * 0.5, 0) - s.loan - termDebt(s))
 }
 export function phaseInfo (s: GameState) {
   const n = s.stores.length

@@ -1,5 +1,5 @@
 // Motor de "Imperio MX": temporadas, dilemas, inversionistas, estilo de vida y Bolsa MX.
-import { SEASONS, DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE } from '../data/empire'
+import { SEASONS, DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, CITY_EVENTS, IPO, BUYOUT_PER_STORE, SUBSIDIARY_DAILY } from '../data/empire'
 import { cityOf, colonyById } from '../data/cities'
 import { formatOf } from '../data/formats'
 import { nextRandom } from './rng'
@@ -14,7 +14,8 @@ const inRange = (md: string, from: string, to: string) => from <= to ? md >= fro
 export function seasonsAt (d: Date) { const md = mmdd(d); return SEASONS.filter(s => inRange(md, s.from, s.to)) }
 export function seasonMultiplier (d: Date, cityId: string) {
   const t = cityOf(cityId).tourism ?? 0
-  return seasonsAt(d).reduce((a, s) => a * (1 + s.mult + (s.tourism ? s.tourism * t * 2.5 : 0)), 1)
+  const local = cityEventsAt(d, cityId).reduce((a, e) => a * (1 + e.mult), 1)
+  return local * seasonsAt(d).reduce((a, s) => a * (1 + s.mult + (s.tourism ? s.tourism * t * 2.5 : 0)), 1)
 }
 
 // ---------- dilemas ----------
@@ -118,6 +119,86 @@ export function tradeStock (s: GameState, id: string, shares: number): Result {
 
 // ---------- día ----------
 export function empireDaily (s: GameState, worth: number) {
-  dailyStocks(s); maybeDilemma(s); maybeInvestor(s, worth)
+  dailyStocks(s); maybeDilemma(s); maybeInvestor(s, worth); dailyIpo(s, worth); dailySubsidiaries(s)
+}
+
+// ---------- eventos por ciudad y calendario ----------
+export function cityEventsAt (d: Date, cityId?: string) { const md = mmdd(d); return CITY_EVENTS.filter(e => (!cityId || e.city === cityId) && inRange(md, e.from, e.to)) }
+export function upcomingEvents (d: Date, days = 60) {
+  const out: { date: Date; name: string; city?: string; mult: number; tip: string; id: string }[] = []
+  const seen = new Set<string>()
+  for (let i = 0; i < days; i++) {
+    const x = new Date(d.getTime() + i * 864e5); const md = mmdd(x)
+    for (const e of CITY_EVENTS) if (md === e.from && !seen.has(e.id)) { seen.add(e.id); out.push({ date: x, name: e.name, city: e.city, mult: e.mult, tip: e.tip, id: e.id }) }
+    for (const e of SEASONS) if (md === e.from && !seen.has(e.id)) { seen.add(e.id); out.push({ date: x, name: e.name, mult: e.mult, tip: e.tip, id: e.id }) }
+  }
+  return out
+}
+
+// ---------- salida a Bolsa (OPI) ----------
+export function ipoCheck (s: GameState, worth: number) {
+  const reasons: string[] = []
+  if (s.stores.length < IPO.minStores) reasons.push(`Ten ${IPO.minStores} tiendas (tienes ${s.stores.length})`)
+  if (worth < IPO.minWorth) reasons.push(`Llega a $${(IPO.minWorth / 1e6).toFixed(0)} M de patrimonio (pesos de hoy)`)
+  if ((s.office ?? 0) < IPO.minOffice) reasons.push('Muda tu sede al piso corporativo (Banco)')
+  if (s.reports.slice(-30).reduce((a, r) => a + r.profit, 0) <= 0) reasons.push('Ten utilidad en los últimos 30 días')
+  return reasons
+}
+export function companyValuation (s: GameState, worth: number) {
+  const prof = s.reports.slice(-30).reduce((a, r) => a + r.profit, 0) * 12
+  return Math.max(worth, worth * 0.6 + Math.max(0, prof) * 9)
+}
+export function goPublic (s: GameState, worth: number): Result {
+  if (s.ipo) return fail('Ya cotizas en la Bolsa MX')
+  const r = ipoCheck(s, worth); if (r.length) return fail(r[0])
+  const val = companyValuation(s, worth); const price = +(val / IPO.shares).toFixed(2)
+  const raised = val * IPO.float * (1 - IPO.fee)
+  s.cash += raised
+  const own = (s.equity ?? 1) * (1 - IPO.float)
+  s.equity = own
+  s.ipo = { day: Math.floor(s.minute / 1440), price0: price, hist: [price], price, own }
+  s.log.unshift({ minute: s.minute, text: `🔔 ¡${s.company} toca la campana! Sales a la Bolsa MX a $${price} por acción`, kind: 'good' })
+  return ok(`Recaudaste ${Math.round(raised).toLocaleString('es-MX')} MXN`)
+}
+function dailyIpo (s: GameState, worth: number) {
+  const p = s.ipo; if (!p) return
+  const fair = companyValuation(s, worth) / IPO.shares
+  const z = (nextRandom(s) + nextRandom(s) + nextRandom(s) - 1.5) * 0.02
+  p.price = Math.max(0.5, +(p.price + (fair - p.price) * 0.08 + p.price * z).toFixed(2))
+  p.hist.push(p.price); if (p.hist.length > 120) p.hist.shift()
+}
+// recomprar o vender acciones propias: cambia qué parte de la empresa es tuya
+export function tradeOwn (s: GameState, pct: number): Result {
+  const p = s.ipo; if (!p) return fail('Aún no cotizas')
+  const cost = IPO.shares * Math.abs(pct) * p.price
+  if (pct > 0) {
+    if (p.own + pct > 0.95) return fail('No puedes recomprar más')
+    if (s.cash < cost) return fail('No alcanza el efectivo')
+    s.cash -= cost; p.own += pct; s.equity = p.own
+    return ok(`Recompraste ${Math.round(pct * 100)} % de ${s.company}`)
+  }
+  if (p.own + pct < 0.3) return fail('Te quedarías sin el control de tu empresa')
+  s.cash += cost * (1 - STOCK_FEE); p.own += pct; s.equity = p.own
+  return ok(`Vendiste ${Math.round(-pct * 100)} % en la Bolsa`)
+}
+
+// ---------- conglomerado: comprar cadenas rivales ----------
+export const rivalTotal = (s: GameState, i: number) => Object.values(s.market?.rivals[i]?.stores ?? {}).reduce((a, b) => a + b, 0)
+export const buyoutCost = (s: GameState, i: number) => Math.round(rivalTotal(s, i) * BUYOUT_PER_STORE * (0.8 + (s.market?.rivals[i]?.aggression ?? 1) * 0.3))
+export function buyRival (s: GameState, i: number): Result {
+  const r = s.market?.rivals[i]; if (!r) return fail('No existe')
+  if (s.stores.length < 6) return fail('Primero ten 6 tiendas propias')
+  const n = rivalTotal(s, i); if (!n) return fail('Esa cadena ya no tiene tiendas')
+  const cost = buyoutCost(s, i); if (s.cash < cost) return fail('No alcanza el efectivo')
+  s.cash -= cost
+  ;(s.subsidiaries ??= []).push({ name: r.name, color: r.color, stores: n, day: Math.floor(s.minute / 1440) })
+  s.market!.rivals = s.market!.rivals.filter((_, k) => k !== i)
+  s.log.unshift({ minute: s.minute, text: `🏢 Compraste ${r.name}: ${n} tiendas se suman a tu conglomerado`, kind: 'good' })
+  return ok(`${r.name} ahora es parte de tu grupo`)
+}
+export const subsidiaryValue = (s: GameState) => (s.subsidiaries ?? []).reduce((a, x) => a + x.stores * BUYOUT_PER_STORE * 0.7, 0)
+function dailySubsidiaries (s: GameState) {
+  const n = (s.subsidiaries ?? []).reduce((a, x) => a + x.stores, 0)
+  if (n) s.cash += n * SUBSIDIARY_DAILY * (0.8 + nextRandom(s) * 0.4)
 }
 export { colonyById }

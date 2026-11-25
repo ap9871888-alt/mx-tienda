@@ -99,3 +99,28 @@ export const STOCKS: StockDef[] = [
   { id: 'cines', name: 'Cines Estelar', sector: 'Entretenimiento', price: 41, vol: 0.018, drift: 0.06 }
 ]
 export const STOCK_FEE = 0.0025
+
+// ---------- Hito 3: eventos propios de cada ciudad (MM-DD) ----------
+export interface CityEvent { id: string; city: string; name: string; from: string; to: string; mult: number; tip: string }
+export const CITY_EVENTS: CityEvent[] = [
+  { id: 'carnaval-ver', city: 'ver', name: 'Carnaval de Veracruz', from: '02-20', to: '02-28', mult: 0.35, tip: 'Desfiles y comparsas: el malecón se llena' },
+  { id: 'spring-aca', city: 'aca', name: 'Spring break', from: '03-08', to: '03-25', mult: 0.3, tip: 'Estudiantes en la costera' },
+  { id: 'feria-pue', city: 'pue', name: 'Feria de Puebla', from: '04-20', to: '05-15', mult: 0.18, tip: 'Juegos mecánicos y palenque' },
+  { id: 'guelaguetza', city: 'oax', name: 'Guelaguetza', from: '07-18', to: '07-31', mult: 0.4, tip: 'La fiesta más grande de Oaxaca' },
+  { id: 'mariachi-gdl', city: 'gdl', name: 'Encuentro del Mariachi', from: '08-25', to: '09-05', mult: 0.2, tip: 'Mariachis en cada plaza' },
+  { id: 'feria-pach', city: 'pach', name: 'Feria de Pachuca', from: '10-01', to: '10-20', mult: 0.18, tip: 'Pastes y conciertos' },
+  { id: 'catrinas-qro', city: 'qro', name: 'Festival de Catrinas', from: '10-25', to: '11-02', mult: 0.2, tip: 'El centro se llena de catrinas' },
+  { id: 'noche-mer', city: 'mer', name: 'Noche Blanca', from: '05-20', to: '05-22', mult: 0.3, tip: 'Museos y calles abiertas toda la noche' },
+  { id: 'fil-gdl', city: 'gdl', name: 'Feria del Libro', from: '11-28', to: '12-06', mult: 0.22, tip: 'Visitantes de todo el mundo' },
+  { id: 'clasico-mty', city: 'mty', name: 'Clásico regio', from: '10-10', to: '10-12', mult: 0.25, tip: 'Toda la ciudad ve el partido' },
+  { id: 'gastro-tij', city: 'tij', name: 'Festival gastronómico', from: '09-20', to: '09-28', mult: 0.2, tip: 'Comida y turistas del otro lado' },
+  { id: 'maraton-cdmx', city: 'cdmx', name: 'Maratón de la Ciudad', from: '08-30', to: '08-31', mult: 0.12, tip: 'Corredores con sed' },
+  { id: 'ozono-cdmx', city: 'cdmx', name: 'Temporada de ozono', from: '03-15', to: '05-31', mult: -0.06, tip: 'Contingencias frecuentes' },
+  { id: 'calor-mer', city: 'mer', name: 'Calor extremo', from: '04-15', to: '06-15', mult: 0.1, tip: 'Bebidas frías y helados vuelan' },
+  { id: 'huracanes-aca', city: 'aca', name: 'Temporada de huracanes', from: '09-01', to: '10-15', mult: -0.15, tip: 'Menos turistas en la costa' }
+]
+
+// ---------- Hito 3: salida a Bolsa y conglomerado ----------
+export const IPO = { minStores: 10, minWorth: 15_000_000, minOffice: 2, float: 0.25, shares: 10_000_000, fee: 0.04 }
+export const BUYOUT_PER_STORE = 650_000 // costo por tienda al comprar una cadena rival
+export const SUBSIDIARY_DAILY = 1400 // utilidad diaria por tienda de una cadena comprada

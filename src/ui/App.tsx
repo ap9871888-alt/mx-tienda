@@ -15,7 +15,7 @@ import { Logistica } from './screens/Logistica'
 import { Corporativo } from './screens/Corporativo'
 import { Banco } from './screens/Banco'
 import { Productos } from './screens/Productos'
-import { Inversion, Estilo, Bolsa, DilemmaModal } from './screens/Imperio'
+import { Inversion, Estilo, Bolsa, DilemmaModal, Calendario } from './screens/Imperio'
 
 const SPEEDS: [Speed, typeof Play, string][] = [[0, Pause, 'Pausa'], [1, Play, '1x'], [2, FastForward, '2x'], [4, ChevronsRight, '4x']]
 
@@ -66,8 +66,8 @@ export function App () {
   }, [])
   const more = useApp(s => s.more)
   if (!hasGame || title) return <><Portada /><Toast /></>
-  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco, productos: Productos, inversion: Inversion, estilo: Estilo, bolsa: Bolsa }[tab]
-  const TITLES: Record<string, string> = { mapa: 'Abrir y expandir', tienda: 'Mis tiendas', logistica: 'Logística', corporativo: 'Corporativo', banco: 'Banco', productos: 'Marca propia', inversion: 'Inversionistas', estilo: 'Estilo de vida', bolsa: 'Bolsa MX' }
+  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco, productos: Productos, inversion: Inversion, estilo: Estilo, bolsa: Bolsa, calendario: Calendario }[tab]
+  const TITLES: Record<string, string> = { mapa: 'Abrir y expandir', tienda: 'Mis tiendas', logistica: 'Logística', corporativo: 'Corporativo', banco: 'Banco', productos: 'Marca propia', inversion: 'Inversionistas', estilo: 'Estilo de vida', bolsa: 'Bolsa MX', calendario: 'Calendario' }
   return (
     <div className='max-w-[620px] mx-auto h-[100dvh] flex flex-col overflow-hidden'>
       <TopBar />
@@ -107,7 +107,8 @@ function MasMenu ({ onClose }: { onClose: () => void }) {
     ['📊', 'Corporativo', 'Ganancias, cortes y partida', () => go('corporativo')],
     ['🏷️', 'Marca propia', 'Crea tus productos', () => go('productos')],
     ['🤝', 'Inversionistas', 'Ofertas por tu empresa', () => go('inversion')],
-    ['📈', 'Bolsa MX', 'Compra acciones', () => go('bolsa')],
+    ['📈', 'Bolsa MX', 'Acciones, tu empresa y conglomerado', () => go('bolsa')],
+    ['📅', 'Calendario', 'Temporadas y fiestas por ciudad', () => go('calendario')],
     ['🕶️', 'Estilo de vida', 'Compras de estatus', () => go('estilo')],
     ['✈️', 'Viajar', 'Otros estados', () => useApp.getState().openStates()],
     ['🏆', 'Logros', 'Tus medallas', () => { useApp.getState().setTitle(true); onClose() }],
