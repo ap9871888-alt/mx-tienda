@@ -329,6 +329,7 @@ export function Directivos () {
         {DIRECTORS.map(d => {
           const on = !!game.directors?.[d.id]; const locked = reached < d.minWorth
           return <div key={d.id} className={`flex items-center gap-3 py-2 border-t border-borde first:border-t-0 ${locked ? 'opacity-55' : ''}`}>
+            <img src={assetUrl(`ui/dir-${d.id}.webp`)} alt='' className={`w-14 h-14 object-contain rounded-full bg-arena shrink-0 ${locked ? 'grayscale' : ''}`} />
             <div className='flex-1 min-w-0'><b className='text-sm block'>{d.name} · {d.who}</b><span className='text-xs text-tenue'>{d.desc} {fmtK(d.salary)}/mes</span></div>
             {locked ? <span className='text-xs font-bold'>🔒 {fmtK(d.minWorth)}</span> : <Btn small kind={on ? 'green' : 'ghost'} onClick={() => run(g => E.hireDirector(g, d.id))}>{on ? 'Trabajando' : 'Contratar'}</Btn>}
           </div>
@@ -341,7 +342,7 @@ export function Directivos () {
         {SOCIAL_PROGRAMS.map(p => {
           const on = game.social?.includes(p.id)
           return <div key={p.id} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
-            <span className='text-3xl'>{p.emoji}</span>
+            <img src={assetUrl(`ui/soc-${p.id}.webp`)} alt='' className='w-12 h-12 object-contain shrink-0' />
             <div className='flex-1 min-w-0'><b className='text-sm block'>{p.name}</b><span className='text-xs text-tenue'>{p.desc} {p.cost ? `${fmtK(p.cost)} + ${fmtK(p.monthly)}/mes` : 'Gratis'}</span></div>
             <Btn small kind={on ? 'green' : 'ghost'} disabled={!on && game.cash < p.cost} onClick={() => run(g => E.toggleSocial(g, p.id))}>{on ? 'Activo' : 'Iniciar'}</Btn>
           </div>
