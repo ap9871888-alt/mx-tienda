@@ -7,6 +7,7 @@ import { DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, IPO } from '../..
 import { cityOf } from '../../data/cities'
 import { Spark } from './Corporativo'
 import { Avatar } from '../Avatar'
+import { sfx } from '../sound'
 
 // ---------- inversionistas ----------
 export function Inversion () {
@@ -167,7 +168,7 @@ function TuEmpresa () {
         <p className='text-sm'>Vende el {Math.round(IPO.float * 100)} % de {game.company} al público y recibe dinero fresco para crecer. Tu empresa tendrá precio de acción todos los días.</p>
         <div className='grid grid-cols-2 gap-2'><Kpi label='Valor estimado' value={fmtK(val)} /><Kpi label='Recaudarías' value={fmtK(val * IPO.float * (1 - IPO.fee))} tone='good' /></div>
         {reasons.length ? <div className='flex flex-col gap-1'>{reasons.map(r => <span key={r} className='text-sm'>⬜ {r}</span>)}</div> : <p className='text-sm font-semibold text-ahorro'>✅ Cumples todos los requisitos</p>}
-        <Btn disabled={reasons.length > 0} onClick={() => run(g => E.goPublic(g, E.netWorth(g)))}>🔔 Tocar la campana</Btn>
+        <Btn disabled={reasons.length > 0} onClick={() => { const r = run(g => E.goPublic(g, E.netWorth(g))); if (r?.ok) sfx.bell() }}>🔔 Tocar la campana</Btn>
       </Card>
     )
   }

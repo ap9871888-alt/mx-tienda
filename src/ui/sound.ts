@@ -30,7 +30,7 @@ function file (name: string, vol = 0.7) {
   return true
 }
 export const sfx = {
-  click: () => on && tone(660, 0.06, 'triangle', 0.05),
+  click: () => { if (on && !file('sfx-click', 0.5)) tone(660, 0.06, 'triangle', 0.05) },
   tab: () => on && tone(520, 0.07, 'sine', 0.05, 0, 1.3),
   coin: () => { const n = performance.now(); if (!on || n - lastCoin < 350) return; lastCoin = n; if (file('sfx-moneda', 0.45)) return; tone(1320, 0.08, 'square', 0.03); tone(1760, 0.12, 'square', 0.03, 0.06) },
   cash: () => { if (!on || file('sfx-caja', 0.8)) return; tone(880, 0.08, 'square', 0.04); tone(1175, 0.1, 'square', 0.04, 0.07); tone(1568, 0.25, 'triangle', 0.05, 0.14) },
@@ -38,5 +38,9 @@ export const sfx = {
   good: () => { if (!on || file('sfx-logro', 0.6)) return; [523, 659, 784].forEach((f, i) => tone(f, 0.16, 'triangle', 0.05, i * 0.09)) },
   money: () => { if (on) file('sfx-monedas', 0.7) },
   door: () => { if (on) file('sfx-puerta', 0.35) },
+  plane: () => { if (on) file('sfx-avion', 0.6) },
+  bus: () => { if (on) file('sfx-autobus', 0.6) },
+  truck: () => { if (on) file('sfx-camion', 0.45) },
+  bell: () => { if (on) file('sfx-campana-bolsa', 0.7) },
   travel: () => { if (!on) return; tone(300, 0.6, 'sine', 0.04, 0, 2.2) }
 }

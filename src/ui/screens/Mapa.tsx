@@ -257,7 +257,7 @@ function UnlockModal ({ id, onClose, onDone }: { id: string; onClose: () => void
 function Travel ({ to }: { to: string }) {
   const game = useApp(s => s.game)!
   const q = E.tripQuote(game, to)
-  const go = (m: 'bus' | 'avion') => { const r = useApp.getState().run(g => E.travel(g, to, m)); if (r?.ok) sfx.travel() }
+  const go = (m: 'bus' | 'avion') => { const r = useApp.getState().run(g => E.travel(g, to, m)); if (r?.ok) { if (m === 'avion') sfx.plane(); else sfx.bus() } }
   return (
     <div className='rounded-xl border border-borde bg-white p-3 flex flex-col gap-2'>
       <span className='text-sm'>Estás en <b>{cityOf(game.here ?? 'cdmx').name}</b>. {cityOf(to).name} está a {q.km.toLocaleString('es-MX')} km. Para abrir tiendas ahí tienes que viajar:</span>
