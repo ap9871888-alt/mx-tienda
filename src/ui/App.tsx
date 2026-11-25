@@ -107,19 +107,19 @@ export function App () {
 function MasMenu ({ onClose }: { onClose: () => void }) {
   const go = (t: Tab) => { useApp.getState().setTab(t); window.scrollTo(0, 0); onClose() }
   const items: [string, string, string, () => void][] = [
-    ['🏪', 'Mis tiendas', 'Precios, personal e interior', () => go('tienda')],
-    ['➕', 'Abrir tienda', 'Elige colonia y formato', () => go('mapa')],
-    ['🚚', 'Logística', 'Pedidos, CEDIS y camiones', () => go('logistica')],
-    ['🏦', 'Banco', 'Préstamos, inversiones y oficinas', () => go('banco')],
-    ['📊', 'Corporativo', 'Ganancias, cortes y partida', () => go('corporativo')],
-    ['🏷️', 'Marca propia', 'Crea tus productos', () => go('productos')],
-    ['🤝', 'Inversionistas', 'Ofertas por tu empresa', () => go('inversion')],
-    ['📈', 'Bolsa MX', 'Acciones, tu empresa y conglomerado', () => go('bolsa')],
-    ['📅', 'Calendario', 'Temporadas y fiestas por ciudad', () => go('calendario')],
+    ['ic-tiendas', 'Mis tiendas', 'Precios, personal e interior', () => go('tienda')],
+    ['ic-mapa', 'Abrir tienda', 'Elige colonia y formato', () => go('mapa')],
+    ['ic-logistica', 'Logística', 'Pedidos, CEDIS y camiones', () => go('logistica')],
+    ['ic-banco', 'Banco', 'Préstamos, inversiones y oficinas', () => go('banco')],
+    ['ic-ventas', 'Corporativo', 'Ganancias, cortes y partida', () => go('corporativo')],
+    ['ic-precios', 'Marca propia', 'Crea tus productos', () => go('productos')],
+    ['ic-personal', 'Inversionistas', 'Ofertas por tu empresa', () => go('inversion')],
+    ['ic-bolsa', 'Bolsa MX', 'Acciones, tu empresa y conglomerado', () => go('bolsa')],
+    ['ic-calendario', 'Calendario', 'Temporadas y fiestas por ciudad', () => go('calendario')],
     ['🕶️', 'Estilo de vida', 'Compras de estatus', () => go('estilo')],
     ['✈️', 'Viajar', 'Otros estados', () => useApp.getState().openStates()],
-    ['🏆', 'Logros', 'Tus medallas', () => { useApp.getState().setTitle(true); onClose() }],
-    ['🏠', 'Menú principal', 'Partidas y ajustes', () => { useApp.getState().setTitle(true); onClose() }]
+    ['ic-logros', 'Logros', 'Tus medallas', () => { useApp.getState().setTitle(true); onClose() }],
+    ['ic-ajustes', 'Menú principal', 'Partidas y ajustes', () => { useApp.getState().setTitle(true); onClose() }]
   ]
   return (
     <div className='fixed inset-0 z-50' onClick={onClose}>
@@ -127,7 +127,7 @@ function MasMenu ({ onClose }: { onClose: () => void }) {
       <div className='absolute inset-x-0 mx-auto max-w-[620px] bottom-0 pb-[calc(16px+env(safe-area-inset-bottom))] max-h-[85dvh] overflow-y-auto bg-arena rounded-t-3xl p-4 grid grid-cols-2 gap-2.5 shadow-2xl' onClick={e => e.stopPropagation()}>
         {items.map(([ic, t, d, f]) => (
           <button key={t} onClick={f} className='bg-white border border-borde rounded-2xl p-3 text-left min-h-[76px] active:bg-borde/40'>
-            <span className='text-2xl'>{ic}</span><b className='block text-[15px] leading-tight'>{t}</b><span className='text-[11.5px] text-tenue leading-tight'>{d}</span>
+            {ic.startsWith('ic-') ? <img src={assetUrl(`ui/${ic}.webp`)} alt='' className='w-11 h-11 object-contain mb-1' /> : <span className='text-3xl leading-[44px]'>{ic}</span>}<b className='block text-[15px] leading-tight'>{t}</b><span className='text-[11.5px] text-tenue leading-tight'>{d}</span>
           </button>
         ))}
       </div>

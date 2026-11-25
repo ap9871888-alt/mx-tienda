@@ -255,7 +255,7 @@ export function WeeklyModal () {
     <div className='fixed inset-0 z-50 bg-black/50 grid place-items-center p-4'>
       <div className='w-full max-w-[420px] max-h-[90dvh] overflow-y-auto rounded-3xl bg-arena shadow-2xl'>
         <div className='bg-corp text-white px-4 py-3 rounded-t-3xl flex items-center gap-3'>
-          <img src={assetUrl('ui/chema-festeja.webp')} alt='' className='w-14 h-14 object-contain' />
+          <img src={assetUrl('ui/reporte.webp')} alt='' className='w-14 h-16 object-contain' />
           <div><span className='text-[11px] font-black tracking-wider opacity-80'>REPORTE SEMANAL</span><h2 className='font-display text-2xl uppercase leading-tight'>Semana {r.week}</h2></div>
         </div>
         <div className='p-4 flex flex-col gap-3'>

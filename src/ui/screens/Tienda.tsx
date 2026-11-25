@@ -49,8 +49,8 @@ export function Tienda () {
         <Kpi label='Reputación' value={<Stars n={st.reputation} />} />
       </div>
       <div className='flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1 sticky -top-1 z-10 bg-arena/95 backdrop-blur py-1'>
-        {([['resumen', '📋 Resumen'], ['precios', '🏷️ Precios'], ['personal', '👥 Personal'], ['interior', '🛠️ Interior'], ['ventas', '📈 Ventas']] as const).map(([k, l]) => (
-          <button key={k} onClick={() => setSub(k)} className={`shrink-0 px-3.5 min-h-[40px] rounded-full text-sm font-bold border ${sub === k ? 'bg-urbano text-white border-urbano' : 'bg-white border-borde'}`}>{l}</button>))}
+        {([['resumen', 'Resumen', 'ic-tiendas'], ['precios', 'Precios', 'ic-precios'], ['personal', 'Personal', 'ic-personal'], ['interior', 'Interior', 'ic-interior'], ['ventas', 'Ventas', 'ic-ventas']] as const).map(([k, l, ic]) => (
+          <button key={k} onClick={() => setSub(k)} className={`shrink-0 px-3.5 min-h-[40px] rounded-full text-sm font-bold border ${sub === k ? 'bg-urbano text-white border-urbano' : 'bg-white border-borde'}`}><img src={assetUrl(`ui/${ic}.webp`)} alt='' className='inline w-6 h-6 mr-1 -mt-0.5 object-contain' />{l}</button>))}
       </div>
 
       {sub === 'resumen' && <Gerente st={st} go={setSub} />}

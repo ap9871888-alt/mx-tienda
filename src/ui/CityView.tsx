@@ -163,7 +163,7 @@ export function CityView () {
         <button onClick={() => zoom(0.8)} aria-label='Alejar' className='w-11 h-11 rounded-full bg-urbano/85 text-white text-2xl font-bold shadow-lg'>−</button>
       </div>
       <div className='absolute inset-x-0 bottom-[calc(14px+env(safe-area-inset-bottom))] flex items-center justify-center gap-3 px-3 z-10'>
-        <button onClick={() => useApp.getState().setTab('tienda')} aria-label='Mis tiendas' className='w-14 h-14 rounded-2xl bg-urbano/90 text-white text-2xl shadow-lg grid place-items-center'>🏪</button>
+        <button onClick={() => useApp.getState().setTab('tienda')} aria-label='Mis tiendas' className='w-14 h-14 rounded-2xl bg-urbano/90 text-white text-2xl shadow-lg grid place-items-center'><img src={assetUrl('ui/ic-tiendas.webp')} alt='' className='w-10 h-10 object-contain' /></button>
         <button onClick={() => useApp.getState().openStates()} className='flex-1 max-w-[260px] min-h-[56px] rounded-2xl bg-urbano/90 text-white font-bold shadow-lg flex items-center justify-center gap-2'>
           <span>{(game.here ?? 'cdmx') === city.id ? '📍' : '🗺️'}</span><span className='truncate'>{city.name} · {city.state}</span><span className='opacity-70'>▾</span>
         </button>

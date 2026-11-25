@@ -67,6 +67,7 @@ export const CHARACTERS: { id: string; name: string; img?: string; skin?: string
   { id: 'lupita', name: 'Lupita', img: 'ui/gerente-1-0.webp', founder: 'm' },
   { id: 'kevin', name: 'Kevin', img: 'ui/gerente-2-0.webp', founder: 'h' },
   { id: 'carmen', name: 'Doña Carmen', img: 'ui/gerente-3-0.webp', founder: 'm' },
+  ...['Joaquín', 'Doña Mary', 'Ing. Sofía', 'Chef Toño', 'Don Pancho', 'Diego', 'Lic. Valeria', 'Beto Express', 'Itzel', 'Don Ernesto', 'Fer', 'Raúl'].map((n, i) => ({ id: `pj-${i}`, name: n, img: `ui/pj-${i}.webp`, founder: ([1, 2, 6, 8, 10].includes(i) ? 'm' : 'h') as 'h' | 'm' })),
   ...SKINS.map((c, i) => ({ id: `avatar-${i}`, name: ['Toño', 'Paty', 'Memo', 'Xime', 'Chuy'][i], skin: c, founder: (i % 2 ? 'm' : 'h') as 'h' | 'm' }))
 ]
 // capital inicial: los dos primeros son gratis; el modo inversionista se desbloquea con un pago único
