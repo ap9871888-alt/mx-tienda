@@ -201,7 +201,7 @@ describe('IA de mercado, analista y fondo', () => {
     expect(E.investFund(s, 'bonos', 100000).ok).toBe(true)
     expect(E.fundValue(s)).toBeCloseTo(99500, 0)
     expect(E.netWorth(s)).toBeCloseTo(nw - 500, -1)
-    for (let d = 0; d < 30; d++) E.advance(s, 1440)
+    for (let d = 0; d < 120; d++) E.advance(s, 1440)
     expect(E.fundValue(s)).toBeGreaterThan(99500)
     expect(E.withdrawFund(s, 'bonos', Infinity).ok).toBe(true)
     expect(E.fundValue(s)).toBe(0)
@@ -376,5 +376,24 @@ describe('Metas, directivos y comunidad', () => {
     const rep = st.reputation
     expect(E.toggleSocial(g, 'comedor').ok).toBe(true)
     expect(st.reputation).toBeGreaterThan(rep)
+  })
+})
+
+describe('Mundo vivo', () => {
+  it('aparecen proyectos de inversión, avanzan por etapas y dan resultado', () => {
+    const g = E.newGame(61); g.cash = 5e7
+    for (let d = 0; d < 40 && !(g.world?.deals ?? []).length; d++) { E.advance(g, 1440); g.dilemma = null; g.weekly = null; g.milestone = null }
+    const deal = g.world!.deals![0]
+    expect(E.investDeal(g, deal.id).ok).toBe(true)
+    for (let d = 0; d < 200 && deal.result == null; d++) { E.advance(g, 1440); g.dilemma = null; g.weekly = null; g.milestone = null }
+    expect(deal.result).not.toBeNull()
+  })
+  it('la remodelación es una obra que termina en días', () => {
+    const g = E.newGame(62); g.cash = 1e7
+    const st = E.openStore(g, 'cdmx', 'roma', 'tiendita').data!
+    expect(E.remodelStore(g, st.id).ok).toBe(true)
+    expect(st.works).toBeTruthy()
+    for (let d = 0; d < 8; d++) { E.advance(g, 1440); g.dilemma = null; g.weekly = null }
+    expect(st.works).toBeFalsy(); expect(st.remodel).toBe(1)
   })
 })

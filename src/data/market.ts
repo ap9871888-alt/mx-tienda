@@ -6,7 +6,13 @@ export const RIVAL_POOL: { name: string; color: string }[] = [
   { name: 'Express Norteño', color: '#2F7FB5' },
   { name: 'MiniMax 24', color: '#C2185B' },
   { name: 'Tiendas Ahorrín', color: '#5D8C2E' },
-  { name: 'Don Chuy Market', color: '#B07D1A' }
+  { name: 'Don Chuy Market', color: '#B07D1A' },
+  { name: 'Mercadito Azteca', color: '#00897B' },
+  { name: 'La Bodeguita', color: '#6D4C41' },
+  { name: 'SúperPrecio MX', color: '#F4511E' },
+  { name: 'Tiendas Sol', color: '#FBC02D' },
+  { name: 'Ultramarinos Del Valle', color: '#3949AB' },
+  { name: 'Kiosko Rápido', color: '#8E24AA' }
 ]
 export const RIVAL_STYLES: Record<RivalStyle, { label: string; desc: string }> = {
   precio: { label: 'Guerra de precios', desc: 'Baja precios donde te ve ganar' },

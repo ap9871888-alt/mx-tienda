@@ -11,6 +11,59 @@ import { sfx } from '../sound'
 
 // ---------- inversionistas ----------
 export function Inversion () {
+  const [tab, setTab] = useState<'proyectos' | 'socios'>('proyectos')
+  return (
+    <div className='flex flex-col gap-3'>
+      <div className='grid grid-cols-2 bg-white border border-borde rounded-full p-1'>
+        {([['proyectos', 'Proyectos para invertir'], ['socios', 'Socios de tu empresa']] as const).map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`min-h-[40px] rounded-full text-[13px] font-bold ${tab === k ? 'bg-corp text-white' : 'text-tenue'}`}>{l}</button>)}
+      </div>
+      {tab === 'proyectos' ? <Proyectos /> : <Socios />}
+    </div>
+  )
+}
+
+// inversión ángel: proyectos que inventa la IA del mundo
+function Proyectos () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const run = useApp(s => s.run)
+  const day = E.dayOf(game.minute)
+  const deals = game.world?.deals ?? []
+  const open = deals.filter(d => !d.invested && d.result == null)
+  const mine = deals.filter(d => d.invested)
+  return (
+    <>
+      <Card>
+        <div className='flex items-center gap-3'><img src={assetUrl('ui/ic-dinero.webp')} alt='' className='w-14 h-14 object-contain' />
+          <p className='text-sm'>Emprendedores te buscan para financiar sus ideas. Algunos multiplican tu dinero varias veces; otros lo pierden todo. Cada semana aparecen nuevas.</p></div>
+      </Card>
+      {open.map(d => (
+        <Card key={d.id}>
+          <div className='flex items-start gap-3'>
+            <span className='w-12 h-12 rounded-2xl bg-corp text-white grid place-items-center text-xl font-black shrink-0'>{d.name[0]}</span>
+            <div className='flex-1 min-w-0'><b className='block'>{d.name}</b><span className='text-sm'>{d.founder} quiere crear {d.idea}.</span>
+              <span className='block text-xs text-tenue mt-0.5'>Pide {fmtK(d.ask)} por el {d.pct} % · riesgo {d.risk < 0.45 ? 'bajo' : d.risk < 0.65 ? 'medio' : 'alto'} · quedan {Math.max(0, d.expires - day)} días</span></div>
+          </div>
+          <Btn small disabled={game.cash < d.ask} onClick={() => run(g => E.investDeal(g, d.id))}>Invertir {fmtK(d.ask)}</Btn>
+        </Card>
+      ))}
+      {!open.length && <Card><p className='text-sm text-tenue'>No hay propuestas nuevas por ahora. Vuelve en unos días.</p></Card>}
+      {mine.length > 0 && (
+        <Card title='Tus inversiones'>
+          {mine.map(d => (
+            <div key={d.id} className='py-2 border-t border-borde first:border-t-0'>
+              <div className='flex justify-between text-sm'><b>{d.name}</b><span className='num'>{fmtK(d.ask)}</span></div>
+              <div className='flex gap-1 mt-1'>{E.DEAL_STAGES.map((n, k) => <span key={n} className={`flex-1 text-[10px] text-center font-bold rounded py-0.5 ${k <= d.stage ? 'bg-oferta' : 'bg-borde text-tenue'}`}>{n}</span>)}</div>
+              {d.result != null && <span className={`text-xs font-bold ${d.result >= 1 ? 'text-ahorro' : 'text-rojo'}`}>{d.result >= 1 ? `Éxito: ×${d.result} (${fmtK(d.ask * d.result)})` : d.result === 0 ? 'Cerró: perdiste la inversión' : `Recuperaste ${Math.round(d.result * 100)} %`}</span>}
+            </div>
+          ))}
+        </Card>
+      )}
+    </>
+  )
+}
+
+function Socios () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
   const run = useApp(s => s.run)
@@ -19,7 +72,6 @@ export function Inversion () {
   const worth = E.netWorth(game)
   return (
     <div className='flex flex-col gap-3'>
-      <h1 className='font-display text-2xl uppercase'>Inversionistas</h1>
       {o && inv ? (
         <div className='rounded-2xl bg-urbano text-white p-4 flex flex-col gap-3 shadow-card'>
           <div className='flex items-start gap-3'>

@@ -76,7 +76,8 @@ const CAPITALS = [
   { id: 'normal', label: 'Emprendedor', amount: 500000, desc: 'Tu tiendita en la CDMX con ahorros y un crédito.', icon: '🏪' }
 ]
 export const PREMIUM_KEY = 'tienda-mx-premium'
-export const isPremium = () => { try { return localStorage.getItem(PREMIUM_KEY) === '1' } catch { return false } }
+// por ahora el modo inversionista es gratis para todos (el cobro llegará después)
+export const isPremium = () => true
 
 function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
   const has = useApp(s => !!s.game)
@@ -130,7 +131,7 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
         <div className={`${card(cap === 'vip')} p-3 flex flex-col gap-2`}>
           <button onClick={() => (premium ? setCap('vip') : setPay(true))} className='flex items-center gap-3 text-left'>
             <img src={assetUrl('ui/ic-premium.webp')} alt='' className='w-10 h-10 object-contain' />
-            <span className='flex-1'><b className='block'>Inversionista {premium ? '' : '🔒'}</b><span className='text-xs text-tenue'>Elige tu capital hasta $10,000,000. {premium ? 'Desbloqueado.' : 'Pago único de $20 MXN.'}</span></span>
+            <span className='flex-1'><b className='block'>Inversionista {premium ? '' : '🔒'}</b><span className='text-xs text-tenue'>Elige tu capital, hasta $10,000,000.</span></span>
           </button>
           {premium && cap === 'vip' && <label className='text-sm font-semibold'>Capital: ${vip.toLocaleString('es-MX')}
             <input type='range' min={1_000_000} max={10_000_000} step={500_000} value={vip} onChange={e => setVip(+e.target.value)} className='w-full' /></label>}

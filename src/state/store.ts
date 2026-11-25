@@ -42,14 +42,24 @@ interface AppState {
 // escritura a localStorage con espera, para no guardar varias veces por segundo
 let pending: { k: string; v: string } | null = null
 let timer: ReturnType<typeof setTimeout> | undefined
-const flush = () => { if (pending) { try { localStorage.setItem(pending.k, pending.v) } catch { /* sin almacenamiento */ } pending = null } }
+const flush = () => {
+  if (!pending) return
+  try { localStorage.setItem(pending.k, pending.v) } catch {
+    // sin espacio: recorta el historial y reintenta
+    try { const o = JSON.parse(pending.v); const g = o?.state?.game; if (g) { g.log = g.log.slice(0, 15); for (const st of g.stores) st.history = st.history.slice(-21); g.reports = g.reports.slice(-30); g.world && (g.world.news = g.world.news.slice(0, 10)) } localStorage.setItem(pending.k, JSON.stringify(o)) } catch { /* sin almacenamiento */ }
+  }
+  pending = null
+}
 const storage: StateStorage = {
   getItem: k => { try { return localStorage.getItem(k) } catch { return null } },
-  setItem: (k, v) => { pending = { k, v }; clearTimeout(timer); timer = setTimeout(flush, 1500) },
+  // guarda como máximo cada 2 s aunque el juego cambie sin parar
+  setItem: (k, v) => { pending = { k, v }; if (!timer) timer = setTimeout(() => { timer = undefined; flush() }, 2000) },
   removeItem: k => { pending = null; try { localStorage.removeItem(k) } catch { /* sin almacenamiento */ } }
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', flush)
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flush() })
+  window.addEventListener('beforeunload', flush)
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush() })
 }
 

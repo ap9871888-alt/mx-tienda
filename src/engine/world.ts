@@ -30,7 +30,14 @@ export interface WorldState {
   news: { day: number; text: string; kind: 'info' | 'good' | 'bad' }[]
   style: { cheap: number; growth: number }
   seq: number
+  deals?: AngelDeal[]
 }
+// proyectos que inventa la IA y buscan inversión (ángel): avanzan por etapas y al final multiplican o pierden tu dinero
+export interface AngelDeal {
+  id: string; name: string; idea: string; founder: string; ask: number; pct: number; risk: number
+  stage: number; next: number; invested: boolean; result: number | null; expires: number
+}
+export const DEAL_STAGES = ['Idea', 'Prototipo', 'Lanzamiento', 'Crecimiento', 'Resultado']
 
 export function initWorld (s: GameState): WorldState {
   return (s.world ??= { taxRate: 0, wageMult: 1, approval: 60, nextGov: 30, election: null, nextElection: 300, companies: [], works: [], news: [], style: { cheap: 0, growth: 0 }, seq: 0 })
@@ -156,7 +163,47 @@ export function worldDaily (s: GameState, dayProfit: number) {
       news(s, `${o.stages[o.stages.length - 1]} de ${o.name.toLowerCase()} en ${col.name}: ${t.after >= 0 ? 'llega mucha más gente' : 'te quita clientes'}`, t.after >= 0 ? 'good' : 'bad')
     }
   }
+  worldDeals(s)
   w.works = w.works.filter(o => o.stage < o.stages.length - 1 || day - o.next < 30)
+}
+
+const IDEAS = [
+  ['Mandado Ya', 'app de mandados en 20 minutos'], ['TacoBot', 'robot que prepara tacos al pastor'], ['Agua Viva', 'purificadora con energía solar'],
+  ['PaseCar', 'renta de autos entre vecinos'], ['Nopalia', 'snacks saludables de nopal'], ['Tianguis Online', 'marketplace de tianguis'],
+  ['ChambaYa', 'bolsa de trabajo para jóvenes'], ['MezcalHub', 'exportación de mezcal artesanal'], ['EcoBolsa', 'bolsas compostables para tiendas'],
+  ['Carrera de Muertos', 'carrera nocturna de Día de Muertos en la capital'], ['CasaInversor', 'casas compartidas para inversionistas'], ['VerdeFarm', 'huertos verticales en azoteas'],
+  ['PagoBarrio', 'pagos con celular para tienditas'], ['DronExpress', 'entregas con drones en colonias'], ['Cafecito MX', 'cafeterías en estaciones del Metro']
+]
+const FOUNDERS = ['Andrea', 'Luis', 'Mariana', 'Jorge', 'Fernanda', 'Diego', 'Ximena', 'Rodrigo', 'Valeria', 'Emilio']
+export function worldDeals (s: GameState) {
+  const w = initWorld(s); const day = Math.floor(s.minute / 1440)
+  w.deals ??= []
+  // nuevas propuestas de vez en cuando (más grandes si tu empresa es grande)
+  if (w.deals.filter(d => !d.invested && d.result == null && d.expires > day).length < 3 && nextRandom(s) < 1 / 6) {
+    const [name, idea] = pick(s, IDEAS); const scale = Math.max(1, Math.min(20, s.cash / 1_000_000))
+    const ask = Math.round((150000 + nextRandom(s) * 600000) * scale / 10000) * 10000
+    w.seq++
+    w.deals.push({ id: `d${w.seq}`, name, idea, founder: pick(s, FOUNDERS), ask, pct: Math.round(5 + nextRandom(s) * 20), risk: +(0.3 + nextRandom(s) * 0.5).toFixed(2), stage: 0, next: 0, invested: false, result: null, expires: day + 10 })
+  }
+  for (const d of w.deals) {
+    if (!d.invested || d.result != null || day < d.next) continue
+    d.stage++; d.next = day + 7 + Math.floor(nextRandom(s) * 21)
+    if (d.stage < DEAL_STAGES.length - 1) {
+      if (nextRandom(s) < d.risk * 0.25) { d.result = 0; d.stage = DEAL_STAGES.length - 1; news(s, `${d.name} cerró: ${d.founder} no logró sacar adelante el proyecto. Perdiste tu inversión`, 'bad'); continue }
+      news(s, `${d.name} avanza a la etapa de ${DEAL_STAGES[d.stage].toLowerCase()}`, 'info')
+    } else {
+      const mult = nextRandom(s) < d.risk ? +(nextRandom(s) * 0.8).toFixed(2) : +(1.5 + nextRandom(s) * 6 * (1 + d.risk)).toFixed(1)
+      d.result = mult; s.cash += d.ask * mult
+      news(s, mult >= 1 ? `¡${d.name} fue un éxito! Tu inversión se multiplicó ×${mult}` : `${d.name} no despegó: recuperaste solo ${Math.round(mult * 100)} %`, mult >= 1 ? 'good' : 'bad')
+    }
+  }
+  w.deals = w.deals.filter(d => d.invested ? (d.result == null || day - d.next < 60) : d.expires > day)
+}
+export function investDeal (s: GameState, id: string): Result {
+  const d = initWorld(s).deals?.find(x => x.id === id); if (!d || d.invested) return fail('Ya no está disponible')
+  if (s.cash < d.ask) return fail('No alcanza el efectivo')
+  s.cash -= d.ask; d.invested = true; d.next = Math.floor(s.minute / 1440) + 7
+  return ok(`Invertiste en ${d.name}: ahora tienes el ${d.pct} % del proyecto`)
 }
 
 // donar a una campaña: sube su intención de voto, con riesgo de escándalo

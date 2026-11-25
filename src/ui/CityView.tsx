@@ -17,7 +17,7 @@ const TW = 572; const TH = 1024 // tamaño de cada zona en el mundo
 const kindOf = (id: string, wealth: number): Kind => ['santafe', 'polanco'].includes(id) || wealth >= 1.25 ? 'oficinas' : wealth < 0.95 ? 'popular' : 'media'
 const DECOR = ['depas', 'oficinas', 'depas', 'mercado', 'plaza', 'torre']
 
-interface Lot { x: number; y: number; ed?: string; pin?: string; pinImg?: string; color?: string; tag?: string; mine?: boolean; go?: () => void; label?: string; big?: boolean }
+interface Lot { x: number; y: number; w?: number; bottom?: number; icon?: string; alert?: boolean; ed?: string; pin?: string; pinImg?: string; color?: string; tag?: string; mine?: boolean; go?: () => void; label?: string; big?: boolean }
 type Civic = Omit<Lot, 'x' | 'y'>
 const open = (t: Tab) => () => useApp.getState().setTab(t)
 
@@ -32,12 +32,12 @@ function lotsFor (g: GameState, colony: Colony | null, kind: Kind, civic: Civic[
     const myColor = g.profile?.color ?? '#D63B2F'
     for (const s of g.stores.filter(x => x.colonyId === colony.id)) {
       const fmt = assetUrl(`sprites/tienda-${s.formatId}-dia.webp`) ? s.formatId : 'tiendita'
-      put({ ed: `sprites/tienda-${fmt}-${E.isOpen(s, E.hourOf(g.minute)) ? (night ? 'noche' : 'dia') : 'cerrada'}.webp`, pin: 'mine', color: myColor, tag: s.works ? '🚧 EN OBRA' : 'TU TIENDA', mine: true, label: E.storeShort(s), go: () => { useApp.getState().selectStore(s.id); useApp.getState().setTab('tienda') } })
+      put({ ed: `sprites/tienda-${fmt}-${E.isOpen(s, E.hourOf(g.minute)) ? (night ? 'noche' : 'dia') : 'cerrada'}.webp`, pin: 'mine', color: myColor, alert: !!s.works, mine: true, label: E.storeShort(s), go: () => { useApp.getState().selectStore(s.id); useApp.getState().setTab('tienda') } })
     }
     const rivals = g.market?.rivals.flatMap(r => Array.from({ length: r.stores[colony.id] || 0 }, () => r)) ?? []
     for (const r of rivals.slice(0, Math.max(0, items.length - i - 2))) put({ ed: `city/ed-plaza-${tod}.webp`, pin: 'rival', color: r.color, tag: r.name.split(' ')[0], label: r.name, go: () => useApp.getState().say(`${r.name}: ${r.style === 'precio' ? 'baja precios donde tú ganas' : r.style === 'premium' ? 'busca clientes con dinero' : r.style === 'barrio' ? 'llena las colonias de tienditas' : 'abre por todos lados'}`) })
     const free = Math.max(0, colony.slots - g.stores.filter(x => x.colonyId === colony.id).length)
-    for (let k = 0; k < Math.min(2, free) && i < items.length; k++) put({ pin: 'renta', tag: 'SE RENTA', label: `Abrir en ${colony.name}`, go: () => useApp.getState().focusColony(colony.id) })
+    for (let k = 0; k < Math.min(2, free) && i < items.length; k++) put({ pin: 'renta', icon: 'renta', label: `Abrir en ${colony.name}`, go: () => useApp.getState().focusColony(colony.id) })
   }
   let d = 0
   while (i < items.length) put({ ed: `city/ed-${DECOR[(d++ + (colony?.id.length ?? 3)) % DECOR.length]}-${tod}.webp` })
@@ -59,14 +59,14 @@ export function CityView () {
   // edificios cívicos: se reparten en las primeras zonas
   const office = game.office ?? 0
   const civicBy: Civic[][] = tiles.map(() => [])
-  civicBy[0].push({ ed: `city/ed-banco-${tod}.webp`, pin: 'banco', tag: 'BANCO', label: 'Banco: créditos e inversiones', go: open('banco'), big: true })
-  civicBy[Math.min(1, tiles.length - 1)].push({ ed: `city/ed-torre-${tod}.webp`, pinImg: 'ui/bolsa.webp', tag: 'BOLSA MX', label: 'Bolsa MX', go: open('bolsa'), big: true })
-  civicBy[Math.min(1, tiles.length - 1)].push({ ed: `city/ed-oficinas-${tod}.webp`, pin: 'oficina', tag: game.offer ? '¡OFERTA!' : 'INVERSIONISTAS', label: 'Torre de inversionistas', go: open('inversion') })
-  civicBy[Math.min(2, tiles.length - 1)].push({ ed: `city/ed-plaza-${tod}.webp`, pin: 'oficina', tag: 'PLAZA · ESTILO', label: 'Plaza comercial: estilo de vida', go: open('estilo') })
-  civicBy[Math.min(2, tiles.length - 1)].push({ ed: `city/ed-mercado-${tod}.webp`, pin: 'cedis', tag: game.cedis ? 'TU CEDIS' : 'CENTRAL DE ABASTO', label: 'Logística y mayoristas', go: open('logistica') })
-  civicBy[Math.min(3, tiles.length - 1)].push({ ed: `city/ed-${office >= 3 ? 'torre' : 'oficinas'}-${tod}.webp`, pin: 'oficina', tag: office ? 'TU SEDE' : 'CORPORATIVO', label: 'Corporativo: ganancias y cortes', go: open('corporativo') })
-  civicBy[Math.min(3, tiles.length - 1)].push({ ed: 'city/ed-aeropuerto-dia.webp', pinImg: 'city/pin-aeropuerto.webp', tag: 'AEROPUERTO', label: 'Viajar en avión a otro estado', go: () => useApp.getState().openStates(), big: true })
-  civicBy[Math.min(2, tiles.length - 1)].push({ ed: 'city/ed-central-dia.webp', pinImg: 'city/pin-central.webp', tag: 'CENTRAL DE AUTOBUSES', label: 'Viajar en autobús', go: () => useApp.getState().openStates(), big: true })
+  civicBy[0].push({ ed: `city/ed-banco-${tod}.webp`, pin: 'banco', icon: 'ic-banco', label: 'Banco: créditos e inversiones', go: open('banco'), big: true })
+  civicBy[Math.min(1, tiles.length - 1)].push({ ed: `city/ed-torre-${tod}.webp`, pinImg: 'ui/bolsa.webp', icon: 'ic-bolsa', label: 'Bolsa MX', go: open('bolsa'), big: true })
+  civicBy[Math.min(1, tiles.length - 1)].push({ ed: `city/ed-oficinas-${tod}.webp`, pin: 'oficina', icon: 'ic-trato', alert: !!game.offer, label: 'Torre de inversionistas', go: open('inversion') })
+  civicBy[Math.min(2, tiles.length - 1)].push({ ed: `city/ed-plaza-${tod}.webp`, pin: 'oficina', icon: 'ic-premium', label: 'Plaza comercial: estilo de vida', go: open('estilo') })
+  civicBy[Math.min(2, tiles.length - 1)].push({ ed: `city/ed-mercado-${tod}.webp`, pin: 'cedis', icon: 'ic-logistica', label: 'Logística y mayoristas', go: open('logistica') })
+  civicBy[Math.min(3, tiles.length - 1)].push({ ed: `city/ed-${office >= 3 ? 'torre' : 'oficinas'}-${tod}.webp`, pin: 'oficina', icon: 'ic-ventas', label: 'Corporativo: ganancias y cortes', go: open('corporativo') })
+  civicBy[Math.min(3, tiles.length - 1)].push({ ed: 'city/ed-aeropuerto-dia.webp', pinImg: 'city/pin-aeropuerto.webp', icon: 'ic-viajar', label: 'Viajar en avión a otro estado', go: () => useApp.getState().openStates(), big: true })
+  civicBy[Math.min(2, tiles.length - 1)].push({ ed: 'city/ed-central-dia.webp', pinImg: 'city/pin-central.webp', icon: 'ic-mapa', label: 'Viajar en autobús', go: () => useApp.getState().openStates(), big: true })
 
   // mapa completo de una sola pieza: los lotes se reparten entre las colonias por cercanía
   const fullItems = full ? fullLayout(game, city.colonies, full, civicBy.flat(), tod) : null
@@ -138,9 +138,9 @@ export function CityView () {
         {full && fullItems && (
           <div className='absolute inset-0 isolate'>
             <img src={assetUrl(`city/${city.id}-full.webp`)} alt='' className='absolute inset-0 w-full h-full' draggable={false} style={{ filter: night ? 'brightness(.55) saturate(.8) hue-rotate(10deg)' : undefined }} />
-            <ColonyTraffic grid={full} night={night} density={3.4} />
-            {fullItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/85 text-white text-[30px] leading-tight font-black rounded-3xl px-4 py-1 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y - 5}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
-            {fullItems.items.map((l, j) => <LotButton key={j} l={l} width='12.5%' big='14%' myColor={myColor} myIcon={myIcon} dy={2.2} ps={1.7} />)}
+            <ColonyTraffic grid={full} night={night} density={5} />
+            {fullItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/85 text-white text-[17px] leading-tight font-bold rounded-full px-3 py-0.5 opacity-80 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y - 5}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
+            {fullItems.items.map((l, j) => <LotButton key={j} l={l} width='12.5%' big='14%' myColor={myColor} myIcon={myIcon} dy={2.2} ps={1.9} />)}
           </div>
         )}
         {!full && tiles.map((col, k) => {
@@ -174,31 +174,41 @@ export function CityView () {
 }
 
 function LotButton ({ l, width, big, myColor, myIcon, dy, ps }: { l: Lot; width: string; big: string; myColor: string; myIcon: string; dy: number; ps: number }) {
+  // con medidas del lote: el edificio ocupa el rombo y su base cae en la punta inferior
+  const w = l.w ? `${Math.min(l.w * 1.08, l.big ? 16 : 14)}%` : (l.big ? big : width)
+  const top = l.bottom != null ? `${l.bottom + 0.4}%` : `${l.y + dy}%`
+  const badge = l.mine || l.icon || l.color
   return (
-    <button onClick={l.go} disabled={!l.go} aria-label={l.label} className='absolute' style={{ left: `${l.x}%`, top: `${l.y + dy}%`, width: l.big ? big : width, transform: 'translate(-50%, -100%)', zIndex: Math.round(l.y * 10) }}>
+    <button onClick={l.go} disabled={!l.go} aria-label={l.label} title={l.label} className='absolute' style={{ left: `${l.x}%`, top, width: w, transform: 'translate(-50%, -100%)', zIndex: Math.round((l.bottom ?? l.y) * 10) }}>
       {l.ed ? <img src={assetUrl(l.ed)} alt='' className='w-full drop-shadow' draggable={false} /> : <div className='w-full aspect-[2/1]' />}
-      {(l.pin || l.pinImg) && <span className='absolute left-1/2 bottom-[80%] pointer-events-none' style={{ transform: `translateX(-50%) scale(${ps})`, transformOrigin: 'bottom center' }}><span className='flex flex-col items-center animate-[bounce_2.4s_ease-in-out_infinite]'>
-        {l.tag && <span className='text-[19px] font-black text-white rounded-xl px-2.5 py-1 mb-1 whitespace-nowrap shadow-lg' style={{ background: l.mine ? myColor : l.pin === 'renta' ? '#D63B2F' : '#2B2D33' }}>{l.tag}</span>}
-        {l.color ? <span className='relative w-[72px] h-[72px] grid place-items-center'>
-          <span className='absolute inset-0 rounded-[50%_50%_50%_0] -rotate-45 border-[3px] border-urbano shadow-lg' style={{ background: l.color }} />
-          <span className='relative grid place-items-center w-full h-full -translate-y-0.5'>{l.mine ? <img src={assetUrl(`ui/logo-${myIcon}.webp`)} alt='' className='w-[60%] rounded-full bg-white p-0.5' /> : <span className='text-white font-black text-3xl'>{(l.tag ?? '?')[0]}</span>}</span>
-        </span> : <img src={assetUrl(l.pinImg ?? `city/pin-${l.pin}.webp`)} alt='' draggable={false} className={l.pinImg === 'ui/bolsa.webp' ? 'w-[72px] rounded-xl shadow-lg' : 'w-16'} />}
-      </span></span>}
+      {badge && <span className='absolute left-1/2 bottom-[78%] pointer-events-none' style={{ transform: `translateX(-50%) scale(${ps})`, transformOrigin: 'bottom center' }}>
+        <span className='relative flex flex-col items-center animate-[bounce_2.6s_ease-in-out_infinite]'>
+          {l.icon === 'renta'
+            ? <span className='w-9 h-9 rounded-full bg-rojo border-2 border-white shadow-lg grid place-items-center text-white text-lg font-black'>+</span>
+            : l.icon
+              ? <span className='w-10 h-10 rounded-full bg-white border-2 border-urbano shadow-lg grid place-items-center'><img src={assetUrl(`ui/${l.icon}.webp`)} alt='' className='w-7 h-7 object-contain' /></span>
+              : <span className='w-10 h-10 rounded-full border-2 border-white shadow-lg grid place-items-center' style={{ background: l.mine ? myColor : l.color }}>
+                {l.mine ? <img src={assetUrl(`ui/logo-${myIcon}.webp`)} alt='' className='w-7 h-7 rounded-full bg-white object-contain' /> : <span className='text-white font-black text-base'>{(l.tag ?? '?')[0]}</span>}
+              </span>}
+          {l.alert && <span className='absolute -top-1 -right-1 w-4 h-4 rounded-full bg-oferta border-2 border-white animate-pulse' />}
+          <span className='w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-urbano -mt-0.5' />
+        </span>
+      </span>}
     </button>
   )
 }
 
 // reparte los lotes del mapa completo: primero los edificios de la ciudad, luego cada colonia toma sus lotes más cercanos
 function fullLayout (g: GameState, colonies: Colony[], map: MapData, civic: Civic[], tod: string) {
-  const lots = map.lots.map(([x, y]) => ({ x, y }))
+  const lots = map.lots.map(([x, y, w, bottom]) => ({ x, y, w, bottom }))
   const civ = civic
   // los cívicos toman lotes repartidos por el mapa
   const step = Math.max(1, Math.floor(lots.length / civ.length))
   const civicLots = civ.map((_, i) => lots[(i * step + 1) % lots.length])
   const rest = lots.filter(l => !civicLots.includes(l))
   // centros de colonia: k-medias sencillas sobre los lotes restantes
-  let centers = colonies.map((_, i) => ({ ...rest[Math.floor(i * rest.length / colonies.length)] }))
-  let groups: { x: number; y: number }[][] = []
+  let centers: { x: number; y: number }[] = colonies.map((_, i) => { const r = rest[Math.floor(i * rest.length / colonies.length)]; return { x: r.x, y: r.y } })
+  let groups: typeof rest[] = []
   for (let it = 0; it < 8; it++) {
     groups = colonies.map(() => [])
     for (const l of rest) { let b = 0; let bd = Infinity; centers.forEach((c, i) => { const d = (c.x - l.x) ** 2 + ((c.y - l.y) * 1.8) ** 2; if (d < bd) { bd = d; b = i } }); groups[b].push(l) }
