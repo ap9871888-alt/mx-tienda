@@ -122,6 +122,7 @@ export function startLoop () {
       const events = E.advance(st.game, dt * st.speed * ECONOMY.gameMinutesPerRealSecond)
       bus.emit(events)
       if (st.tab === 'calle' && !st.title && events.some(e => e.type === 'sale' && e.storeId === st.storeId)) sfx.coin()
+      if (st.tab === 'tienda' && events.some(e => e.type === 'arrive' && e.storeId === st.storeId) && Math.random() < 0.3) sfx.door()
       if (events.some(e => e.type === 'dayEnd')) sfx.cash()
       uiAcc += dt
       if ((uiAcc > 0.4 && !touching) || events.some(e => e.type === 'dayEnd')) { uiAcc = 0; useApp.setState({ game: st.game, rev: st.rev + 1 }) }
