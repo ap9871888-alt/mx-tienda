@@ -21,7 +21,7 @@ const LOTS: { x: number; y: number; v: number }[] = []
   add([3, 1, -1, -3, -5], [9, 11, 13, 15]) // cuadra suroeste
 }
 const overlaps = (l: { x: number; y: number }, r: { x: number; y: number; w: number; d: number }) => l.x < r.x + r.w && l.x + 2 > r.x && l.y < r.y + r.d && l.y + 2 > r.y
-const SPRITES = ['sprites/edificio-0-dia.webp', 'sprites/cliente-0.webp', 'sprites/camioneta-0.webp', 'sprites/camion-0.webp', 'sprites/moto-0.webp', 'sprites/veh-ev-dron-0.webp']
+const SPRITES = ['sprites/edificio-0-dia.webp', 'sprites/cliente-0.webp', 'sprites/camioneta-0.webp', 'sprites/camion-0.webp', 'sprites/moto-0.webp', 'sprites/veh-ev-dron-0.webp', 'sprites/piso-asfalto.webp', 'sprites/piso-banqueta.webp', 'sprites/piso-pasto.webp', 'sprites/piso-adoquin.webp', 'sprites/piso-petalos.webp']
 
 export interface SceneSource { game: () => GameState | null; storeId: () => number | null; speed: () => number }
 
@@ -332,7 +332,9 @@ export class StreetScene {
         if (road) col = ROAD(gx) && ROAD(gy) ? '#3A3D44' : '#40434B'
         else if (walk) col = '#C9C2B4'
         else if (park) col = (gx + gy) % 2 ? '#8CBF6E' : '#86B868'
-        tile(ctx, cam, gx, gy, col, road ? null : 'rgba(43,45,51,.12)')
+        // textura de piso si ya cargó; si no, color plano
+        const tex = sprite(`sprites/piso-${road ? 'asfalto' : park ? 'pasto' : walk ? (((gx * 7 + gy * 3) % 11 === 0 && (gx < 2 || gy > 9)) ? 'petalos' : 'banqueta') : 'adoquin'}.webp`)
+        if (tex) { const p = toScreen(cam, gx, gy); const w = TW * cam.zoom; ctx.drawImage(tex, p.sx - w / 2, p.sy, w + 1, w / 2 + 1) } else tile(ctx, cam, gx, gy, col, road ? null : 'rgba(43,45,51,.12)')
         // pasos de cebra
         const zebra = (ROAD(gx) && WALK(gy)) || (ROAD(gy) && WALK(gx))
         if (zebra && !(ROAD(gx) && ROAD(gy))) {
