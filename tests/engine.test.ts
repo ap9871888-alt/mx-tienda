@@ -397,3 +397,18 @@ describe('Mundo vivo', () => {
     expect(st.works).toBeFalsy(); expect(st.remodel).toBe(1)
   })
 })
+
+describe('Laboratorio y reparto', () => {
+  it('un invento termina con éxito o falla, y los repartidores dejan dinero', () => {
+    const g = E.newGame(71); g.cash = 1e8
+    const st = E.openStore(g, 'cdmx', 'roma', 'tiendita').data!
+    E.hireCashier(g, st.id, 0)
+    expect(E.startInvention(g, 'lealtad').ok).toBe(true)
+    expect(E.startInvention(g, 'app').ok).toBe(false)
+    expect(E.hireRider(g, st.id).ok).toBe(true)
+    for (let d = 0; d < 16; d++) { E.advance(g, 1440); g.dilemma = null; g.weekly = null; g.milestone = null }
+    expect(g.lab!.active).toBeNull()
+    expect(g.lab!.done.length + g.lab!.failed.length).toBe(1)
+    expect(st.deliveries).toBeGreaterThan(0)
+  })
+})

@@ -10,12 +10,13 @@ import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
 import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
 import { worldDaily } from './world'
+import { labDaily, hasInvention } from './lab'
 import { checkMilestones, directorsMonthly, socialMonthly, socialTraffic, subsidiaryValue, initStocks, empireDaily, seasonMultiplier, lifestyleValue, portfolioValue } from './empire'
 import { OFFICES, OFFICE_CREDIT, OFFICE_RATE_CUT, TERM_LOANS } from '../data/bank'
 import { priceLevelAt, loanRateAt, hasFeature, historicMultiplier, historicEvents } from './era'
 import { HISTORIC_EVENTS } from '../data/eras'
 import {
-  defaultMargins, unitCost, unitPrice, priceFactor, arrivalsPerHour, serviceRate, shelfCapacity, salaryFor, monthlyRent, priceIndex, purchaseCost
+  setLabInventions, defaultMargins, unitCost, unitPrice, priceFactor, arrivalsPerHour, serviceRate, shelfCapacity, salaryFor, monthlyRent, priceIndex, purchaseCost
 } from './pricing'
 import type { WeeklyReport, CompanyProfile, GameState, Store, Result, GameEvent, DayStats, DayReport, Candidate, BasketLine, CatMap, LogEntry } from './types'
 
@@ -76,7 +77,7 @@ export const ownIn = (s: GameState, colonyId: string) => s.stores.filter(x => x.
 // ---------- ciudades ----------
 // productos propios y equipo: cada uno empuja las ventas de su línea
 export function lineBoost (s: GameState, st: Store, cat: CategoryId) {
-  let b = 1
+  let b = cat === 'bebidas' && hasInvention(s, 'bebida') ? 1.15 : 1
   for (const p of s.products ?? []) { const d = PRODUCTS.find(x => x.id === p.id); if (d?.cat === cat && (!d.only || d.only.includes(st.formatId))) b *= 1 + QUALITY[p.quality].attract }
   for (const id of st.equipment ?? []) { const e = EQUIPMENT.find(x => x.id === id); if (e?.cat === cat) b *= 1 + (e.boost ?? 0); if (id === 'farmacia') b *= 1.08 }
   return b
@@ -562,7 +563,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
     const t = st.today; const f = formatOf(st.formatId)
     const payroll = st.cashiers.reduce((a, c) => a + c.salary, 0) * (st.bonus ? 1 + ECONOMY.bonusRate : 1) / 30
     const rent = monthlyRent(st) / 30
-    const power = f.kwhDay * ECONOMY.kwhPrice
+    const power = f.kwhDay * (hasInvention(s, 'solar') ? 0.4 : 1) * ECONOMY.kwhPrice
     const shrinkRate = ECONOMY.shrinkBySecurity[st.security]
     // la merma se lleva mercancía del anaquel
     let shrink = 0
@@ -595,6 +596,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   dailyMarket(s, (t, k) => log(s, t, k, events))
   empireDaily(s, netWorth(s))
   worldDaily(s, company.profit)
+  const delivery = labDaily(s); company.profit += delivery; company.sales += Math.max(0, delivery) * 5
   for (const st of s.stores) if (st.works && day + 1 >= st.works.end) {
     st.remodel = st.works.to; st.works = null; st.satisfaction = Math.min(100, st.satisfaction + 8)
     log(s, `✨ ¡Reinauguración! ${storeShort(st)} quedó como nueva`, 'good', events)
@@ -629,7 +631,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
 
 // avanza la simulación `minutes` minutos de juego (puede ser fraccionario)
 export function advance (s: GameState, minutes: number, events: GameEvent[] = []) {
-  setEpoch(s.startYear)
+  setEpoch(s.startYear); setLabInventions(s.lab?.done ?? [])
   s.carry += minutes
   let n = Math.floor(s.carry)
   s.carry -= n

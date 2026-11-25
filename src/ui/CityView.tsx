@@ -138,7 +138,7 @@ export function CityView () {
         {full && fullItems && (
           <div className='absolute inset-0 isolate'>
             <img src={assetUrl(`city/${city.id}-full.webp`)} alt='' className='absolute inset-0 w-full h-full' draggable={false} style={{ filter: night ? 'brightness(.55) saturate(.8) hue-rotate(10deg)' : undefined }} />
-            <ColonyTraffic grid={full} night={night} density={5} />
+            <ColonyTraffic grid={full} night={night} density={5} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} drones={!!game.lab?.done.includes('drones')} />
             {fullItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/85 text-white text-[17px] leading-tight font-bold rounded-full px-3 py-0.5 opacity-80 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y - 5}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
             {fullItems.items.map((l, j) => <LotButton key={j} l={l} width='12.5%' big='14%' myColor={myColor} myIcon={myIcon} dy={2.2} ps={1.9} />)}
           </div>

@@ -7,6 +7,7 @@ import { formatOf, catLabel, REMODEL } from '../../data/formats'
 import { assetUrl } from '../../renderer/assets'
 import { equipFor } from '../../data/products'
 import type { Store } from '../../engine/types'
+import { Reparto } from './Imperio'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { Card, Btn, Kpi, Pill, Stars, BarChart, Modal, AnalystCard, Advisor } from '../components/kit'
 import { useMemo } from 'react'
@@ -27,7 +28,7 @@ export function Tienda () {
   const storeId = useApp(s => s.storeId)
   const run = useApp(s => s.run)
   const [hiring, setHiring] = useState(false)
-  const [sub, setSub] = useState<'resumen' | 'precios' | 'personal' | 'interior' | 'ventas'>('resumen')
+  const [sub, setSub] = useState<'resumen' | 'precios' | 'personal' | 'interior' | 'reparto' | 'ventas'>('resumen')
   const [fireId, setFireId] = useState<number | null>(null)
   const st = game.stores.find(s => s.id === storeId) ?? game.stores[0]
   if (!st) return <NoStore />
@@ -49,7 +50,7 @@ export function Tienda () {
         <Kpi label='Reputación' value={<Stars n={st.reputation} />} />
       </div>
       <div className='flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1 sticky -top-1 z-10 bg-arena/95 backdrop-blur py-1'>
-        {([['resumen', 'Resumen', 'ic-tiendas'], ['precios', 'Precios', 'ic-precios'], ['personal', 'Personal', 'ic-personal'], ['interior', 'Interior', 'ic-interior'], ['ventas', 'Ventas', 'ic-ventas']] as const).map(([k, l, ic]) => (
+        {([['resumen', 'Resumen', 'ic-tiendas'], ['precios', 'Precios', 'ic-precios'], ['personal', 'Personal', 'ic-personal'], ['interior', 'Interior', 'ic-interior'], ['reparto', 'Reparto', 'ic-logistica'], ['ventas', 'Ventas', 'ic-ventas']] as const).map(([k, l, ic]) => (
           <button key={k} onClick={() => setSub(k)} className={`shrink-0 px-3.5 min-h-[40px] rounded-full text-sm font-bold border ${sub === k ? 'bg-urbano text-white border-urbano' : 'bg-white border-borde'}`}><img src={assetUrl(`ui/${ic}.webp`)} alt='' className='inline w-6 h-6 mr-1 -mt-0.5 object-contain' />{l}</button>))}
       </div>
 
@@ -75,6 +76,7 @@ export function Tienda () {
       </Card>}
 
       {sub === 'interior' && <Interior st={st} />}
+      {sub === 'reparto' && <Reparto storeId={st.id} />}
       {sub === 'interior' && <Card title='Mejoras de operación'>
         <Upgrade icon={<ScanLine size={18} />} name={`Caja de autocobro (${st.selfCheckouts}/${f.selfCheckoutSlots})`} desc={`+${ECONOMY.selfCheckoutRate} clientes/h sin sueldo`}
           action={<Btn small kind='blue' disabled={st.selfCheckouts >= f.selfCheckoutSlots || game.cash < ECONOMY.selfCheckoutCost} onClick={() => run(g => E.buySelfCheckout(g, st.id))}>{st.selfCheckouts >= f.selfCheckoutSlots ? 'Lleno' : fmtK(ECONOMY.selfCheckoutCost)}</Btn>} />

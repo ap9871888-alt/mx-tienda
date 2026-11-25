@@ -35,7 +35,9 @@ export interface Store {
   selfCheckouts: number
   remodel?: number
   equipment?: string[]
-  works?: { to: number; start: number; end: number } | null // remodelación en obra
+  works?: { to: number; start: number; end: number } | null
+  riders?: number
+  deliveries?: number // remodelación en obra
   security: number // 0–2
   cleaning: number // 0–2
   bonus: boolean
@@ -85,6 +87,7 @@ export interface GameState {
   social?: string[]
   morale?: number
   world?: import('./world').WorldState
+  lab?: import('./lab').LabState
   subsidiaries?: { name: string; color: string; stores: number; day: number }[]
   minute: number // minutos de juego desde el inicio (entero)
   carry: number // fracción de minuto pendiente

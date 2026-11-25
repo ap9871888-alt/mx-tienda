@@ -77,7 +77,7 @@ export function labelLoyalty (g: GameState | null | undefined, store: Store) {
 export function arrivalsPerHour (store: Store, hour: number, dayMult: number, g?: GameState | null) {
   if (!isOpen(store, hour)) return 0
   const f = formatOf(store.formatId)
-  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * 1.3 * (1 + 0.08 * (store.remodel ?? 0)) * (store.works ? 0.6 : 1) * (store.equipment?.includes('atm') ? 1.05 : 1) * dayMult *
+  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * 1.3 * (1 + 0.08 * (store.remodel ?? 0)) * (store.works ? 0.6 : 1) * (g?.lab?.done.includes('app') ? 1.06 : 1) * (g?.lab?.done.includes('lealtad') ? 1.04 : 1) * (store.equipment?.includes('atm') ? 1.05 : 1) * dayMult *
     (1 - effectiveCompetition(g, store.cityId, store.colonyId) * 0.3) *
     reputationFactor(store.reputation) * priceAttraction(store, g) * cannibalization(g, store) * labelLoyalty(g, store)
 }
@@ -86,10 +86,15 @@ export const cashierRate = (stars: number, bonus: boolean) =>
   (ECONOMY.cashierBaseRate + ECONOMY.cashierRatePerStar * stars) * (bonus ? 1 + ECONOMY.bonusSpeed : 1)
 export function serviceRate (store: Store) {
   const f0 = formatOf(store.formatId)
-  return (f0.ownerSells && !store.cashiers.length ? 16 : 0) + (store.cashiers.reduce((a, c) => a + cashierRate(c.stars, store.bonus), 0) + store.selfCheckouts * ECONOMY.selfCheckoutRate) * (store.equipment?.includes('pos') ? 1.12 : 1)
+  return (f0.ownerSells && !store.cashiers.length ? 16 : 0) + (store.cashiers.reduce((a, c) => a + cashierRate(c.stars, store.bonus), 0) + store.selfCheckouts * ECONOMY.selfCheckoutRate) * (store.equipment?.includes('pos') ? 1.12 : 1) * (labOn(store, 'caja-ia') ? 1.25 : 1)
 }
 export const shelfCapacity = (store: Store) => formatOf(store.formatId).shelfUnits
 export const salaryFor = (stars: number) => ECONOMY.salaryBase + ECONOMY.salaryPerStar * stars
 export function monthlyRent (store: Store) {
   return formatOf(store.formatId).rent * colonyOf(store.cityId, store.colonyId).rentMult
 }
+
+// inventos del laboratorio que afectan a cada tienda (se registran al iniciar el día)
+let LAB: string[] = []
+export const setLabInventions = (ids: string[]) => { LAB = ids }
+const labOn = (_st: Store, id: string) => LAB.includes(id)

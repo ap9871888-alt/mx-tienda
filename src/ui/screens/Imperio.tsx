@@ -453,3 +453,52 @@ export function Mundo () {
     </div>
   )
 }
+
+// ---------- laboratorio de inventos ----------
+export function Laboratorio () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const run = useApp(s => s.run)
+  const L = game.lab ?? { active: null, done: [], failed: [] }
+  const day = E.dayOf(game.minute)
+  const act = L.active ? E.INVENTIONS.find(x => x.id === L.active!.id) : null
+  return (
+    <div className='flex flex-col gap-3'>
+      <Card>
+        <p className='text-sm'>Invierte en ideas propias. Cada invento tarda unos días y puede salir bien (te da una ventaja para siempre) o fallar (pierdes lo invertido y puedes reintentar).</p>
+        {act && <div className='rounded-xl bg-oferta/25 border border-oferta p-3'>
+          <b className='text-sm'>🔬 Desarrollando: {act.name}</b>
+          <Bar value={1 - Math.max(0, L.active!.end - day) / act.days} color='#F2B705' />
+          <span className='text-xs text-tenue'>Listo en {Math.max(0, L.active!.end - day)} días · probabilidad de éxito {Math.round(act.chance * 100)} %</span>
+        </div>}
+      </Card>
+      {E.INVENTIONS.map(d => {
+        const done = L.done.includes(d.id); const failed = L.failed.filter(x => x === d.id).length
+        return <div key={d.id} className={`rounded-2xl border p-3 flex items-center gap-3 ${done ? 'bg-ahorro/10 border-ahorro' : 'bg-white border-borde'}`}>
+          <img src={assetUrl(`ui/${d.icon}.webp`)} alt='' className='w-12 h-12 object-contain shrink-0' />
+          <div className='flex-1 min-w-0'><b className='text-sm block'>{d.name}</b><span className='text-xs text-tenue block'>{d.desc}</span>
+            <span className='text-xs font-semibold block'>{d.effect}</span>
+            {!done && <span className='text-[11px] text-tenue'>{d.days} días · éxito {Math.round(d.chance * 100)} %{failed ? ` · falló ${failed} vez` : ''}</span>}</div>
+          {done ? <span className='text-xs font-bold text-ahorro'>Inventado</span> : <Btn small disabled={!!L.active || game.cash < d.cost} onClick={() => run(g => E.startInvention(g, d.id))}>{fmtK(d.cost)}</Btn>}
+        </div>
+      })}
+    </div>
+  )
+}
+
+// ---------- reparto a domicilio de una tienda ----------
+export function Reparto ({ storeId }: { storeId: number }) {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const run = useApp(s => s.run)
+  const st = game.stores.find(x => x.id === storeId)!
+  const drones = game.lab?.done.includes('drones')
+  return (
+    <Card title='Reparto a domicilio'>
+      <div className='grid grid-cols-2 gap-2'><Kpi label='Repartidores' value={`${st.riders ?? 0} / 4`} /><Kpi label='Pedidos hoy' value={st.deliveries ?? 0} /></div>
+      <div className='flex gap-2'>{Array.from({ length: st.riders ?? 0 }, (_, i) => <img key={i} src={assetUrl(drones ? 'sprites/veh-ev-dron-0.webp' : 'sprites/veh-moto-0.webp')} alt='' className='w-14 h-14 object-contain' />)}</div>
+      <Btn disabled={(st.riders ?? 0) >= 4 || game.cash < E.RIDER_COST} onClick={() => run(g => E.hireRider(g, st.id))}>+ Repartidor en moto · {fmtK(E.RIDER_COST)}</Btn>
+      <p className='text-xs text-tenue'>Cada repartidor entrega 14 a 24 pedidos al día (cobra {fmtK(E.RIDER_MONTHLY)}/mes). La App de pedidos y los drones del Laboratorio los multiplican.</p>
+    </Card>
+  )
+}

@@ -16,7 +16,7 @@ import { Logistica } from './screens/Logistica'
 import { Corporativo } from './screens/Corporativo'
 import { Banco } from './screens/Banco'
 import { Productos } from './screens/Productos'
-import { Inversion, Estilo, Bolsa, DilemmaModal, Calendario, WeeklyModal, MilestoneModal, Directivos, Mundo } from './screens/Imperio'
+import { Inversion, Estilo, Bolsa, DilemmaModal, Calendario, WeeklyModal, MilestoneModal, Directivos, Mundo, Laboratorio } from './screens/Imperio'
 
 const SPEEDS: [Speed, typeof Play, string][] = [[0, Pause, 'Pausa'], [1, Play, '1x'], [2, FastForward, '2x'], [4, ChevronsRight, '4x']]
 
@@ -72,8 +72,8 @@ export function App () {
   }, [])
   const more = useApp(s => s.more)
   if (!hasGame || title) return <><Portada /><Toast /></>
-  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco, productos: Productos, inversion: Inversion, estilo: Estilo, bolsa: Bolsa, calendario: Calendario, directivos: Directivos, mundo: Mundo }[tab]
-  const TITLES: Record<string, string> = { mapa: 'Abrir y expandir', tienda: 'Mis tiendas', logistica: 'Logística', corporativo: 'Corporativo', banco: 'Banco', productos: 'Marca propia', inversion: 'Inversionistas', estilo: 'Estilo de vida', bolsa: 'Bolsa MX', calendario: 'Calendario', directivos: 'Directivos y comunidad', mundo: 'Noticias y gobierno' }
+  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco, productos: Productos, inversion: Inversion, estilo: Estilo, bolsa: Bolsa, calendario: Calendario, directivos: Directivos, mundo: Mundo, laboratorio: Laboratorio }[tab]
+  const TITLES: Record<string, string> = { mapa: 'Abrir y expandir', tienda: 'Mis tiendas', logistica: 'Logística', corporativo: 'Corporativo', banco: 'Banco', productos: 'Marca propia', inversion: 'Inversionistas', estilo: 'Estilo de vida', bolsa: 'Bolsa MX', calendario: 'Calendario', directivos: 'Directivos y comunidad', mundo: 'Noticias y gobierno', laboratorio: 'Laboratorio de inventos' }
   return (
     <div className='max-w-[620px] mx-auto h-[100dvh] flex flex-col overflow-hidden'>
       <TopBar />
@@ -108,6 +108,7 @@ export function App () {
 function MasMenu ({ onClose }: { onClose: () => void }) {
   const go = (t: Tab) => { useApp.getState().setTab(t); window.scrollTo(0, 0); onClose() }
   const items: [string, string, string, () => void][] = [
+    ['ic-interior', 'Laboratorio', 'Inventa productos y tecnología', () => go('laboratorio')],
     ['ic-calendario', 'Noticias y gobierno', 'Elecciones, impuestos, obras y escándalos', () => go('mundo')],
     ['ic-personal', 'Directivos y comunidad', 'Delega, metas y programas sociales', () => go('directivos')],
     ['ic-tiendas', 'Mis tiendas', 'Precios, personal e interior', () => go('tienda')],

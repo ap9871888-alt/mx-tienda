@@ -1,3 +1,4 @@
+import { helpFor } from '../../data/glossary'
 import { sfx } from '../sound'
 // Piezas de interfaz compartidas: tarjetas, KPIs, botones, gráficas y modal.
 import { type ReactNode, useEffect } from 'react'
@@ -16,12 +17,15 @@ export function Card ({ title, right, children, className = '' }: { title?: stri
 }
 export function Kpi ({ label, value, tone }: { label: string; value: ReactNode; tone?: 'good' | 'bad' | 'warn' }) {
   const c = tone === 'good' ? 'text-ahorro' : tone === 'bad' ? 'text-rojo' : tone === 'warn' ? 'text-[#B88900]' : 'text-urbano'
-  return (
-    <div className='bg-arena border border-borde rounded-xl px-3 py-2 min-w-0'>
-      <div className='text-[10.5px] uppercase tracking-wider text-tenue truncate'>{label}</div>
-      <div className={`num font-bold text-[17px] truncate ${c}`}>{value}</div>
-    </div>
-  )
+  const help = helpFor(label)
+  const body = <>
+    <div className='text-[10.5px] uppercase tracking-wider text-tenue truncate flex items-center gap-1'>{label}{help && <span className='shrink-0 w-3.5 h-3.5 rounded-full bg-tenue/25 text-[9px] grid place-items-center font-bold'>?</span>}</div>
+    <div className={`num font-bold text-[17px] truncate ${c}`}>{value}</div>
+  </>
+  // al tocar un número con explicación, se muestra qué significa
+  return help
+    ? <button type='button' onClick={() => useApp.getState().say(`${label}: ${help}`)} className='bg-arena border border-borde rounded-xl px-3 py-2 min-w-0 text-left active:bg-borde/40'>{body}</button>
+    : <div className='bg-arena border border-borde rounded-xl px-3 py-2 min-w-0'>{body}</div>
 }
 type BtnKind = 'primary' | 'ghost' | 'blue' | 'green' | 'gold'
 export function Btn ({ children, onClick, kind = 'primary', disabled, small, className = '', title }: { children: ReactNode; onClick?: () => void; kind?: BtnKind; disabled?: boolean; small?: boolean; className?: string; title?: string }) {
@@ -87,7 +91,7 @@ export function Toast () {
   const toast = useApp(s => s.toast)
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => useApp.setState({ toast: null }), 2600)
+    const t = setTimeout(() => useApp.setState({ toast: null }), 2200 + toast.text.length * 35)
     return () => clearTimeout(t)
   }, [toast])
   if (!toast) return null
