@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+html, body { overscroll-behavior: none; }
+button, a, input, label { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+nav, header { -webkit-user-select: none; user-select: none; }
+body { @apply bg-arena text-urbano font-sans antialiased; -webkit-tap-highlight-color: transparent; }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 3px solid #F2B705; outline-offset: 2px; }
+input[type='range'] { accent-color: #D63B2F; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

@@ -1,73 +1,47 @@
-# 🎬 Audio Studio
+# 🏪 Tienda MX Inc. — Hito 2
 
-Sube un video, extrae el audio (MP3 o WAV), descárgalo, transcríbelo y genera un guion.
+Simulador empresarial de retail mexicano (business tycoon). Abres una tiendita de esquina en la CDMX y la ves operar en una calle isométrica viva: cada persona que camina hacia tu puerta es un cliente real de la simulación.
 
-**100% gratis y sin llaves.** Todo corre en el navegador: el video no sale de tu computadora. Los modelos son abiertos y se descargan una vez.
-
-## Uso local
+## Comandos
 ```bash
+cd tienda-mx
 npm install
-npm run dev   # http://localhost:5173
+npm run dev          # desarrollo
+npm test             # pruebas del motor (vitest)
+npm run typecheck
+npm run build        # versión web en dist/
+npm run build:single # un solo HTML autocontenido en dist-single/
 ```
-
-## Pruebas
-```bash
-npm test             # lógica de formato: fragmentos de texto, ventanas, WAV, subtítulos SRT/VTT
-npm run check:ffmpeg # verifica en Node que el núcleo de ffmpeg extrae MP3, WAV y audio de 16 kHz
-```
-`check:ffmpeg` usa `@ffmpeg/core` (solo para desarrollo) y genera su propio tono, así que no necesita videos.
 
 ## Arquitectura
-- `src/workers/ai.worker.js`: Whisper (transcripción) y Kokoro (voz) corren en un Web Worker, así la página no se congela.
-- `src/lib/worker.js`: cliente del worker (trabajos, progreso y cancelación).
-- `src/lib/script.js`: WebLLM para los guiones (hilo principal).
-- `src/lib/audioFormat.js`: funciones puras de formato, con pruebas.
+| Carpeta | Qué hay |
+|---|---|
+| `src/engine/` | Motor puro en TypeScript, sin React. Simula minuto a minuto: llegadas por hora (tráfico de la colonia × hora × formato × quincena/fin de semana × reputación × precios), fila en caja con paciencia y abandono arriba de 5 personas, cobro según estrellas del cajero, inventario por categoría, pedidos al mayorista con 6 h de entrega, corte diario (ventas, costo, nómina, renta, luz CFE, merma, servicios, fletes, intereses), rotación de personal, crédito y pronóstico de apertura. Determinista con semilla. |
+| `src/renderer/` | Calle viva en Canvas a 60 FPS con `devicePixelRatio`: kit isométrico (cruce, cebras, banquetas, semáforos con ciclo, jacarandas, parada, puesto callejero, casas con tinacos, tienda rival 24/7), sprites procedurales fotograma a fotograma (cliente de 6 fotogramas en 4 direcciones con bolsa al salir, cajero de 4 fotogramas, repartidor con caja y diablito), autos, taxis rosas, vochos, motos, Metrobús y camioneta del mayorista; ciclo día/tarde/noche con luces y cortina metálica; burbujas +$MXN, ⏱️ ¡Fila larga!, 📦 ¡Reabastecer! y ⭐. |
+| `src/data/` | CDMX con 4 colonias (Roma-Condesa, Polanco, Coyoacán, Iztapalapa), 5 formatos, categorías, calendario y todas las constantes económicas (`economy.ts`). |
+| `src/state/` | Zustand con guardado automático en `localStorage` (con espera), bucle de simulación (1 día = 60 s a 1x; pausa, 1x, 2x, 4x) y bus de eventos motor → renderer. |
+| `src/ui/` | React + Tailwind + Lucide. Pestañas: Calle Viva, Mapa, Tienda, Logística y Marca, Corporativo. |
 
-## Requisitos del navegador
-- Extraer audio y transcribir: cualquier navegador moderno.
-- Generar guion: **WebGPU**, es decir Chrome o Edge de escritorio. Si no está disponible, pega tu transcripción.
+## Balance
+Una Tiendita de Esquina ($250,000 de CAPEX) con 2 cajeros de 2 ★ y precios de mercado recupera la inversión en ~4.5 a 7.5 meses según la colonia. Polanco cobra caro pero aguanta precios altos; Iztapalapa tiene mucho tráfico y clientes sensibles al precio. El mapa muestra CAPEX, renta, utilidad estimada y meses de retorno antes de confirmar.
 
-## Descargas por primera vez
-- Conversor ffmpeg: ~30 MB
-- Transcripción (Whisper base): ~80 MB
-- Modelo de guion (Qwen2.5 1.5B): ~1 GB
+## Hito 2: escala y logística
+- **4 formatos**: Tiendita de Esquina, Conveniencia 24/7 (nunca cierra, precios altos, clientes poco sensibles al precio), Hard Discount (precios bajos, ticket 2.4×, la Marca Propia le da más lealtad) y Bodega Express y Farmacia (ticket alto). Cada uno con fachada propia en la calle viva. En el mapa ves CAPEX, renta, utilidad y retorno de cada formato en cada colonia; recuperan la inversión en ~5 a 11 meses.
+- **Canibalización**: varias tiendas propias en la misma colonia se reparten el tráfico (−15 % por cada una).
+- **Fase 2, Clúster Urbano**: con 4 tiendas compras 8 % más barato.
+- **CEDIS propio** (10 tiendas o $12 M de patrimonio): inventario 22 % más barato (26 % y 30 % al ampliarlo), sin flete del mayorista y resurtido en 3 h. La flotilla tiene viajes limitados por día; si se satura, los pedidos salen al día siguiente y hay desabasto. En la calle llega el camión azul del CEDIS; con mayorista, el blanco.
+- **Marca Propia** (requiere CEDIS): agua, botanas, lácteos, pan y limpieza; cada línea abarata 15 % su categoría y sube la lealtad.
+- Las partidas del Hito 1 se actualizan solas.
 
-Se guardan en caché del navegador, así que la siguiente vez son inmediatas.
+## Arte, IA de mercado y fondo
+- **Arte generado** en `src/assets/`: mapa ilustrado de la CDMX con máscara de colonias (8 colonias clicables), fachadas de los 5 formatos (día y cerrada), edificios de relleno (día y noche), cliente caminando de 6 fotogramas en 4 direcciones recoloreado en 6 variantes, cajero de 4 fotogramas, repartidor, camioneta, camión de CEDIS, motos, íconos y asesores. Si una imagen no carga, el juego usa su dibujo de respaldo.
+- **IA de mercado** (`engine/market.ts`): cada partida genera colonias con tráfico, poder adquisitivo y tendencia distintos, y tres cadenas rivales con estrategia propia (guerra de precios, expansión rápida, premium). Cada lunes deciden dónde abrir o a quién atacar según dónde ganas tú; hay eventos de mercado por colonia.
+- **Analista de mercado** (`engine/analyst.ts`): recomienda la mejor apertura, sugiere ajustes de margen prudentes (máximo 8 puntos) que se aplican con un toque, y avisa de filas, desabasto, guerras de precios y colonias en crecimiento.
+- **Fondo de inversión**: bonos, fondo balanceado y acciones mexicanas, con comisión de entrada/salida y rallies o correcciones de la bolsa.
+- La interfaz ya no se redibuja mientras tocas la pantalla y la página no rebota.
 
-## Límites
-- Videos largos tardan mucho en transcribirse, porque corren en la computadora de quien los usa.
-- El modelo de guion es pequeño: para transcripciones muy largas usa solo la primera parte (~9000 caracteres).
+## Siguientes hitos
+- **Hito 3**: mapa nacional, conglomerados con IA (nombres ficticios), BMV, alianzas, guerras de precios, M&A y calendario mexicano completo.
+- **Hito 4**: holding del futuro, bienes raíces, tutorial de 60 s y balance fino.
 
-## Despliegue
-Sitio estático: Vercel lo despliega automáticamente con cada push a `main` (build: `npm run build`, salida: `dist`).
-
-## Lote de videos
-En la sección **Lote: varios videos** elige varios archivos. Se procesan uno por uno: cada uno queda con su audio, su transcripción y sus subtítulos. Si uno falla, los demás siguen. **Usar para el guion** pasa la transcripción de ese video al guion.
-
-## Tiempos por palabra
-Marca **Tiempos por palabra** antes de transcribir. Descarga **Tiempos JSON** para tener cada palabra con su inicio y fin. Con esa opción, los subtítulos SRT/VTT salen por palabra.
-
-## Sin conexión (PWA)
-La app se puede instalar desde el navegador (menú "Instalar aplicación"). Después de la primera visita, la página abre sin conexión. Los modelos de IA ya descargados también quedan guardados en el navegador. El service worker solo funciona en la versión de producción, no en `npm run dev`.
-
-## Modelo del guion (opcional, mejor calidad)
-En **Modelo del guion** puedes elegir un modelo grande con una llave gratuita de **Groq** o **Gemini**. La llave se guarda solo en tu navegador (localStorage) y las peticiones van directo al proveedor; esta app no tiene servidor. Si no hay llave, se usa el modelo local.
-
-Si el proveedor rechaza la llave, el mensaje lo dice y puedes volver a **Local**. Los nombres de modelo (`llama-3.3-70b-versatile`, `gemini-2.5-flash`) están en `src/lib/script.js` (`PROVIDERS`) y se pueden cambiar si el proveedor los retira.
-
-**Limitación sin verificar:** no pude probar la llamada desde el navegador porque este entorno bloquea esos servicios. Si el proveedor no permite peticiones desde páginas web (CORS), verás un error de red; en ese caso usa **Local**.
-
-## Lista de pruebas manuales
-Con un video de 1–2 minutos:
-1. Elige el video y extrae el audio en MP3. Debe aparecer el reproductor y el botón de descarga.
-2. Transcribe con el modelo **tiny** y revisa el tiempo. Los subtítulos SRT y VTT deben descargarse.
-3. Edita el texto y confirma el aviso de que los subtítulos usan la transcripción original.
-4. Genera un guion en Chrome de escritorio. En Safari o celular debe aparecer el aviso de WebGPU.
-5. Usa **Usar guion**, elige la voz Dora y genera el audio. Descarga MP3 y WAV.
-6. Pulsa **Cancelar** durante una transcripción: no debe aparecer ningún error.
-7. Recarga la página: la transcripción y el guion deben seguir ahí.
-9. Marca **Tiempos por palabra**, transcribe y descarga **Tiempos JSON**.
-10. Con una llave gratuita de Groq o Gemini, genera un guion; luego borra la llave y confirma que vuelve al modelo local.
-8. Elige dos videos en **Lote**: los dos deben terminar en Listo, o el segundo en Error sin detener al primero.
-
-Plan de trabajo completo: https://claude.ai/artifact/YSE3aoN92Fyp3WVZVE3Ucq
+`prototipo/` conserva la versión anterior en HTML/JS como referencia de arte y mecánicas.

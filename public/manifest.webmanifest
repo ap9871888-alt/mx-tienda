@@ -1,11 +1,16 @@
 {
-  "name": "Audio Studio",
-  "short_name": "Audio Studio",
-  "description": "Video a audio, transcripción y guiones en tu navegador, sin llaves",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#667eea",
-  "theme_color": "#667eea",
-  "lang": "es",
-  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "name": "Tienda MX Inc.",
+  "short_name": "Tienda MX",
+  "description": "Del changarro al imperio: simulador de tiendas en México.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#D63B2F",
+  "theme_color": "#D63B2F",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-1024.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
 }
