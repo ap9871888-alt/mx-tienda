@@ -21,7 +21,7 @@ export function Mapa () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
   const [cityId, setCityId] = useState(game.here ?? 'cdmx')
-  const [national, setNational] = useState(false)
+  const [national, setNational] = useState(useApp.getState().mapMode === 'nacional')
   const [unlock, setUnlock] = useState<string | null>(null)
   const CITY = cityOf(cityId)
   const [selBy, setSelBy] = useState<Record<string, string>>({ cdmx: 'roma' })
@@ -75,7 +75,7 @@ export function Mapa () {
       </div>
       {game.trip && <TripBanner />}
       {!national && cityId !== here && !game.trip && <Travel to={cityId} />}
-      {national ? <Nacional onCity={id => { if (game.cities.includes(id)) { setCityId(id); setNational(false) } else setUnlock(id) }} /> : <>
+      {national ? <Nacional onCity={id => { if (game.cities.includes(id)) useApp.getState().setViewCity(id); else setUnlock(id) }} /> : <>
       <div className='flex items-baseline justify-between'><h1 className='font-display text-2xl uppercase'>{CITY.name}</h1><span className='text-xs text-tenue'>{CITY.map ? 'Toca una colonia' : 'Elige una zona'}</span></div>
       {CITY.map ? <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#EDE8DC] aspect-square select-none' onClick={onMap} role='img' aria-label='Mapa de la Ciudad de México con colonias, tráfico y tiendas'>
         <img src={assetUrl('map/cdmx.webp')} alt='' className='absolute inset-0 w-full h-full' draggable={false} />

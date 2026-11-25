@@ -26,6 +26,12 @@ interface AppState {
   run: <T>(fn: (g: GameState) => Result<T>) => Result<T> | null
   say: (text: string, bad?: boolean) => void
   title: boolean
+  viewCity: string | null
+  setViewCity: (id: string) => void
+  openStates: () => void
+  mapMode: 'nacional' | null
+  more: boolean
+  setMore: (v: boolean) => void
   setTitle: (v: boolean) => void
   mapFocus: string | null
   focusColony: (id: string) => void
@@ -54,11 +60,17 @@ export const useApp = create<AppState>()(persist((set, get) => ({
     set({ game: E.newGame(seed, company, year, profile), storeId: null, tab: 'mapa', speed: 1, rev: 0, title: false })
   },
   setSpeed: speed => set({ speed }),
-  setTab: tab => { sfx.tab(); set({ tab, title: false }) },
+  setTab: tab => { sfx.tab(); set({ tab, title: false, more: false, mapMode: tab === 'mapa' ? get().mapMode : null }) },
   title: true,
+  viewCity: null,
+  setViewCity: id => { sfx.tab(); set({ viewCity: id, tab: 'calle', mapMode: null }) },
+  openStates: () => { sfx.tab(); set({ tab: 'mapa', mapMode: 'nacional', more: false }) },
+  mapMode: null,
+  more: false,
+  setMore: v => set({ more: v }),
   setTitle: v => set({ title: v }),
   mapFocus: null,
-  focusColony: id => { sfx.tab(); set({ mapFocus: id, tab: 'mapa' }) },
+  focusColony: id => { sfx.tab(); set({ mapFocus: id, tab: 'mapa', mapMode: null }) },
   selectStore: storeId => set({ storeId }),
   run: fn => {
     const g = get().game
