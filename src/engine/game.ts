@@ -6,10 +6,10 @@ import { ECONOMY } from '../data/economy'
 import { FIRST_NAMES, LAST_NAMES } from '../data/names'
 import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/logistics'
 import { nextRandom, pick, poisson, randInt } from './rng'
-import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth } from './market'
+import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth, effectiveTraffic, effectiveCompetition } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
 import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
-import { subsidiaryValue, initStocks, empireDaily, seasonMultiplier, lifestyleValue, portfolioValue } from './empire'
+import { checkMilestones, directorsMonthly, socialMonthly, socialTraffic, subsidiaryValue, initStocks, empireDaily, seasonMultiplier, lifestyleValue, portfolioValue } from './empire'
 import { OFFICES, OFFICE_CREDIT, OFFICE_RATE_CUT, TERM_LOANS } from '../data/bank'
 import { priceLevelAt, loanRateAt, hasFeature, historicMultiplier, historicEvents } from './era'
 import { HISTORIC_EVENTS } from '../data/eras'
@@ -99,6 +99,49 @@ export function buyEquipment (s: GameState, storeId: number, id: string): Result
   if (s.cash < e.cost) return fail('No alcanza el efectivo')
   s.cash -= e.cost; st.equipment.push(id)
   return ok(`${e.name} instalado`)
+}
+// directivos: hacen solos el trabajo repetitivo de cada tienda
+export function runDirectors (s: GameState, events: GameEvent[]) {
+  const d = s.directors ?? {}
+  for (const st of s.stores) {
+    const f = formatOf(st.formatId)
+    if (d.ops) {
+      st.autoReorder = true
+      const last = st.history[st.history.length - 1]
+      const needs = !f.ownerSells && (st.cashiers.length === 0 || (last && last.abandoned > Math.max(3, last.tickets * 0.06)))
+      if (needs && st.cashiers.length < f.maxCashiers && s.candidates.length) {
+        const best = s.candidates.reduce((bi, c, i, a) => (c.stars > a[bi].stars ? i : bi), 0)
+        hireCashier(s, st.id, best)
+      }
+    }
+    if (d.rh) {
+      const low = st.cashiers.find(c => c.stars < 3)
+      if (low && s.cash > 200000 && nextRandom(s) < 0.15) trainCashier(s, st.id, low.id)
+    }
+    if (d.com) {
+      // precios al punto del mercado de la colonia: margen base ajustado por poder adquisitivo
+      const base = defaultMargins(st.formatId); const w = effectiveWealth(s, st.cityId, st.colonyId)
+      for (const k of Object.keys(base) as CategoryId[]) {
+        if (categoryOf(k).service) continue
+        const target = Math.max(0.08, Math.min(0.45, base[k] * (0.85 + 0.3 * (w - 0.9))))
+        st.margins[k] = +(st.margins[k] + (target - st.margins[k]) * 0.5).toFixed(3)
+      }
+    }
+  }
+  // Director General: abre una tienda nueva cuando hay dinero de sobra (si lo autorizaste)
+  if (d.dg && s.dgBudget && s.cash > 3_000_000 && nextRandom(s) < 0.2) {
+    const here = s.here ?? 'cdmx'
+    const opts = cityOf(here).colonies.filter(c => ownIn(s, c.id) < c.slots)
+      .map(c => ({ c, score: effectiveTraffic(s, here, c.id) * effectiveWealth(s, here, c.id) / (1 + effectiveCompetition(s, here, c.id)) }))
+      .sort((a, b) => b.score - a.score)
+    const pick = opts[0]
+    if (pick) {
+      const fmt: FormatId = s.cash > 8_000_000 ? 'conveniencia' : 'tiendita'
+      const r = openStore(s, here, pick.c.id, fmt)
+      if (r.ok) log(s, `👔 Lic. Valeria abrió una ${formatOf(fmt).name} en ${pick.c.name}`, 'good', events)
+    }
+  }
+  if ((s.morale ?? 70) < 35 && s.stores.length) for (const st of s.stores) st.satisfaction = Math.max(0, st.satisfaction - 0.5)
 }
 // remodelación: más gente entra y sale contenta
 export const remodelCost = (st: Store) => Math.round(formatOf(st.formatId).capex * 0.3 * ((st.remodel ?? 0) + 1))
@@ -459,7 +502,7 @@ function stepMinute (s: GameState, events: GameEvent[]) {
     const canServe = st.cashiers.length + st.selfCheckouts > 0 || !!formatOf(st.formatId).ownerSells
     // llegadas
     if (canServe) {
-      const n = poisson(s, arrivalsPerHour(st, hour, mult * historicMultiplier(date, st.cityId) * seasonMultiplier(date, st.cityId) * (s.profile?.perk === 'ventas' ? 1.1 : 1), s) / 60)
+      const n = poisson(s, arrivalsPerHour(st, hour, mult * historicMultiplier(date, st.cityId) * seasonMultiplier(date, st.cityId) * socialTraffic(s) * (s.profile?.perk === 'ventas' ? 1.1 : 1), s) / 60)
       for (let i = 0; i < n; i++) {
         const basket = makeBasket(s, st)
         if (!basket.length) continue
@@ -534,7 +577,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
     for (const k of ['sales', 'commissions', 'cogs', 'payroll', 'rent', 'power', 'shrink', 'upkeep', 'fees', 'profit', 'tickets', 'abandoned'] as const) company[k] += rep[k]
     st.today = emptyDay()
   }
-  company.interest = s.loan * lineRate(s) / 365 + OFFICES[s.office ?? 0].monthly / 30
+  company.interest = s.loan * lineRate(s) / 365 + OFFICES[s.office ?? 0].monthly / 30 + (directorsMonthly(s) + socialMonthly(s)) / 30
   // créditos a plazo: pago diario fijo (interés + capital)
   for (const t of s.terms ?? []) {
     const int = t.balance * t.rate / 365; const pay = Math.min(t.daily, t.balance + int)
@@ -547,6 +590,8 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   s.tripsToday = 0
   dailyMarket(s, (t, k) => log(s, t, k, events))
   empireDaily(s, netWorth(s))
+  runDirectors(s, events)
+  checkMilestones(s, netWorth(s))
   company.satisfaction = s.stores.length ? s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length : 0
   s.reports.push(company); if (s.reports.length > 90) s.reports.shift()
   if ((day + 1) % 7 === 0 && s.stores.length) s.weekly = weeklyReport(s, Math.floor((day + 1) / 7))

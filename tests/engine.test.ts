@@ -351,3 +351,30 @@ describe('Reporte semanal y capital', () => {
     expect(g.cash).toBe(8_000_000)
   })
 })
+
+describe('Metas, directivos y comunidad', () => {
+  it('al llegar al primer millón se celebra y se desbloquea Operaciones', () => {
+    const g = E.newGame(51); g.cash = 1_200_000
+    expect(E.hireDirector(g, 'ops').ok).toBe(false)
+    E.checkMilestones(g, E.netWorth(g))
+    expect(g.milestone).toBe(0)
+    expect(E.hireDirector(g, 'ops').ok).toBe(true)
+  })
+  it('el gerente de operaciones contrata cajeros solo', () => {
+    const g = E.newGame(52); g.cash = 2_000_000; g.milestonesHit = 1; g.directors = { ops: true }
+    const st = E.openStore(g, 'cdmx', 'roma', 'tiendita').data!
+    E.advance(g, 1440)
+    expect(st.cashiers.length).toBeGreaterThan(0)
+  })
+  it('un despido en un dilema quita un cajero y los programas sociales suben la reputación', () => {
+    const g = E.newGame(53); g.cash = 1e7
+    const st = E.openStore(g, 'cdmx', 'roma', 'tiendita').data!
+    E.hireCashier(g, st.id, 0)
+    g.dilemma = { id: 'robo-caja', colonies: ['roma'] }
+    E.resolveDilemma(g, 0)
+    expect(st.cashiers.length).toBe(0)
+    const rep = st.reputation
+    expect(E.toggleSocial(g, 'comedor').ok).toBe(true)
+    expect(st.reputation).toBeGreaterThan(rep)
+  })
+})

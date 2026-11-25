@@ -21,8 +21,8 @@ export const SEASONS: Season[] = [
 export const SEASON_ICON: Record<string, string> = { reyes: 'reyes', cuesta: 'reyes', valentin: 'valentin', santa: 'santa', nino: 'nino', madres: 'madres', mundial: 'mundial', verano: 'santa', clases: 'clases', patrias: 'patrias', muertos: 'muertos', buenfin: 'buenfin', guadalupe: 'guadalupe', navidad: 'navidad' }
 
 // Dilemas: decisiones con 2 o 3 opciones y consecuencias
-export interface DilemmaOption { label: string; cost?: number; risk?: { p: number; cost: number; text: string }; traffic?: number; days?: number; sat?: number; margin?: number; rep?: number; text: string }
-export interface DilemmaDef { id: string; title: string; text: string; options: DilemmaOption[]; when?: 'smog' | 'hurricane' | 'food' }
+export interface DilemmaOption { label: string; cost?: number; risk?: { p: number; cost: number; text: string }; traffic?: number; days?: number; sat?: number; margin?: number; rep?: number; text: string; fire?: boolean; morale?: number }
+export interface DilemmaDef { id: string; title: string; text: string; options: DilemmaOption[]; when?: 'smog' | 'hurricane' | 'food' | 'staff' }
 export const DILEMMAS: DilemmaDef[] = [
   { id: 'inspector', title: 'Visita del inspector', text: 'Un inspector dice que a tu licencia le falta un sello. Te insinúa que "se puede arreglar aquí mismo".',
     options: [
@@ -62,6 +62,59 @@ export const DILEMMAS: DilemmaDef[] = [
       { label: 'Pagar la colaboración', cost: 35000, traffic: 0.15, days: 21, text: 'El video se hizo viral: llegaron clientes nuevos.' },
       { label: 'Invitarle la comida', risk: { p: 0.4, cost: 0, text: 'Habló mal del servicio' }, traffic: 0.05, days: 10, text: 'Hizo un video corto y amable.' },
       { label: 'No, gracias', text: 'Todo sigue igual.' }
+    ] },
+  // ---------- problemas laborales y personales ----------
+  { id: 'robo-caja', title: 'Faltante en la caja', text: 'Al hacer el corte faltan $3,500. Las cámaras muestran que fue un cajero.', when: 'staff',
+    options: [
+      { label: 'Despedirlo con acta administrativa', cost: 4000, fire: true, text: 'Lo despediste con todo en regla. El equipo entendió el mensaje.' },
+      { label: 'Descontarle y darle otra oportunidad', morale: -3, risk: { p: 0.35, cost: 6000, text: 'Volvió a pasar: ahora faltan $6,000' }, text: 'Pagó el faltante y prometió no repetirlo.' },
+      { label: 'Denunciar ante el MP', cost: 2500, fire: true, rep: 0.1, text: 'Se presentó la denuncia. Los vecinos valoran tu seriedad.' }
+    ] },
+  { id: 'robo-asalto', title: 'Asalto a la tienda', text: 'Dos sujetos asaltaron la tienda en la noche. Nadie salió herido, pero se llevaron la caja y mercancía.', when: 'staff',
+    options: [
+      { label: 'Poner cámaras y botón de pánico', cost: 25000, sat: 2, text: 'La gente se siente más segura comprando contigo.' },
+      { label: 'Contratar vigilante nocturno', cost: 12000, text: 'El vigilante cuida la tienda en la noche.' },
+      { label: 'No hacer nada', risk: { p: 0.4, cost: 20000, text: 'Volvieron a asaltar la tienda' }, sat: -4, text: 'Por suerte no volvió a pasar.' }
+    ] },
+  { id: 'aumento', title: 'Tu cajera pide aumento', text: 'Tu mejor cajera dice que en la tienda de enfrente le ofrecen $1,500 más al mes.', when: 'staff',
+    options: [
+      { label: 'Darle el aumento', cost: 18000, morale: 6, text: 'Se queda contenta y atiende mejor que nunca.' },
+      { label: 'Ofrecerle capacitación pagada', cost: 8000, morale: 3, text: 'Aceptó quedarse por la oportunidad de crecer.' },
+      { label: 'Dejarla ir', fire: true, text: 'Renunció y se fue con la competencia.' }
+    ] },
+  { id: 'enfermo', title: 'Problema familiar', text: 'Un empleado tiene a su mamá hospitalizada y pide una semana de permiso con goce de sueldo.', when: 'staff',
+    options: [
+      { label: 'Darle el permiso pagado', cost: 5000, morale: 8, rep: 0.1, text: 'Te lo agradece de corazón. Todo el equipo lo nota.' },
+      { label: 'Permiso sin goce de sueldo', morale: -2, text: 'Se fue preocupado por el dinero.' },
+      { label: 'Negarlo', morale: -8, risk: { p: 0.5, cost: 0, text: 'Renunció y el equipo quedó molesto' }, text: 'Se quedó, pero de mala gana.' }
+    ] },
+  { id: 'despido', title: 'Demanda laboral', text: 'Un excajero que despediste te demanda ante la Junta de Conciliación por despido injustificado.', when: 'staff',
+    options: [
+      { label: 'Conciliar y pagar finiquito completo', cost: 30000, text: 'Se cerró el caso de forma amistosa.' },
+      { label: 'Pelear el juicio con abogado', cost: 15000, risk: { p: 0.45, cost: 80000, text: 'Perdiste el juicio: pagaste salarios caídos' }, text: 'Ganaste el juicio.' }
+    ] },
+  { id: 'impuntual', title: 'Llegadas tarde', text: 'Un cajero lleva tres semanas llegando tarde y la fila crece cada mañana.', when: 'staff',
+    options: [
+      { label: 'Hablar con él', morale: 2, text: 'Tenía problemas con el transporte. Le cambiaste el turno y mejoró.' },
+      { label: 'Despedirlo', cost: 6000, fire: true, text: 'Lo despediste pagando su finiquito.' },
+      { label: 'Ignorarlo', sat: -4, text: 'La fila de la mañana sigue molestando a los clientes.' }
+    ] },
+  { id: 'sindicato', title: 'Tus empleados se organizan', text: 'Tus empleados quieren formar un sindicato y piden mejores prestaciones: vales de despensa y seguro.', when: 'staff',
+    options: [
+      { label: 'Negociar prestaciones', cost: 35000, morale: 10, rep: 0.2, text: 'Firmaron un buen acuerdo. Rotación baja y servicio sube.' },
+      { label: 'Ofrecer solo vales de despensa', cost: 12000, morale: 3, text: 'Aceptaron por ahora.' },
+      { label: 'Negarte', morale: -10, sat: -5, risk: { p: 0.3, cost: 40000, text: 'Hicieron paro de un día' }, text: 'Hay tensión en las tiendas.' }
+    ] },
+  { id: 'accidente', title: 'Accidente laboral', text: 'Un empleado se cortó acomodando mercancía y necesita atención médica.', when: 'staff',
+    options: [
+      { label: 'Llevarlo al IMSS y pagar incapacidad', cost: 6000, morale: 4, text: 'Se recuperó y volvió agradecido.' },
+      { label: 'Pagar clínica privada', cost: 15000, morale: 7, text: 'Lo atendieron rápido. El equipo se siente cuidado.' }
+    ] },
+  { id: 'cliente-queja', title: 'Cliente furioso en redes', text: 'Una clienta publicó un video quejándose de que le cobraron de más. Ya lleva 50 mil vistas.',
+    options: [
+      { label: 'Disculparte y regalarle una despensa', cost: 3000, rep: 0.2, text: 'Publicó otro video agradeciendo. Quedaste bien.' },
+      { label: 'Responder con el ticket', risk: { p: 0.5, cost: 0, text: 'Se hizo más viral y te criticaron' }, text: 'El ticket demostró que el cobro era correcto.' },
+      { label: 'Ignorarlo', sat: -3, traffic: -0.05, days: 10, text: 'Algunos clientes dejaron de venir.' }
     ] }
 ]
 
@@ -124,3 +177,33 @@ export const CITY_EVENTS: CityEvent[] = [
 export const IPO = { minStores: 10, minWorth: 15_000_000, minOffice: 2, float: 0.25, shares: 10_000_000, fee: 0.04 }
 export const BUYOUT_PER_STORE = 650_000 // costo por tienda al comprar una cadena rival
 export const SUBSIDIARY_DAILY = 1400 // utilidad diaria por tienda de una cadena comprada
+
+// ---------- metas de patrimonio: celebración y desbloqueos ----------
+export const MILESTONES = [
+  { amount: 1_000_000, title: '¡Tu primer millón, jefe!', unlock: 'Ya puedes contratar un Gerente de Operaciones que pida mercancía y contrate por ti.' },
+  { amount: 5_000_000, title: '¡Felicidades, jefe: 5 millones!', unlock: 'Desbloqueas el Director Comercial (precios automáticos) y la compra de cadenas rivales.' },
+  { amount: 10_000_000, title: '¡Eres millonario: 10 millones!', unlock: 'Desbloqueas el Director General: tu cadena funciona sola y tú decides la estrategia.' },
+  { amount: 50_000_000, title: '¡50 millones! Ya eres un grupo empresarial', unlock: 'Fundación social: tus programas tienen doble impacto.' },
+  { amount: 100_000_000, title: '¡100 millones! Magnate del retail', unlock: 'Tu empresa es de las más grandes del país.' },
+  { amount: 1_000_000_000, title: '¡Mil millones! Leyenda de México', unlock: 'Has construido un imperio.' }
+]
+
+// ---------- directivos: delegar para que la cadena funcione sola ----------
+export interface DirectorDef { id: 'ops' | 'com' | 'rh' | 'dg'; name: string; who: string; salary: number; minWorth: number; desc: string }
+export const DIRECTORS: DirectorDef[] = [
+  { id: 'ops', name: 'Gerente de Operaciones', who: 'Lupita', salary: 45000, minWorth: 1_000_000, desc: 'Pide mercancía a tiempo y contrata cajeros cuando la fila crece.' },
+  { id: 'rh', name: 'Jefa de Recursos Humanos', who: 'Doña Carmen', salary: 40000, minWorth: 1_000_000, desc: 'Resuelve sola los problemas laborales menores y capacita al personal.' },
+  { id: 'com', name: 'Director Comercial', who: 'Don Ramiro', salary: 70000, minWorth: 5_000_000, desc: 'Ajusta los precios de cada tienda según su colonia y competencia.' },
+  { id: 'dg', name: 'Director General', who: 'Lic. Valeria', salary: 150000, minWorth: 10_000_000, desc: 'Abre tiendas nuevas en las mejores colonias con tu dinero (si se lo autorizas).' }
+]
+
+// ---------- programas sociales ----------
+export interface SocialDef { id: string; name: string; cost: number; monthly: number; rep: number; traffic: number; desc: string; emoji: string }
+export const SOCIAL_PROGRAMS: SocialDef[] = [
+  { id: 'redondeo', name: 'Redondeo en caja', cost: 0, monthly: 0, rep: 0.1, traffic: 0.01, desc: 'Tus clientes redondean y lo donas a un asilo.', emoji: '🪙' },
+  { id: 'despensas', name: 'Banco de alimentos', cost: 50000, monthly: 15000, rep: 0.2, traffic: 0.02, desc: 'Donas la mercancía por caducar a familias que la necesitan.', emoji: '🥫' },
+  { id: 'becas', name: 'Becas para hijos de empleados', cost: 100000, monthly: 25000, rep: 0.2, traffic: 0.01, desc: 'Tu equipo se queda y trabaja mejor.', emoji: '🎓' },
+  { id: 'comedor', name: 'Comedor comunitario', cost: 200000, monthly: 40000, rep: 0.3, traffic: 0.03, desc: 'Comida caliente en las colonias donde tienes tiendas.', emoji: '🍲' },
+  { id: 'reforestar', name: 'Reforestación urbana', cost: 150000, monthly: 10000, rep: 0.2, traffic: 0.02, desc: 'Plantas árboles y jacarandas en tus colonias.', emoji: '🌳' },
+  { id: 'deporte', name: 'Liga de fútbol infantil', cost: 120000, monthly: 20000, rep: 0.3, traffic: 0.03, desc: 'Patrocinas uniformes y canchas. Todo el barrio te conoce.', emoji: '⚽' }
+]

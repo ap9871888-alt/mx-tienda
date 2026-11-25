@@ -1,5 +1,5 @@
 // Motor de "Imperio MX": temporadas, dilemas, inversionistas, estilo de vida y Bolsa MX.
-import { SEASONS, DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, CITY_EVENTS, IPO, BUYOUT_PER_STORE, SUBSIDIARY_DAILY } from '../data/empire'
+import { MILESTONES, DIRECTORS, SOCIAL_PROGRAMS, SEASONS, DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, CITY_EVENTS, IPO, BUYOUT_PER_STORE, SUBSIDIARY_DAILY } from '../data/empire'
 import { cityOf, colonyById } from '../data/cities'
 import { formatOf } from '../data/formats'
 import { nextRandom } from './rng'
@@ -23,7 +23,9 @@ export interface Dilemma { id: string; colonies: string[] }
 export function maybeDilemma (s: GameState) {
   if (s.dilemma || !s.stores.length || nextRandom(s) > 1 / 9) return
   const cities = new Set(s.stores.map(x => x.cityId))
-  const ok2 = DILEMMAS.filter(d => d.when === 'smog' ? [...cities].some(c => cityOf(c).smog || c === 'cdmx')
+  const staffed = s.stores.some(x => x.cashiers.length)
+  // con Jefa de RH, la mitad de los problemas laborales se resuelven solos
+  const ok2 = DILEMMAS.filter(d => d.when === 'staff' ? staffed && !(s.directors?.rh && nextRandom(s) < 0.5) : d.when === 'smog' ? [...cities].some(c => cityOf(c).smog || c === 'cdmx')
     : d.when === 'hurricane' ? [...cities].some(c => cityOf(c).hurricane)
       : d.when === 'food' ? s.stores.some(x => formatOf(x.formatId).food) : true)
   const d = ok2[Math.floor(nextRandom(s) * ok2.length)]
@@ -43,6 +45,11 @@ export function resolveDilemma (s: GameState, idx: number): Result {
     if (o.sat) st.satisfaction = Math.max(0, Math.min(100, st.satisfaction + o.sat))
     if (o.rep) st.reputation = Math.max(0, Math.min(5, st.reputation + o.rep))
     if (o.margin) for (const k of Object.keys(st.margins) as (keyof typeof st.margins)[]) st.margins[k] = Math.min(0.5, st.margins[k] + o.margin)
+  }
+  if (o.morale) s.morale = Math.max(0, Math.min(100, (s.morale ?? 70) + o.morale))
+  if (o.fire) {
+    const st = s.stores.filter(x => x.cashiers.length).sort((a, b) => b.cashiers.length - a.cashiers.length)[0]
+    if (st) { const c = st.cashiers.pop()!; msg += ` (${c.name} ya no trabaja contigo)` }
   }
   s.log.unshift({ minute: s.minute, text: `📰 ${d.title}: ${msg}`, kind: o.risk && msg === o.risk.text ? 'bad' : 'info' })
   return ok(msg)
@@ -202,3 +209,37 @@ function dailySubsidiaries (s: GameState) {
   if (n) s.cash += n * SUBSIDIARY_DAILY * (0.8 + nextRandom(s) * 0.4)
 }
 export { colonyById }
+
+// ---------- metas de patrimonio ----------
+export function checkMilestones (s: GameState, worth: number) {
+  const hit = s.milestonesHit ?? 0
+  if (hit < MILESTONES.length && worth * (s.equity ?? 1) >= MILESTONES[hit].amount) {
+    s.milestonesHit = hit + 1; s.milestone = hit
+    s.log.unshift({ minute: s.minute, text: `🏆 ${MILESTONES[hit].title}`, kind: 'good' })
+  }
+}
+export const reachedWorth = (s: GameState) => (s.milestonesHit ?? 0) > 0 ? MILESTONES[(s.milestonesHit ?? 1) - 1].amount : 0
+
+// ---------- directivos ----------
+export function hireDirector (s: GameState, id: 'ops' | 'com' | 'rh' | 'dg'): Result {
+  const d = DIRECTORS.find(x => x.id === id)!
+  if (reachedWorth(s) < d.minWorth) return fail(`Se desbloquea al llegar a $${(d.minWorth / 1e6).toFixed(0)} M`)
+  s.directors ??= {}
+  s.directors[id] = !s.directors[id]
+  return ok(s.directors[id] ? `${d.who} ya trabaja como ${d.name}` : `${d.who} dejó el puesto`)
+}
+export const directorsMonthly = (s: GameState) => DIRECTORS.reduce((a, d) => a + (s.directors?.[d.id] ? d.salary : 0), 0)
+
+// ---------- programas sociales ----------
+export function toggleSocial (s: GameState, id: string): Result {
+  const p = SOCIAL_PROGRAMS.find(x => x.id === id)!; s.social ??= []
+  if (s.social.includes(id)) { s.social = s.social.filter(x => x !== id); return ok(`Terminaste ${p.name}`) }
+  if (s.cash < p.cost) return fail('No alcanza el efectivo')
+  s.cash -= p.cost; s.social.push(id)
+  for (const st of s.stores) st.reputation = Math.min(5, st.reputation + p.rep)
+  s.morale = Math.min(100, (s.morale ?? 70) + 3)
+  s.log.unshift({ minute: s.minute, text: `${p.emoji} Iniciaste ${p.name}. La comunidad lo nota.`, kind: 'good' })
+  return ok(`${p.name} en marcha`)
+}
+export const socialMonthly = (s: GameState) => (s.social ?? []).reduce((a, id) => a + (SOCIAL_PROGRAMS.find(x => x.id === id)?.monthly ?? 0), 0)
+export const socialTraffic = (s: GameState) => 1 + (s.social ?? []).reduce((a, id) => a + (SOCIAL_PROGRAMS.find(x => x.id === id)?.traffic ?? 0), 0) * ((s.milestonesHit ?? 0) >= 4 ? 2 : 1)

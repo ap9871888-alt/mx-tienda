@@ -3,7 +3,7 @@ import * as E from '../../engine'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
 import { Card, Btn, Bar, Kpi, Modal } from '../components/kit'
-import { DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, IPO } from '../../data/empire'
+import { MILESTONES, DIRECTORS, SOCIAL_PROGRAMS, DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, IPO } from '../../data/empire'
 import { cityOf } from '../../data/cities'
 import { Spark } from './Corporativo'
 import { Avatar } from '../Avatar'
@@ -276,6 +276,78 @@ export function WeeklyModal () {
           <Btn onClick={close}>Seguir jugando →</Btn>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---------- meta alcanzada: celebración ----------
+export function MilestoneModal () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)
+  const i = game?.milestone
+  if (i == null || game?.dilemma) return null
+  const m = MILESTONES[i]
+  const close = () => useApp.getState().run(g => { g.milestone = null; return { ok: true, msg: '' } })
+  return (
+    <div className='fixed inset-0 z-[60] bg-black/60 grid place-items-center p-4'>
+      <div className='w-full max-w-[400px] rounded-3xl overflow-hidden bg-gradient-to-b from-oferta to-[#E0A100] text-urbano shadow-2xl text-center'>
+        <div className='p-5 flex flex-col items-center gap-2'>
+          <img src={assetUrl('ui/ic-dinero.webp')} alt='' className='w-28 h-28 object-contain animate-[bounce_1.6s_ease-in-out_infinite]' />
+          <span className='text-[11px] font-black tracking-widest'>🎉 META ALCANZADA 🎉</span>
+          <h2 className='font-display text-3xl uppercase leading-tight'>{m.title}</h2>
+          <p className='bg-white/80 rounded-2xl px-3 py-2 text-[15px] font-semibold'>{m.unlock}</p>
+          <div className='flex gap-2 w-full mt-1'>
+            <Btn kind='ghost' className='flex-1' onClick={close}>Seguir</Btn>
+            <Btn className='flex-1' onClick={() => { close(); useApp.getState().setTab('directivos') }}>Ver directivos</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------- directivos y comunidad ----------
+export function Directivos () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const run = useApp(s => s.run)
+  const reached = E.reachedWorth(game)
+  const next = MILESTONES[game.milestonesHit ?? 0]
+  const mine = game.equity != null ? E.netWorth(game) * game.equity : E.netWorth(game)
+  const morale = game.morale ?? 70
+  return (
+    <div className='flex flex-col gap-3'>
+      <Card title='Tus metas'>
+        <div className='flex gap-1'>{MILESTONES.map((_, k) => <span key={k} className={`h-2 flex-1 rounded-full ${k < (game.milestonesHit ?? 0) ? 'bg-oferta' : 'bg-borde'}`} />)}</div>
+        {next ? <><div className='flex justify-between text-sm'><span>Siguiente: <b>{fmtK(next.amount)}</b></span><span className='num'>{fmtK(mine)}</span></div><Bar value={Math.min(1, mine / next.amount)} color='#F2B705' /></> : <p className='text-sm font-bold'>¡Completaste todas las metas!</p>}
+      </Card>
+      <Card title={`Ánimo del personal · ${Math.round(morale)} / 100`}>
+        <Bar value={morale / 100} color={morale >= 60 ? '#2E7D5B' : morale >= 35 ? '#F2B705' : '#D63B2F'} />
+        <p className='text-xs text-tenue'>Sube cuando tratas bien a tu equipo y con programas sociales. Si baja de 35, el servicio empeora en todas tus tiendas.</p>
+      </Card>
+      <Card title='Directivos: delega y que la cadena funcione sola'>
+        {DIRECTORS.map(d => {
+          const on = !!game.directors?.[d.id]; const locked = reached < d.minWorth
+          return <div key={d.id} className={`flex items-center gap-3 py-2 border-t border-borde first:border-t-0 ${locked ? 'opacity-55' : ''}`}>
+            <div className='flex-1 min-w-0'><b className='text-sm block'>{d.name} · {d.who}</b><span className='text-xs text-tenue'>{d.desc} {fmtK(d.salary)}/mes</span></div>
+            {locked ? <span className='text-xs font-bold'>🔒 {fmtK(d.minWorth)}</span> : <Btn small kind={on ? 'green' : 'ghost'} onClick={() => run(g => E.hireDirector(g, d.id))}>{on ? 'Trabajando' : 'Contratar'}</Btn>}
+          </div>
+        })}
+        {game.directors?.dg && <label className='flex items-center justify-between bg-arena rounded-xl px-3 min-h-[44px] text-sm font-semibold'>Autorizar que abra tiendas con mi dinero
+          <input type='checkbox' checked={!!game.dgBudget} onChange={e => run(g => { g.dgBudget = e.target.checked; return { ok: true, msg: e.target.checked ? 'Lic. Valeria abrirá tiendas cuando tengas más de $3 M' : 'Ya no abrirá tiendas' } })} className='w-6 h-6 accent-rojo' /></label>}
+        <p className='text-xs text-tenue'>Tú sigues decidiendo: los problemas grandes (demandas, sindicatos, asaltos) siempre te llegan a ti.</p>
+      </Card>
+      <Card title='Programas sociales'>
+        {SOCIAL_PROGRAMS.map(p => {
+          const on = game.social?.includes(p.id)
+          return <div key={p.id} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
+            <span className='text-3xl'>{p.emoji}</span>
+            <div className='flex-1 min-w-0'><b className='text-sm block'>{p.name}</b><span className='text-xs text-tenue'>{p.desc} {p.cost ? `${fmtK(p.cost)} + ${fmtK(p.monthly)}/mes` : 'Gratis'}</span></div>
+            <Btn small kind={on ? 'green' : 'ghost'} disabled={!on && game.cash < p.cost} onClick={() => run(g => E.toggleSocial(g, p.id))}>{on ? 'Activo' : 'Iniciar'}</Btn>
+          </div>
+        })}
+        <p className='text-xs text-tenue'>Mejoran tu reputación, el ánimo de tu equipo y atraen clientes del barrio.</p>
+      </Card>
     </div>
   )
 }

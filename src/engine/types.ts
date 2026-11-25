@@ -77,6 +77,12 @@ export interface GameState {
   founder?: { age: number; skin: string; street: boolean }
   ipo?: { day: number; price0: number; hist: number[]; price: number; own: number } | null
   weekly?: WeeklyReport | null
+  milestone?: number | null
+  milestonesHit?: number
+  directors?: Partial<Record<'ops' | 'com' | 'rh' | 'dg', boolean>>
+  dgBudget?: boolean
+  social?: string[]
+  morale?: number
   subsidiaries?: { name: string; color: string; stores: number; day: number }[]
   minute: number // minutos de juego desde el inicio (entero)
   carry: number // fracción de minuto pendiente

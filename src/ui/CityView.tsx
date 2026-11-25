@@ -78,7 +78,7 @@ export function CityView () {
   const clamp = () => {
     const el = box.current; if (!el) return
     const c = cam.current; const vw = el.clientWidth; const vh = el.clientHeight
-    const minS = Math.max(vw / W, vh / H) * 0.98; c.s = Math.min(1.6, Math.max(minS, c.s))
+    const minS = Math.max(vw / W, vh / H) * 0.98; c.s = Math.min(3.2, Math.max(minS * 0.85, c.s))
     c.x = Math.min(0, Math.max(vw - W * c.s, c.x)); c.y = Math.min(0, Math.max(vh - H * c.s, c.y))
   }
   useEffect(() => {
@@ -138,7 +138,7 @@ export function CityView () {
         {full && fullItems && (
           <div className='absolute inset-0 isolate'>
             <img src={assetUrl(`city/${city.id}-full.webp`)} alt='' className='absolute inset-0 w-full h-full' draggable={false} style={{ filter: night ? 'brightness(.55) saturate(.8) hue-rotate(10deg)' : undefined }} />
-            <ColonyTraffic grid={full} night={night} density={2.2} />
+            <ColonyTraffic grid={full} night={night} density={3.4} />
             {fullItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/85 text-white text-[30px] leading-tight font-black rounded-3xl px-4 py-1 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y - 5}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
             {fullItems.items.map((l, j) => <LotButton key={j} l={l} width='12.5%' big='14%' myColor={myColor} myIcon={myIcon} dy={2.2} ps={1.7} />)}
           </div>
