@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { UserPlus, GraduationCap, UserMinus, ScanLine, Camera, Sparkles, Award } from 'lucide-react'
 import * as E from '../../engine'
-import { CATEGORIES } from '../../data/categories'
+import { CATEGORIES, PRODUCT_CATEGORIES } from '../../data/categories'
 import { ECONOMY } from '../../data/economy'
 import { formatOf, catLabel, REMODEL } from '../../data/formats'
 import { assetUrl } from '../../renderer/assets'
@@ -53,6 +53,7 @@ export function Tienda () {
           <button key={k} onClick={() => setSub(k)} className={`shrink-0 px-3.5 min-h-[40px] rounded-full text-sm font-bold border ${sub === k ? 'bg-urbano text-white border-urbano' : 'bg-white border-borde'}`}>{l}</button>))}
       </div>
 
+      {sub === 'resumen' && <Gerente st={st} go={setSub} />}
       {sub === 'resumen' && (insights.length ? <AnalystCard insights={insights} onApply={i => { if (i.cat && i.margin != null) run(g => { const r = E.setMargin(g, st.id, i.cat!, i.margin!); return { ...r, msg: 'Margen ajustado' } }) }} />
         : <Advisor who='encargado'>Todo en orden en esta tienda. Revisa la fila en las horas pico y que no falte mercancía.</Advisor>)}
       {sub === 'precios' && <PriceWheel st={st} />}
@@ -190,6 +191,35 @@ function Interior ({ st }: { st: Store }) {
         <div className='flex-1'><b className='text-sm'>Remodelar a «{next.name}»</b><p className='text-xs text-tenue'>{next.desc}</p></div>
         <Btn small disabled={game.cash < E.remodelCost(st)} onClick={() => run(g => E.remodelStore(g, st.id))}>{fmtK(E.remodelCost(st))}</Btn>
       </div> : <Pill tone='good'>Tienda insignia: remodelación máxima</Pill>}
+    </Card>
+  )
+}
+
+// hablar con el gerente: su cara cambia según cómo va la tienda y te propone qué hacer
+const MANAGERS = ['Don Ramiro', 'Lupita', 'Kevin', 'Doña Carmen']
+function Gerente ({ st, go }: { st: Store; go: (s: 'precios' | 'personal' | 'interior') => void }) {
+  const game = useApp(s => s.game)!
+  const f = formatOf(st.formatId)
+  const low = PRODUCT_CATEGORIES.some(c => st.inventory[c.id] < E.shelfCapacity(st) * 0.2)
+  const noStaff = !st.cashiers.length && !f.ownerSells
+  const queue = st.queue.length > 5
+  const mood = noStaff || low || st.satisfaction < 50 ? 1 : st.satisfaction >= 70 ? 0 : 2
+  const k = st.id % 4
+  const msg = noStaff ? 'Patrón, no tengo quién cobre. ¡Contrata un cajero!' : low ? 'Se nos está acabando la mercancía, hay que pedir ya.' : queue ? 'La fila está larga, la gente se desespera. ¿Otro cajero?' : st.satisfaction >= 70 ? '¡Todo va de maravilla! Los clientes están contentos.' : 'Vamos bien, pero creo que podemos ajustar precios.'
+  return (
+    <Card>
+      <div className='flex gap-3 items-start'>
+        <img src={assetUrl(`ui/gerente-${k}-${mood}.webp`)} alt='' className='w-20 h-20 object-contain shrink-0' />
+        <div className='flex-1'>
+          <span className='text-[11px] uppercase font-bold text-tenue'>{MANAGERS[k]} · gerente</span>
+          <p className='bg-arena rounded-2xl rounded-tl-none px-3 py-2 text-[15px] font-semibold'>{msg}</p>
+        </div>
+      </div>
+      <div className='grid grid-cols-3 gap-2'>
+        <Btn small kind={noStaff || queue ? 'primary' : 'ghost'} onClick={() => go('personal')}>👥 Personal</Btn>
+        <Btn small kind={low ? 'primary' : 'ghost'} disabled={game.cash < 1000} onClick={() => useApp.getState().run(g => E.placeOrder(g, st.id))}>📦 Pedir</Btn>
+        <Btn small kind='ghost' onClick={() => go('precios')}>🏷️ Precios</Btn>
+      </div>
     </Card>
   )
 }

@@ -67,10 +67,10 @@ export const DILEMMAS: DilemmaDef[] = [
 
 // inversionistas ficticios
 export const INVESTORS = [
-  { name: 'Lic. Arturo Garza', kind: 'Ángel de Monterrey', avatar: 'asesor-finanzas' },
-  { name: 'Mtra. Sofía Villaseñor', kind: 'Ángel de la CDMX', avatar: 'asesor-comprador' },
-  { name: 'Fondo Jaguar Capital', kind: 'Fondo de capital', avatar: 'asesor-logistica' },
-  { name: 'Grupo Nopal Ventures', kind: 'Fondo de capital', avatar: 'asesor-encargado' }
+  { name: 'Lic. Arturo Garza', kind: 'Ángel de Monterrey', avatar: 'inversor-0' },
+  { name: 'Mtra. Sofía Villaseñor', kind: 'Ángel de la CDMX', avatar: 'inversor-1' },
+  { name: 'Fondo Jaguar Capital', kind: 'Fondo de capital', avatar: 'inversor-2' },
+  { name: 'Grupo Nopal Ventures', kind: 'Fondo de capital', avatar: 'inversor-3' }
 ]
 
 // estilo de vida: no da ingresos, solo un poco de estatus (mejor trato con inversionistas)

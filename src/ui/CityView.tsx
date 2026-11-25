@@ -65,7 +65,8 @@ export function CityView () {
   civicBy[Math.min(2, tiles.length - 1)].push({ ed: `city/ed-plaza-${tod}.webp`, pin: 'oficina', tag: 'PLAZA · ESTILO', label: 'Plaza comercial: estilo de vida', go: open('estilo') })
   civicBy[Math.min(2, tiles.length - 1)].push({ ed: `city/ed-mercado-${tod}.webp`, pin: 'cedis', tag: game.cedis ? 'TU CEDIS' : 'CENTRAL DE ABASTO', label: 'Logística y mayoristas', go: open('logistica') })
   civicBy[Math.min(3, tiles.length - 1)].push({ ed: `city/ed-${office >= 3 ? 'torre' : 'oficinas'}-${tod}.webp`, pin: 'oficina', tag: office ? 'TU SEDE' : 'CORPORATIVO', label: 'Corporativo: ganancias y cortes', go: open('corporativo') })
-  civicBy[Math.min(3, tiles.length - 1)].push({ pinImg: 'city/pin-aeropuerto.webp', tag: 'AEROPUERTO', label: 'Viajar a otro estado', go: () => useApp.getState().openStates() })
+  civicBy[Math.min(3, tiles.length - 1)].push({ ed: 'city/ed-aeropuerto-dia.webp', pinImg: 'city/pin-aeropuerto.webp', tag: 'AEROPUERTO', label: 'Viajar en avión a otro estado', go: () => useApp.getState().openStates(), big: true })
+  civicBy[Math.min(2, tiles.length - 1)].push({ ed: 'city/ed-central-dia.webp', pinImg: 'city/pin-central.webp', tag: 'CENTRAL DE AUTOBUSES', label: 'Viajar en autobús', go: () => useApp.getState().openStates(), big: true })
 
   // mapa completo de una sola pieza: los lotes se reparten entre las colonias por cercanía
   const fullItems = full ? fullLayout(game, city.colonies, full, civicBy.flat(), tod) : null
@@ -190,7 +191,7 @@ function LotButton ({ l, width, big, myColor, myIcon, dy, ps }: { l: Lot; width:
 // reparte los lotes del mapa completo: primero los edificios de la ciudad, luego cada colonia toma sus lotes más cercanos
 function fullLayout (g: GameState, colonies: Colony[], map: MapData, civic: Civic[], tod: string) {
   const lots = map.lots.map(([x, y]) => ({ x, y }))
-  const civ = civic.filter(c => c.tag !== 'AEROPUERTO')
+  const civ = civic
   // los cívicos toman lotes repartidos por el mapa
   const step = Math.max(1, Math.floor(lots.length / civ.length))
   const civicLots = civ.map((_, i) => lots[(i * step + 1) % lots.length])
@@ -215,7 +216,5 @@ function fullLayout (g: GameState, colonies: Colony[], map: MapData, civic: Civi
     const inter = sub.filter(x => x.go); const deco = sub.filter(x => !x.go)
     groups[i].forEach((l, j) => items.push({ ...l, ...(inter[j] ?? deco[j % Math.max(1, deco.length)] ?? {}) }))
   })
-  const air = civic.find(c => c.tag === 'AEROPUERTO')
-  if (air) items.push({ x: 92, y: 7, ...air })
   return { items: items.sort((a, b) => a.y - b.y), labels }
 }

@@ -87,7 +87,7 @@ const LIGHTS: [P, 'A' | 'B'][] = [[{ x: 5.15, y: 5.15 }, 'A'], [{ x: 8.85, y: 5.
 // qué columna de cada lámina mira a SW (de frente) y a NE (de espaldas)
 const VEH_VIEWS: Record<string, { sw: number; ne: number; swIsSE?: boolean }> = {
   taxi: { sw: 1, ne: 2 }, vocho: { sw: 0, ne: 2 }, 'sedan-azul': { sw: 0, ne: 2 }, 'sedan-rojo': { sw: 0, ne: 2, swIsSE: true },
-  pickup: { sw: 0, ne: 2 }, micro: { sw: 0, ne: 2 }, metrobus: { sw: 0, ne: 2 }, 'ev-auto': { sw: 0, ne: 2 }, 'ev-bus': { sw: 0, ne: 2 }
+  pickup: { sw: 0, ne: 2 }, micro: { sw: 0, ne: 2 }, metrobus: { sw: 0, ne: 2 }, 'ev-auto': { sw: 0, ne: 2 }, 'ev-bus': { sw: 0, ne: 2 }, camioneta: { sw: 0, ne: 2 }, camion: { sw: 0, ne: 2 }, moto: { sw: 0, ne: 2 }
 }
 const LANES = [
   // se circula por la derecha, como en México
@@ -114,7 +114,7 @@ export class StreetScene {
     this.ro.observe(canvas)
     preload([...SPRITES, ...Array.from({ length: 8 }, (_, i) => `sprites/edificio-${i}-dia.webp`), ...Array.from({ length: 6 }, (_, i) => `sprites/cliente-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/repartidor-${i}.webp`), ...[0, 1, 2, 3].map(i => `sprites/cajero-${i}.webp`), ...Array.from({ length: 8 }, (_, i) => `sprites/peaton-${i}.webp`), 'sprites/cliente-grande.webp',
       ...['jacaranda', 'arbol', 'poste-luz', 'semaforo-rojo', 'semaforo-amarillo', 'semaforo-verde', 'parada', 'puesto', 'bote', 'banca', 'hidrante', 'bici', 'cono'].map(n => `sprites/obj-${n}.webp`),
-      ...['taxi', 'vocho', 'sedan-rojo', 'sedan-azul', 'pickup', 'micro', 'metrobus', 'ev-auto', 'ev-bus'].flatMap(n => [0, 1, 2, 3].map(i => `sprites/veh-${n}-${i}.webp`))])
+      ...['taxi', 'vocho', 'sedan-rojo', 'sedan-azul', 'pickup', 'micro', 'metrobus', 'ev-auto', 'ev-bus', 'camioneta', 'camion', 'moto'].flatMap(n => [0, 1, 2, 3].map(i => `sprites/veh-${n}-${i}.webp`))])
     this.resize()
   }
 
@@ -243,7 +243,6 @@ export class StreetScene {
     if (d > 0 && this.cars.length < 3 + density * 6 && this.rnd() < d * 0.9 * density) {
       let lane = Math.floor(this.rnd() * 4); const pre = randomVehicle(this.rnd)
       // la moto solo tiene un dibujo: circula solo hacia abajo (+x o +y)
-      if (pre.kind === 'moto' && LANES[lane].dir < 0) lane = lane === 0 ? 1 : 3
       const L = LANES[lane]
       const start = L.dir > 0 ? -4 : 18
       if (!this.cars.some(c => c.lane === lane && Math.abs(c.pos - start) < 2.5)) {
@@ -512,8 +511,9 @@ export class StreetScene {
     return true
   }
   private drawVehicleSprite (c: Car, x: number, y: number, axis: 'x' | 'y', dir: number) {
-    if (c.skin) {
-      const sk = c.skin === 'vocho-taxi' ? 'vocho' : c.skin
+    const skin = c.skin ?? (c.v.kind === 'van' ? (c.v.color === '#1B4D8F' ? 'camion' : 'camioneta') : c.v.kind === 'moto' ? 'moto' : undefined)
+    if (skin) {
+      const sk = skin === 'vocho-taxi' ? 'vocho' : skin
       // de cada lámina se usan dos vistas: de frente hacia abajo-izquierda (SW) y de espaldas hacia arriba-derecha (NE);
       // las otras dos direcciones salen reflejando. +x = SE, +y = SW, −y = NE, −x = NW
       const back = axis === 'x' ? dir < 0 : dir < 0
@@ -523,9 +523,9 @@ export class StreetScene {
       if (!back && view.swIsSE) mirror = !mirror
       if (img) {
         const z = this.cam.zoom; const p = toScreen(this.cam, x, y)
-        const width = (sk === 'metrobus' || sk === 'ev-bus' ? 2.5 : sk === 'ev-auto' ? 1.05 : sk === 'micro' ? 2 : sk === 'pickup' ? 1.35 : sk === 'vocho' ? 1.05 : 1.2) * TW * z
+        const width = (sk === 'camion' ? 2.1 : sk === 'camioneta' ? 1.6 : sk === 'moto' ? 0.75 : sk === 'metrobus' || sk === 'ev-bus' ? 2.5 : sk === 'ev-auto' ? 1.05 : sk === 'micro' ? 2 : sk === 'pickup' ? 1.35 : sk === 'vocho' ? 1.05 : 1.2) * TW * z
         const h = width * img.height / img.width
-        if (c.skin === 'vocho-taxi') this.ctx.filter = 'hue-rotate(95deg) saturate(1.3)'
+        if (skin === 'vocho-taxi') this.ctx.filter = 'hue-rotate(95deg) saturate(1.3)'
         this.ctx.save(); this.ctx.translate(p.sx, p.sy); if (mirror) this.ctx.scale(-1, 1)
         this.ctx.drawImage(img, -width / 2, -h * 0.72, width, h)
         this.ctx.restore(); this.ctx.filter = 'none'
