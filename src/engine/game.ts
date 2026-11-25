@@ -9,6 +9,7 @@ import { nextRandom, pick, poisson, randInt } from './rng'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth, effectiveTraffic, effectiveCompetition } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
 import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
+import { worldDaily } from './world'
 import { checkMilestones, directorsMonthly, socialMonthly, socialTraffic, subsidiaryValue, initStocks, empireDaily, seasonMultiplier, lifestyleValue, portfolioValue } from './empire'
 import { OFFICES, OFFICE_CREDIT, OFFICE_RATE_CUT, TERM_LOANS } from '../data/bank'
 import { priceLevelAt, loanRateAt, hasFeature, historicMultiplier, historicEvents } from './era'
@@ -151,8 +152,11 @@ export function remodelStore (s: GameState, storeId: number): Result {
   if ((st.remodel ?? 0) >= 3) return fail('Ya es una tienda insignia')
   const c = remodelCost(st)
   if (s.cash < c) return fail('No alcanza el efectivo')
-  s.cash -= c; st.remodel = (st.remodel ?? 0) + 1; st.satisfaction = Math.min(100, st.satisfaction + 6)
-  return ok('¡Remodelación lista! Entra más gente')
+  if (st.works) return fail('Ya hay una obra en curso')
+  const day = dayOf(s.minute); const days = [7, 14, 30][st.remodel ?? 0]
+  s.cash -= c; st.works = { to: (st.remodel ?? 0) + 1, start: day, end: day + days }
+  log(s, `🚧 Empezó la remodelación de ${storeShort(st)}: ${days} días de obra`, 'info')
+  return ok(`Obra iniciada: ${days} días. Mientras tanto entra menos gente`)
 }
 // reporte semanal: resumen de los últimos 7 días y consejos concretos
 export function weeklyReport (s: GameState, week: number): WeeklyReport {
@@ -590,6 +594,11 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   s.tripsToday = 0
   dailyMarket(s, (t, k) => log(s, t, k, events))
   empireDaily(s, netWorth(s))
+  worldDaily(s, company.profit)
+  for (const st of s.stores) if (st.works && day + 1 >= st.works.end) {
+    st.remodel = st.works.to; st.works = null; st.satisfaction = Math.min(100, st.satisfaction + 8)
+    log(s, `✨ ¡Reinauguración! ${storeShort(st)} quedó como nueva`, 'good', events)
+  }
   runDirectors(s, events)
   checkMilestones(s, netWorth(s))
   company.satisfaction = s.stores.length ? s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length : 0

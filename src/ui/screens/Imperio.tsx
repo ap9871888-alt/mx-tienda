@@ -99,18 +99,20 @@ function Mercado () {
   const run = useApp(s => s.run)
   const st = game.stocks ?? {}
   const [sel, setSel] = useState<string | null>(null)
-  const d = STOCKS.find(x => x.id === sel); const x = sel ? st[sel] : null
+  const list = [...STOCKS.map(k => ({ id: k.id, name: k.name, sector: k.sector, img: `ui/emp-${k.id}.webp`, isNew: false })),
+    ...(game.world?.companies ?? []).map(c => ({ id: c.id, name: `${c.name} · ${c.ticker}`, sector: c.sector, img: '', isNew: E.dayOf(game.minute) - c.day < 7 }))]
+  const d = list.find(x => x.id === sel); const x = sel ? st[sel] : null
   return (
     <div className='flex flex-col gap-3'>
       <div className='flex items-center gap-3'><img src={assetUrl('ui/bolsa.webp')} alt='Bolsa MX' className='w-16 h-16' /><div><h1 className='font-display text-2xl uppercase leading-none'>Bolsa MX</h1><span className='text-xs text-tenue'>Tu portafolio: <b className='num'>{fmt(E.portfolioValue(game))}</b></span></div></div>
       {!game.stocks && <Card><p className='text-sm'>La bolsa abre mañana en cuanto pase el primer corte.</p></Card>}
-      {STOCKS.map(k => {
+      {list.map(k => {
         const s = st[k.id]; if (!s) return null
         const h = s.hist; const ch = h.length > 7 ? s.price / h[h.length - 8] - 1 : 0
         return (
           <button key={k.id} onClick={() => setSel(k.id)} className='rounded-2xl border border-borde bg-white p-2.5 flex items-center gap-3 text-left'>
-            <img src={assetUrl(`ui/emp-${k.id}.webp`)} alt='' className='w-11 h-11 shrink-0' />
-            <div className='flex-1 min-w-0'><b className='text-sm block truncate'>{k.name}</b><span className='text-[11px] text-tenue'>{k.sector}{s.shares ? ` · tienes ${s.shares}` : ''}</span></div>
+            {k.img ? <img src={assetUrl(k.img)} alt='' className='w-11 h-11 shrink-0' /> : <span className='w-11 h-11 shrink-0 rounded-full bg-corp text-white grid place-items-center text-[11px] font-black'>{k.name.split('· ')[1]}</span>}
+            <div className='flex-1 min-w-0'><b className='text-sm block truncate'>{k.isNew && <span className='text-[10px] bg-oferta rounded px-1 mr-1'>NUEVA</span>}{k.name}</b><span className='text-[11px] text-tenue'>{k.sector}{s.shares ? ` · tienes ${s.shares}` : ''}</span></div>
             <div className='w-20'><Spark values={h.slice(-30)} color={ch >= 0 ? '#2E7D5B' : '#D63B2F'} /></div>
             <div className='text-right'><b className='num text-sm block'>{fmt(s.price)}</b><span className={`num text-[11px] font-semibold ${ch >= 0 ? 'text-ahorro' : 'text-rojo'}`}>{ch >= 0 ? '+' : ''}{(ch * 100).toFixed(1)} %</span></div>
           </button>
@@ -118,7 +120,7 @@ function Mercado () {
       })}
       {d && x && (
         <Modal title={d.name} onClose={() => setSel(null)}>
-          <div className='flex items-center gap-3'><img src={assetUrl(`ui/emp-${d.id}.webp`)} alt='' className='w-14 h-14' /><div><b className='num text-xl'>{fmt(x.price)}</b><span className='block text-xs text-tenue'>{d.sector} · comisión {(STOCK_FEE * 100).toFixed(2)} %</span></div></div>
+          <div className='flex items-center gap-3'>{d.img && <img src={assetUrl(d.img)} alt='' className='w-14 h-14' />}<div><b className='num text-xl'>{fmt(x.price)}</b><span className='block text-xs text-tenue'>{d.sector} · comisión {(STOCK_FEE * 100).toFixed(2)} %</span></div></div>
           <Spark values={x.hist} color='#1B4D8F' />
           {x.shares > 0 && <p className='text-sm'>Tienes {x.shares} acciones ({fmt(x.shares * x.price)}) · ganancia {fmt(x.shares * x.price - x.cost)}</p>}
           <div className='grid grid-cols-3 gap-2'>{[10, 100, 1000].map(n => <Btn key={n} small kind='green' disabled={game.cash < n * x.price} onClick={() => run(g => E.tradeStock(g, d.id, n))}>+{n}</Btn>)}</div>
@@ -348,6 +350,53 @@ export function Directivos () {
           </div>
         })}
         <p className='text-xs text-tenue'>Mejoran tu reputación, el ánimo de tu equipo y atraen clientes del barrio.</p>
+      </Card>
+    </div>
+  )
+}
+
+// ---------- noticias, gobierno y obras ----------
+export function Mundo () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const run = useApp(s => s.run)
+  const w = game.world
+  const day = E.dayOf(game.minute)
+  if (!w) return <Card><p className='text-sm'>El mundo despierta mañana, después del primer corte.</p></Card>
+  return (
+    <div className='flex flex-col gap-3'>
+      <div className='grid grid-cols-3 gap-2'>
+        <Kpi label='Impuesto especial' value={`${Math.round(w.taxRate * 100)} %`} tone={w.taxRate > 0 ? 'bad' : undefined} />
+        <Kpi label='Opinión pública' value={`${Math.round(w.approval)}`} tone={w.approval >= 60 ? 'good' : w.approval < 35 ? 'bad' : undefined} />
+        <Kpi label='Salario mínimo' value={`×${w.wageMult.toFixed(2)}`} />
+      </div>
+      {w.election && (
+        <Card title={`Elecciones en ${w.election.day - day} días`}>
+          {w.election.candidates.map((c, i) => (
+            <div key={i} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
+              <span className='w-3 h-12 rounded-full shrink-0' style={{ background: c.color }} />
+              <div className='flex-1 min-w-0'><b className='text-sm block'>{c.name} · {c.party}</b><span className='text-xs text-tenue'>{c.desc}</span>
+                <div className='mt-1'><Bar value={c.poll / 60} color={c.color} /></div></div>
+              <Btn small kind='ghost' disabled={w.election!.donated != null || game.cash < 500000} onClick={() => run(g => E.donate(g, i))}>{w.election!.donated === i ? 'Donaste' : 'Donar $500 k'}</Btn>
+            </div>
+          ))}
+          <p className='text-xs text-tenue'>Donar sube al candidato en las encuestas, pero si se descubre es un escándalo para tu marca.</p>
+        </Card>
+      )}
+      {w.works.length > 0 && (
+        <Card title='Obras en tus ciudades'>
+          {w.works.map(o => {
+            const col = cityOf(o.city).colonies.find(c => c.id === o.colony)
+            return <div key={o.id} className='py-2 border-t border-borde first:border-t-0'>
+              <b className='text-sm block'>🚧 {o.name} · {col?.name}</b>
+              <div className='flex gap-1 mt-1'>{o.stages.map((st, k) => <span key={k} className={`flex-1 text-[10px] text-center font-bold rounded py-0.5 ${k <= o.stage ? 'bg-oferta text-urbano' : 'bg-borde text-tenue'}`}>{st}</span>)}</div>
+              {o.stage < o.stages.length - 1 && <span className='text-[11px] text-tenue'>Siguiente etapa en {Math.max(0, o.next - day)} días</span>}
+            </div>
+          })}
+        </Card>
+      )}
+      <Card title='Noticias MX'>
+        {w.news.length ? w.news.map((n, i) => <p key={i} className={`text-sm py-1.5 border-t border-borde first:border-t-0 ${n.kind === 'bad' ? 'text-rojo' : n.kind === 'good' ? 'text-ahorro' : ''}`}><span className='text-[11px] text-tenue num'>{E.dateLabel(n.day).date.slice(0, 6)} · </span>{n.text}</p>) : <p className='text-sm text-tenue'>Sin noticias todavía.</p>}
       </Card>
     </div>
   )

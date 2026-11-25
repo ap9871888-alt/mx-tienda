@@ -77,7 +77,7 @@ export function labelLoyalty (g: GameState | null | undefined, store: Store) {
 export function arrivalsPerHour (store: Store, hour: number, dayMult: number, g?: GameState | null) {
   if (!isOpen(store, hour)) return 0
   const f = formatOf(store.formatId)
-  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * (1 + 0.08 * (store.remodel ?? 0)) * (store.equipment?.includes('atm') ? 1.05 : 1) * dayMult *
+  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * 1.3 * (1 + 0.08 * (store.remodel ?? 0)) * (store.works ? 0.6 : 1) * (store.equipment?.includes('atm') ? 1.05 : 1) * dayMult *
     (1 - effectiveCompetition(g, store.cityId, store.colonyId) * 0.3) *
     reputationFactor(store.reputation) * priceAttraction(store, g) * cannibalization(g, store) * labelLoyalty(g, store)
 }

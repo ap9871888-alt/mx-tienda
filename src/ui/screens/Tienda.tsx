@@ -187,7 +187,11 @@ function Interior ({ st }: { st: Store }) {
             {has ? <span className='text-xs font-bold text-ahorro'>Instalado</span> : <Btn small disabled={game.cash < e.cost} onClick={() => run(g => E.buyEquipment(g, st.id, e.id))}>{fmtK(e.cost)}</Btn>}
           </div>) })}
       </div>
-      {next ? <div className='rounded-xl border border-dashed border-borde p-3 flex items-center gap-3'>
+      {st.works ? <div className='rounded-xl bg-oferta/25 border border-oferta p-3 flex flex-col gap-1.5'>
+        <b className='text-sm'>🚧 En obra: «{REMODEL[st.works.to].name}»</b>
+        <div className='flex gap-1'>{['Demolición', 'Construcción', 'Acabados'].map((n, k) => { const prog = (E.dayOf(game.minute) - st.works!.start) / (st.works!.end - st.works!.start); return <span key={n} className={`flex-1 text-[10px] text-center font-bold rounded py-0.5 ${prog >= k / 3 ? 'bg-oferta' : 'bg-borde text-tenue'}`}>{n}</span> })}</div>
+        <span className='text-xs text-tenue'>Reinauguración en {Math.max(0, st.works.end - E.dayOf(game.minute))} días. Mientras tanto entra 40 % menos gente.</span>
+      </div> : next ? <div className='rounded-xl border border-dashed border-borde p-3 flex items-center gap-3'>
         <div className='flex-1'><b className='text-sm'>Remodelar a «{next.name}»</b><p className='text-xs text-tenue'>{next.desc}</p></div>
         <Btn small disabled={game.cash < E.remodelCost(st)} onClick={() => run(g => E.remodelStore(g, st.id))}>{fmtK(E.remodelCost(st))}</Btn>
       </div> : <Pill tone='good'>Tienda insignia: remodelación máxima</Pill>}
