@@ -120,7 +120,7 @@ export function startLoop () {
   const tick = (now: number) => {
     const dt = Math.min(0.25, (now - last) / 1000); last = now
     const st = useApp.getState()
-    if (st.game && st.speed > 0 && !st.title && !st.game.dilemma) {
+    if (st.game && st.speed > 0 && !st.title && !st.game.dilemma && !st.game.weekly) {
       const events = E.advance(st.game, dt * st.speed * ECONOMY.gameMinutesPerRealSecond)
       bus.emit(events)
       if (st.tab === 'calle' && !st.title && events.some(e => e.type === 'sale' && e.storeId === st.storeId)) sfx.coin()

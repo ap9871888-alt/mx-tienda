@@ -242,3 +242,40 @@ export function Calendario () {
     </div>
   )
 }
+
+// ---------- reporte semanal ----------
+export function WeeklyModal () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)
+  const r = game?.weekly
+  if (!r || game?.dilemma) return null
+  const close = () => useApp.getState().run(g => { g.weekly = null; return { ok: true, msg: '' } })
+  const ch = r.prevProfit != null && r.prevProfit !== 0 ? (r.profit - r.prevProfit) / Math.abs(r.prevProfit) : null
+  return (
+    <div className='fixed inset-0 z-50 bg-black/50 grid place-items-center p-4'>
+      <div className='w-full max-w-[420px] max-h-[90dvh] overflow-y-auto rounded-3xl bg-arena shadow-2xl'>
+        <div className='bg-corp text-white px-4 py-3 rounded-t-3xl flex items-center gap-3'>
+          <img src={assetUrl('ui/chema-festeja.webp')} alt='' className='w-14 h-14 object-contain' />
+          <div><span className='text-[11px] font-black tracking-wider opacity-80'>REPORTE SEMANAL</span><h2 className='font-display text-2xl uppercase leading-tight'>Semana {r.week}</h2></div>
+        </div>
+        <div className='p-4 flex flex-col gap-3'>
+          <div className='grid grid-cols-2 gap-2'>
+            <Kpi label='Ventas' value={fmtK(r.sales)} />
+            <Kpi label='Utilidad' value={fmtK(r.profit)} tone={r.profit >= 0 ? 'good' : 'bad'} />
+            <Kpi label='Clientes' value={r.tickets.toLocaleString('es-MX')} />
+            <Kpi label='Se fueron' value={r.abandoned} tone={r.abandoned > r.tickets * 0.08 ? 'bad' : undefined} />
+          </div>
+          {ch != null && <p className={`text-sm font-bold text-center ${ch >= 0 ? 'text-ahorro' : 'text-rojo'}`}>{ch >= 0 ? '▲' : '▼'} {Math.abs(Math.round(ch * 100))} % de utilidad contra la semana pasada</p>}
+          {r.best && <div className='bg-white rounded-xl border border-borde p-2.5 text-sm'>🏆 Mejor tienda: <b>{r.best.name}</b> · {fmt(r.best.profit)}</div>}
+          {r.worst && <div className='bg-white rounded-xl border border-borde p-2.5 text-sm'>⚠️ Más floja: <b>{r.worst.name}</b> · {fmt(r.worst.profit)}</div>}
+          <div className='bg-white rounded-xl border border-borde p-3 flex flex-col gap-1.5'>
+            <b className='text-sm'>Don Chema recomienda</b>
+            {r.tips.map((t, i) => <p key={i} className='text-sm'>• {t}</p>)}
+          </div>
+          <div className='grid grid-cols-2 gap-2'><Kpi label='Efectivo' value={fmtK(r.cash)} /><Kpi label='Patrimonio' value={fmtK(r.worth)} /></div>
+          <Btn onClick={close}>Seguir jugando →</Btn>
+        </div>
+      </div>
+    </div>
+  )
+}

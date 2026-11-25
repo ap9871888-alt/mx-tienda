@@ -76,6 +76,7 @@ export interface GameState {
   stocks?: Record<string, { price: number; hist: number[]; shares: number; cost: number }>
   founder?: { age: number; skin: string; street: boolean }
   ipo?: { day: number; price0: number; hist: number[]; price: number; own: number } | null
+  weekly?: WeeklyReport | null
   subsidiaries?: { name: string; color: string; stores: number; day: number }[]
   minute: number // minutos de juego desde el inicio (entero)
   carry: number // fracción de minuto pendiente
@@ -108,4 +109,10 @@ export type GameEvent =
 export interface Result<T = undefined> { ok: boolean; msg: string; data?: T }
 
 export type Difficulty = 'facil' | 'normal' | 'dificil'
-export interface CompanyProfile { icon: string; color: string; founder: 'h' | 'm'; perk: 'ventas' | 'logistica'; difficulty: Difficulty; street?: boolean; age?: number; skin?: string }
+export interface CompanyProfile { icon: string; color: string; founder: 'h' | 'm'; perk: 'ventas' | 'logistica'; difficulty: Difficulty; street?: boolean; age?: number; skin?: string; character?: string; capital?: number }
+
+export interface WeeklyReport {
+  week: number; sales: number; profit: number; prevProfit: number | null; tickets: number; abandoned: number
+  best: { id: number; name: string; profit: number } | null; worst: { id: number; name: string; profit: number } | null
+  cash: number; worth: number; satisfaction: number; tips: string[]
+}

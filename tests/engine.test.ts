@@ -338,3 +338,16 @@ describe('Hito 3: Bolsa, conglomerado y eventos', () => {
     expect(E.upcomingEvents(new Date(Date.UTC(2027, 6, 1)), 30).some(e => e.id === 'guelaguetza')).toBe(true)
   })
 })
+
+describe('Reporte semanal y capital', () => {
+  it('cada 7 días genera un reporte con consejos', () => {
+    const g = E.newGame(41); E.openStore(g, 'cdmx', 'roma', 'tiendita')
+    for (let d = 0; d < 7; d++) { E.advance(g, 1440); g.dilemma = null }
+    expect(g.weekly?.week).toBe(1)
+    expect(g.weekly!.tips.length).toBeGreaterThan(0)
+  })
+  it('el capital elegido define el efectivo inicial', () => {
+    const g = E.newGame(42, 'X', 2027, { icon: 'carrito', color: '#D63B2F', founder: 'm', perk: 'ventas', difficulty: 'normal', capital: 8_000_000 })
+    expect(g.cash).toBe(8_000_000)
+  })
+})

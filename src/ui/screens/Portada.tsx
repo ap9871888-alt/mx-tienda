@@ -3,7 +3,6 @@ import { ArrowLeft, Play, Save, Trophy, Settings, Volume2, VolumeX } from 'lucid
 import * as E from '../../engine'
 import { useApp, fmt } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
-import { START_YEARS } from '../../data/eras'
 import { Btn, Modal } from '../components/kit'
 import { sfx, soundOn, setSound } from '../sound'
 import { Avatar, SKINS } from '../Avatar'
@@ -12,7 +11,6 @@ import type { CompanyProfile, Difficulty, GameState } from '../../engine/types'
 
 export const ICONS = ['carrito', 'tienda', 'estrella', 'caja', 'boleto']
 export const COLORS = ['#D63B2F', '#E0A100', '#1B4D8F', '#2E7D5B', '#7C4DDB', '#2B2D33']
-const ERA_ICON: Record<number, string> = { 1995: 'era-1995', 2000: 'era-1995', 2008: 'era-2010', 2015: 'era-2010', 2019: 'era-2026', 2027: 'era-2026', 2035: 'era-2035' }
 
 export function Logo ({ small }: { small?: boolean }) {
   return (
@@ -61,17 +59,38 @@ export function Portada () {
 
 function Section ({ t, children }: { t: string; children: React.ReactNode }) { return <section className='flex flex-col gap-2'><h2 className='font-bold text-lg'>{t}</h2>{children}</section> }
 
+// personajes: los dibujados primero; los avatares de tono de piel completan la lista
+export const CHARACTERS: { id: string; name: string; img?: string; skin?: string; founder: 'h' | 'm' }[] = [
+  { id: 'beto', name: 'Don Beto', img: 'ui/fundador-h.webp', founder: 'h' },
+  { id: 'rosa', name: 'Doña Rosa', img: 'ui/fundador-m.webp', founder: 'm' },
+  { id: 'ramiro', name: 'Ramiro', img: 'ui/gerente-0-0.webp', founder: 'h' },
+  { id: 'lupita', name: 'Lupita', img: 'ui/gerente-1-0.webp', founder: 'm' },
+  { id: 'kevin', name: 'Kevin', img: 'ui/gerente-2-0.webp', founder: 'h' },
+  { id: 'carmen', name: 'Doña Carmen', img: 'ui/gerente-3-0.webp', founder: 'm' },
+  ...SKINS.map((c, i) => ({ id: `avatar-${i}`, name: ['Toño', 'Paty', 'Memo', 'Xime', 'Chuy'][i], skin: c, founder: (i % 2 ? 'm' : 'h') as 'h' | 'm' }))
+]
+// capital inicial: los dos primeros son gratis; el modo inversionista se desbloquea con un pago único
+const CAPITALS = [
+  { id: 'calle', label: 'Desde la calle', amount: 6000, desc: 'Ciudad al azar y un puesto ambulante. El reto real.', icon: '🛒' },
+  { id: 'normal', label: 'Emprendedor', amount: 500000, desc: 'Tu tiendita en la CDMX con ahorros y un crédito.', icon: '🏪' }
+]
+export const PREMIUM_KEY = 'tienda-mx-premium'
+export const isPremium = () => { try { return localStorage.getItem(PREMIUM_KEY) === '1' } catch { return false } }
+
 function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
   const has = useApp(s => !!s.game)
   const [name, setName] = useState('Tienda MX Inc.')
   const [icon, setIcon] = useState('carrito'); const [color, setColor] = useState(COLORS[0])
-  const [founder, setFounder] = useState<'h' | 'm'>('m'); const [perk, setPerk] = useState<'ventas' | 'logistica'>('ventas')
-  const [year, setYear] = useState(2027); const [diff, setDiff] = useState<Difficulty>('normal')
+  const [who, setWho] = useState('rosa'); const [perk, setPerk] = useState<'ventas' | 'logistica'>('ventas')
+  const [cap, setCap] = useState('normal'); const [vip, setVip] = useState(5_000_000); const [pay, setPay] = useState(false)
+  const [diff, setDiff] = useState<Difficulty>('normal')
   const [confirm, setConfirm] = useState(false)
-  const [street, setStreet] = useState(false); const [age, setAge] = useState(16); const [skin, setSkin] = useState(SKINS[2])
+  const ch = CHARACTERS.find(c => c.id === who)!
+  const premium = isPremium()
   const start = () => {
-    const profile: CompanyProfile = { icon, color, founder, perk, difficulty: diff, street, age, skin }
-    sfx.good(); useApp.getState().newGame(name.trim() || 'Tienda MX Inc.', year, profile)
+    const capital = cap === 'vip' ? vip : CAPITALS.find(c => c.id === cap)!.amount
+    const profile: CompanyProfile = { icon, color, founder: ch.founder, perk, difficulty: diff, street: cap === 'calle', age: 22, skin: ch.skin ?? SKINS[2], character: ch.id, capital }
+    sfx.good(); useApp.getState().newGame(name.trim() || 'Tienda MX Inc.', 2027, profile)
   }
   const card = (on: boolean) => `rounded-2xl border-2 bg-white ${on ? 'border-rojo shadow-card' : 'border-borde'}`
   return (
@@ -80,7 +99,7 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
         <button onClick={onBack} aria-label='Volver' className='w-11 h-11 rounded-full bg-white border border-borde grid place-items-center'><ArrowLeft size={22} /></button>
         <h1 className='font-display text-3xl uppercase flex-1'>Nueva empresa</h1>
       </div>
-      <Section t='Identidad'>
+      <Section t='1 · Tu marca'>
         <input value={name} maxLength={40} onChange={e => setName(e.target.value)} aria-label='Nombre de la empresa' className='bg-white border border-borde rounded-xl px-3 py-3 text-lg min-h-[48px]' />
         <div className='grid grid-cols-5 gap-2'>
           {ICONS.map(i => <button key={i} aria-label={`Logo ${i}`} onClick={() => setIcon(i)} className={`${card(icon === i)} p-1.5 aspect-square`}><img src={assetUrl(`ui/logo-${i}.webp`)} alt='' className='w-full h-full object-contain' /></button>)}
@@ -88,51 +107,49 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
         <div className='flex justify-between'>
           {COLORS.map(c => <button key={c} aria-label={`Color ${c}`} onClick={() => setColor(c)} className={`w-11 h-11 rounded-full ${color === c ? 'ring-4 ring-offset-2 ring-urbano/40' : ''}`} style={{ background: c }} />)}
         </div>
-        <p className='text-xs text-tenue'>Tip de jugadores de tycoon: evita el gris, en el mapa tus tiendas se pierden entre los edificios.</p>
       </Section>
-      <Section t='¿Cómo empiezas?'>
-        <div className='grid grid-cols-2 gap-3'>
-          <button onClick={() => setStreet(false)} className={`${card(!street)} p-3 text-left`}><span className='text-2xl'>🏢</span><b className='block'>Con capital</b><span className='text-xs text-tenue'>Abres tu tiendita en la CDMX con dinero inicial.</span></button>
-          <button onClick={() => setStreet(true)} className={`${card(street)} p-3 text-left`}><span className='text-2xl'>🛒</span><b className='block'>Desde la calle</b><span className='text-xs text-tenue'>Ciudad al azar, $6,000 y un puesto ambulante. De cero a millonario.</span></button>
-        </div>
-        {street && <div className='rounded-2xl bg-white border border-borde p-3 flex items-center gap-3'>
-          <Avatar skin={skin} age={age} shirt={color} size={84} />
-          <div className='flex-1 flex flex-col gap-2'>
-            <label className='text-sm font-semibold'>Edad: {age} años<input type='range' min={10} max={25} value={age} onChange={e => setAge(+e.target.value)} className='w-full' /></label>
-            <div className='flex gap-2'>{SKINS.map(c => <button key={c} aria-label='Tono de piel' onClick={() => setSkin(c)} className={`w-9 h-9 rounded-full border-2 ${skin === c ? 'border-urbano ring-2 ring-oferta' : 'border-white'}`} style={{ background: c }} />)}</div>
-          </div>
-        </div>}
-      </Section>
-      {!street && <Section t='Fundador / CEO'>
-        <div className='grid grid-cols-2 gap-3'>
-          {(['h', 'm'] as const).map(f => (
-            <button key={f} onClick={() => setFounder(f)} className={`${card(founder === f)} p-3 flex flex-col items-center gap-1`}>
-              <img src={assetUrl(`ui/fundador-${f}.webp`)} alt='' className='w-24 h-24 rounded-full' /><b>{f === 'h' ? 'Don Beto' : 'Doña Rosa'}</b>
+      <Section t='2 · Tu personaje'>
+        <div className='grid grid-cols-4 gap-2'>
+          {CHARACTERS.map(c => (
+            <button key={c.id} onClick={() => setWho(c.id)} className={`${card(who === c.id)} p-1.5 flex flex-col items-center gap-0.5`}>
+              {c.img ? <img src={assetUrl(c.img)} alt='' className='w-16 h-16 object-contain rounded-full bg-arena' /> : <Avatar skin={c.skin!} age={22} shirt={color} size={64} />}
+              <b className='text-[11.5px] leading-tight text-center'>{c.name}</b>
             </button>))}
         </div>
         <div className='grid grid-cols-2 gap-3'>
           {([['ventas', 'Comercial', '+10 % clientes'], ['logistica', 'Operaciones', '−5 % costo de mercancía']] as const).map(([k, l, d]) => (
             <button key={k} onClick={() => setPerk(k)} className={`${card(perk === k)} p-3 text-left`}><b className='block'>{l}</b><span className='text-xs text-tenue'>{d}</span></button>))}
         </div>
-      </Section>}
-      <Section t='Época de inicio'>
-        <div className='grid grid-cols-2 gap-3'>
-          {START_YEARS.map(y => (
-            <button key={y.year} onClick={() => setYear(y.year)} className={`${card(year === y.year)} p-3 flex flex-col items-center text-center gap-1`}>
-              <img src={assetUrl(`ui/${ERA_ICON[y.year]}.webp`)} alt='' className='h-12' /><b className='text-sm'>{y.title}</b><span className='text-[11px] text-tenue leading-tight'>{y.desc}</span>
-            </button>))}
+      </Section>
+      <Section t='3 · Capital inicial'>
+        {CAPITALS.map(c => (
+          <button key={c.id} onClick={() => setCap(c.id)} className={`${card(cap === c.id)} p-3 flex items-center gap-3 text-left`}>
+            <span className='text-3xl'>{c.icon}</span><span className='flex-1'><b className='block'>{c.label} · ${c.amount.toLocaleString('es-MX')}</b><span className='text-xs text-tenue'>{c.desc}</span></span>
+          </button>))}
+        <div className={`${card(cap === 'vip')} p-3 flex flex-col gap-2`}>
+          <button onClick={() => (premium ? setCap('vip') : setPay(true))} className='flex items-center gap-3 text-left'>
+            <span className='text-3xl'>💎</span>
+            <span className='flex-1'><b className='block'>Inversionista {premium ? '' : '🔒'}</b><span className='text-xs text-tenue'>Elige tu capital hasta $10,000,000. {premium ? 'Desbloqueado.' : 'Pago único de $20 MXN.'}</span></span>
+          </button>
+          {premium && cap === 'vip' && <label className='text-sm font-semibold'>Capital: ${vip.toLocaleString('es-MX')}
+            <input type='range' min={1_000_000} max={10_000_000} step={500_000} value={vip} onChange={e => setVip(+e.target.value)} className='w-full' /></label>}
         </div>
       </Section>
-      <Section t='Dificultad'>
+      <Section t='4 · Dificultad del reto'>
         <div className='grid grid-cols-3 gap-2'>
           {(Object.keys(E.DIFFICULTY) as Difficulty[]).map(k => (
-            <button key={k} onClick={() => setDiff(k)} className={`${card(diff === k)} p-2.5 text-left`}><b className='block text-sm'>{E.DIFFICULTY[k].label}</b><span className='text-[11px] text-tenue leading-tight block'>{E.DIFFICULTY[k].desc}</span></button>))}
+            <button key={k} onClick={() => setDiff(k)} className={`${card(diff === k)} p-2.5 text-left`}><b className='block text-sm'>{E.DIFFICULTY[k].label}</b><span className='text-[11px] text-tenue leading-tight block'>{E.DIFFICULTY[k].rivalsDesc}</span></button>))}
         </div>
       </Section>
       <Btn onClick={() => (has ? setConfirm(true) : start())} className='text-xl min-h-[56px]'>Iniciar imperio →</Btn>
       {confirm && <Modal title='¿Empezar de nuevo?' onClose={() => setConfirm(false)}>
         <p className='text-sm'>Tu partida actual se reemplaza. Si quieres conservarla, expórtala primero en Partidas.</p>
         <Btn onClick={start}>Sí, nueva empresa</Btn>
+      </Modal>}
+      {pay && <Modal title='Modo inversionista' onClose={() => setPay(false)}>
+        <p className='text-sm'>Empieza con el capital que quieras, hasta <b>$10,000,000</b>, por un pago único de <b>$20 MXN</b>.</p>
+        <p className='text-sm text-tenue'>Los pagos con tarjeta y OXXO se activan pronto. Mientras tanto puedes jugar gratis desde la calle o como emprendedor.</p>
+        <Btn kind='ghost' onClick={() => setPay(false)}>Entendido</Btn>
       </Modal>}
     </div>
   )

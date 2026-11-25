@@ -16,7 +16,7 @@ import { Logistica } from './screens/Logistica'
 import { Corporativo } from './screens/Corporativo'
 import { Banco } from './screens/Banco'
 import { Productos } from './screens/Productos'
-import { Inversion, Estilo, Bolsa, DilemmaModal, Calendario } from './screens/Imperio'
+import { Inversion, Estilo, Bolsa, DilemmaModal, Calendario, WeeklyModal } from './screens/Imperio'
 
 const SPEEDS: [Speed, typeof Play, string][] = [[0, Pause, 'Pausa'], [1, Play, '1x'], [2, FastForward, '2x'], [4, ChevronsRight, '4x']]
 
@@ -97,6 +97,7 @@ export function App () {
       )}
       {more && <MasMenu onClose={() => useApp.getState().setMore(false)} />}
       <DilemmaModal />
+      <WeeklyModal />
       <Toast />
     </div>
   )

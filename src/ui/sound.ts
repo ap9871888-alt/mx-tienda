@@ -44,3 +44,14 @@ export const sfx = {
   bell: () => { if (on) file('sfx-campana-bolsa', 0.7) },
   travel: () => { if (!on) return; tone(300, 0.6, 'sine', 0.04, 0, 2.2) }
 }
+
+// ambiente de la calle en bucle, bajito, solo mientras ves la calle de una tienda
+let amb: HTMLAudioElement | null = null
+export function streetAmbience (play: boolean) {
+  const src = FILES['../assets/sfx/ambiente-calle.mp3']
+  if (!src) return
+  if (play && on) {
+    if (!amb) { amb = new Audio(src); amb.loop = true; amb.volume = 0.25 }
+    if (amb.paused) amb.play().catch(() => {})
+  } else if (amb && !amb.paused) amb.pause()
+}

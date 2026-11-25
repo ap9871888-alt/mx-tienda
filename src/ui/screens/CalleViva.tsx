@@ -1,3 +1,4 @@
+import { streetAmbience } from '../sound'
 import { useEffect, useRef, useState } from 'react'
 import { Store as StoreIcon } from 'lucide-react'
 import { StreetScene } from '../../renderer/scene'
@@ -26,8 +27,8 @@ export function Calle ({ bare }: { bare?: boolean } = {}) {
       speed: () => useApp.getState().speed
     })
     const off = bus.on(e => scene.onEvents(e))
-    scene.start()
-    return () => { off(); scene.destroy() }
+    scene.start(); streetAmbience(true)
+    return () => { off(); scene.destroy(); streetAmbience(false) }
   }, [])
 
   const t = store?.today

@@ -16,7 +16,7 @@ import { HISTORIC_EVENTS } from '../data/eras'
 import {
   defaultMargins, unitCost, unitPrice, priceFactor, arrivalsPerHour, serviceRate, shelfCapacity, salaryFor, monthlyRent, priceIndex, purchaseCost
 } from './pricing'
-import type { CompanyProfile, GameState, Store, Result, GameEvent, DayStats, DayReport, Candidate, BasketLine, CatMap, LogEntry } from './types'
+import type { WeeklyReport, CompanyProfile, GameState, Store, Result, GameEvent, DayStats, DayReport, Candidate, BasketLine, CatMap, LogEntry } from './types'
 
 export const SAVE_VERSION = 6
 const STREETS = ['Av. Insurgentes', 'Calle Morelos', 'Av. Juárez', 'Calle Hidalgo', 'Av. Revolución', 'Calle Allende', 'Av. Universidad', 'Calle Zaragoza', 'Calle Madero', 'Av. Reforma', 'Calle Guerrero', 'Av. Cuauhtémoc']
@@ -26,9 +26,9 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
 // ---------- partida ----------
 export const DIFFICULTY = {
-  facil: { cash: 1.6, rivals: 0.6, label: 'Tranquilo', desc: 'Más dinero inicial y rivales calmados. Ideal para aprender.' },
-  normal: { cash: 1, rivals: 1, label: 'Normal', desc: 'La experiencia de un emprendedor real.' },
-  dificil: { cash: 0.6, rivals: 1.4, label: 'Tiburón', desc: 'Poco capital y rivales agresivos.' }
+  facil: { cash: 1.6, rivals: 0.6, label: 'Tranquilo', desc: 'Más dinero inicial y rivales calmados. Ideal para aprender.', rivalsDesc: 'Rivales calmados y pocas crisis. Ideal para aprender.' },
+  normal: { cash: 1, rivals: 1, label: 'Normal', desc: 'La experiencia de un emprendedor real.', rivalsDesc: 'Competencia real: los rivales reaccionan a ti.' },
+  dificil: { cash: 0.6, rivals: 1.4, label: 'Tiburón', desc: 'Poco capital y rivales agresivos.', rivalsDesc: 'Rivales agresivos y guerras de precios.' }
 }
 export function newGame (seed: number, company = 'Tienda MX Inc.', startYear = 2027, profile?: CompanyProfile): GameState {
   setEpoch(startYear)
@@ -45,6 +45,7 @@ export function newGame (seed: number, company = 'Tienda MX Inc.', startYear = 2
     s.here = c.id; s.cities = [c.id]; s.cash = 6000
     s.founder = { age: profile.age ?? 16, skin: profile.skin ?? '#C68642', street: true }
   }
+  if (profile?.capital != null && !profile.street) s.cash = profile.capital
   for (const r of s.market.rivals) r.aggression = +(r.aggression * DIFFICULTY[profile?.difficulty ?? 'normal'].rivals).toFixed(2)
   refreshCandidates(s)
   initStocks(s)
@@ -109,6 +110,29 @@ export function remodelStore (s: GameState, storeId: number): Result {
   if (s.cash < c) return fail('No alcanza el efectivo')
   s.cash -= c; st.remodel = (st.remodel ?? 0) + 1; st.satisfaction = Math.min(100, st.satisfaction + 6)
   return ok('¡Remodelación lista! Entra más gente')
+}
+// reporte semanal: resumen de los últimos 7 días y consejos concretos
+export function weeklyReport (s: GameState, week: number): WeeklyReport {
+  const sum = (rs: DayReport[], k: keyof DayReport) => rs.reduce((a, r) => a + ((r[k] as number) || 0), 0)
+  const w = s.reports.slice(-7); const prev = s.reports.slice(-14, -7)
+  const per = s.stores.map(st => ({ id: st.id, name: storeShort(st), profit: st.history.slice(-7).reduce((a, h) => a + h.profit, 0), st }))
+  per.sort((a, b) => b.profit - a.profit)
+  const tips: string[] = []
+  const ab = sum(w, 'abandoned'); const tk = sum(w, 'tickets')
+  if (ab > tk * 0.08) tips.push(`Se fueron ${ab} clientes por la fila: contrata otro cajero o pon autocobro.`)
+  const worst = per[per.length - 1]
+  if (per.length > 1 && worst.profit < 0) tips.push(`${worst.name} perdió dinero: revisa sus precios o considera cambiar de formato.`)
+  if (s.cash < 50000) tips.push('Tu efectivo está bajo: cuida la nómina del lunes o pide una línea de crédito.')
+  if (s.stores.length >= 4 && !s.cedis) tips.push('Ya tienes 4 tiendas: un CEDIS te bajaría el costo de mercancía.')
+  if (!(s.products ?? []).length && s.stores.length >= 3) tips.push('Lanza tu primer producto de marca propia: más margen en toda tu cadena.')
+  if (!tips.length) tips.push('¡Buena semana! Considera abrir otra tienda en una colonia con poca competencia.')
+  const avgSat = s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length
+  return {
+    week, sales: sum(w, 'sales') + sum(w, 'commissions'), profit: sum(w, 'profit'), prevProfit: prev.length ? sum(prev, 'profit') : null,
+    tickets: tk, abandoned: ab, best: per[0] ? { id: per[0].id, name: per[0].name, profit: per[0].profit } : null,
+    worst: per.length > 1 ? { id: worst.id, name: worst.name, profit: worst.profit } : null,
+    cash: s.cash, worth: netWorth(s), satisfaction: avgSat, tips: tips.slice(0, 3)
+  }
 }
 export const canExpand = (s: GameState) => s.stores.length >= 4
 // ---------- viajes: para abrir o administrar otra ciudad tienes que ir ----------
@@ -525,6 +549,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   empireDaily(s, netWorth(s))
   company.satisfaction = s.stores.length ? s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length : 0
   s.reports.push(company); if (s.reports.length > 90) s.reports.shift()
+  if ((day + 1) % 7 === 0 && s.stores.length) s.weekly = weeklyReport(s, Math.floor((day + 1) / 7))
   events.push({ type: 'dayEnd', report: company })
   if (s.stores.length) log(s, `Corte del ${dateLabel(day).date}: utilidad ${nominal(s, company.profit).toLocaleString('es-MX')} MXN`, company.profit >= 0 ? 'good' : 'bad', events)
   // sucesos históricos que empiezan mañana
