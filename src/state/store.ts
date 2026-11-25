@@ -9,7 +9,7 @@ import type { GameState, Result } from '../engine/types'
 import { ECONOMY } from '../data/economy'
 import { bus } from './bus'
 
-export type Tab = 'calle' | 'mapa' | 'tienda' | 'logistica' | 'corporativo' | 'banco' | 'productos'
+export type Tab = 'calle' | 'mapa' | 'tienda' | 'logistica' | 'corporativo' | 'banco' | 'productos' | 'inversion' | 'estilo' | 'bolsa'
 export type Speed = 0 | 1 | 2 | 4
 
 interface AppState {
@@ -106,7 +106,7 @@ export function startLoop () {
   const tick = (now: number) => {
     const dt = Math.min(0.25, (now - last) / 1000); last = now
     const st = useApp.getState()
-    if (st.game && st.speed > 0 && !st.title) {
+    if (st.game && st.speed > 0 && !st.title && !st.game.dilemma) {
       const events = E.advance(st.game, dt * st.speed * ECONOMY.gameMinutesPerRealSecond)
       bus.emit(events)
       if (st.tab === 'calle' && !st.title && events.some(e => e.type === 'sale' && e.storeId === st.storeId)) sfx.coin()

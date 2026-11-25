@@ -1,3 +1,4 @@
+import { cityOf } from '../src/data/cities'
 import { describe, it, expect } from 'vitest'
 import * as E from '../src/engine'
 
@@ -278,5 +279,30 @@ describe('Marca propia y equipo', () => {
     const b0 = E.lineBoost(g, st, 'bebidas')
     expect(E.buyEquipment(g, st.id, 'refri').ok).toBe(true)
     expect(E.lineBoost(g, st, 'bebidas')).toBeGreaterThan(b0)
+  })
+})
+
+describe('Imperio MX', () => {
+  it('desde la calle: ciudad al azar, poco dinero y puesto ambulante que tú atiendes', () => {
+    const g = E.newGame(21, 'Yo', 2027, { icon: 'carrito', color: '#D63B2F', founder: 'm', perk: 'ventas', difficulty: 'normal', street: true, age: 14, skin: '#C68642' })
+    expect(g.cash).toBe(6000)
+    const city = g.here!
+    const r = E.openStore(g, city, cityOf(city).colonies[0].id, 'ambulante')
+    expect(r.ok).toBe(true)
+    expect(E.serviceRate(r.data!)).toBeGreaterThan(0)
+  })
+  it('dilemas, inversionistas y bolsa', () => {
+    const g = E.newGame(22); g.cash = 1e7
+    for (const c of ['roma', 'polanco', 'coyoacan']) E.openStore(g, 'cdmx', c, 'tiendita')
+    g.dilemma = { id: 'inspector', colonies: ['roma'] }
+    const cash = g.cash
+    expect(E.resolveDilemma(g, 0).ok).toBe(true)
+    expect(g.cash).toBe(cash - 8000)
+    g.offer = { who: 0, pct: 0.2, amount: 1000000, tries: 0 }
+    expect(E.answerOffer(g, 'aceptar').ok).toBe(true)
+    expect(g.equity).toBeCloseTo(0.8)
+    E.dailyStocks(g)
+    expect(E.tradeStock(g, 'banco', 10).ok).toBe(true)
+    expect(E.portfolioValue(g)).toBeGreaterThan(0)
   })
 })

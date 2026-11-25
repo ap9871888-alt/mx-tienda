@@ -20,7 +20,7 @@ function colonyAt (CITY: City, px: number, py: number) {
 export function Mapa () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
-  const [cityId, setCityId] = useState('cdmx')
+  const [cityId, setCityId] = useState(game.here ?? 'cdmx')
   const [national, setNational] = useState(false)
   const [unlock, setUnlock] = useState<string | null>(null)
   const CITY = cityOf(cityId)

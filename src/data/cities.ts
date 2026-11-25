@@ -21,6 +21,10 @@ export interface City {
   unlock: number // permisos, estudio de mercado y bodega regional
   nx: number; ny: number // posición en el mapa nacional (%)
   cedisRadius?: boolean // el CEDIS del Valle de México la surte
+  mapKind?: string // mapa de colonia ilustrado propio
+  tourism?: number // cuánto sube en temporada vacacional
+  hurricane?: boolean // costa con riesgo de huracán
+  smog?: boolean // contingencia ambiental
 }
 
 const pos = (id: string) => (mask.info as Record<string, { x: number; y: number }>)[id]
@@ -28,7 +32,7 @@ const col = (c: Omit<Colony, 'x' | 'y' | 'slots'> & { slots?: number }): Colony 
 const zone = (id: string, name: string, traffic: number, rentMult: number, wealth: number, competition: number, blurb: string): Colony =>
   ({ id, name, traffic, rentMult, wealth, competition, blurb, x: 0, y: 0, slots: 6 })
 // posición de cada ciudad en el mapa por estados (%)
-const CITY_POS: Record<string, { x: number; y: number }> = { cdmx: { x: 58.2, y: 73.6 }, pue: { x: 60.4, y: 75.2 }, gdl: { x: 42.6, y: 66.5 }, mty: { x: 53.6, y: 41.5 }, tij: { x: 6.2, y: 6.5 }, mer: { x: 87.2, y: 62.5 } }
+const CITY_POS: Record<string, { x: number; y: number }> = { cdmx: { x: 58.2, y: 73.6 }, pue: { x: 60.4, y: 75.2 }, gdl: { x: 42.6, y: 66.5 }, mty: { x: 53.6, y: 41.5 }, tij: { x: 6.2, y: 6.5 }, mer: { x: 87.2, y: 62.5 }, oax: { x: 63.2, y: 84.5 }, aca: { x: 52.8, y: 87.5 }, pach: { x: 57.4, y: 68.8 }, qro: { x: 53.2, y: 66.6 }, ver: { x: 65.5, y: 74.5 }, nau: { x: 56.8, y: 72.2 } }
 const npos = (id: string) => CITY_POS[id]
 
 export const CITIES: City[] = [
@@ -80,11 +84,47 @@ export const CITIES: City[] = [
       zone('montejo', 'Paseo de Montejo', 380, 1.1, 1.15, 0.4, 'Turismo, oficinas y casonas.'),
       zone('mer-centro', 'Centro', 450, 0.85, 0.9, 0.45, 'Mercados y comercio tradicional; calor todo el año.'),
       zone('altabrisa', 'Altabrisa', 330, 1.25, 1.25, 0.35, 'Plazas nuevas y fraccionamientos al norte.')
+    ] },
+  { id: 'oax', name: 'Oaxaca', state: 'Oaxaca', unlock: 1200000, nx: npos('oax').x, ny: npos('oax').y, mapKind: 'colonial', tourism: 0.25,
+    colonies: [
+      zone('oax-centro', 'Centro Histórico', 520, 0.75, 0.85, 0.45, 'Turistas todo el año, mezcal y mercados.'),
+      zone('oax-reforma', 'Reforma', 300, 0.9, 1.0, 0.35, 'Residencial tranquilo con oficinas de gobierno.'),
+      zone('oax-xoxo', 'Xoxocotlán', 280, 0.6, 0.75, 0.3, 'Popular y en crecimiento: rentas muy bajas.')
+    ] },
+  { id: 'aca', name: 'Acapulco', state: 'Guerrero', unlock: 1400000, nx: npos('aca').x, ny: npos('aca').y, mapKind: 'playa', tourism: 0.35, hurricane: true,
+    colonies: [
+      zone('aca-costera', 'Costera Miguel Alemán', 560, 1.2, 1.1, 0.5, 'Hoteles y playa: lleno en vacaciones, vacío en temporada baja.'),
+      zone('aca-diamante', 'Zona Diamante', 340, 1.35, 1.35, 0.35, 'Turismo de lujo y condominios nuevos.'),
+      zone('aca-centro', 'Centro', 420, 0.7, 0.8, 0.45, 'El Acapulco de siempre: comercio y mercados.')
+    ] },
+  { id: 'pach', name: 'Pachuca', state: 'Hidalgo', unlock: 900000, nx: npos('pach').x, ny: npos('pach').y, mapKind: 'arco', cedisRadius: true,
+    colonies: [
+      zone('pach-centro', 'Centro (Reloj)', 420, 0.65, 0.85, 0.4, 'Costo de vida bajo y paste en cada esquina.'),
+      zone('pach-plaza', 'Zona Plateada', 300, 0.95, 1.15, 0.35, 'Plazas y fraccionamientos nuevos.'),
+      zone('pach-minera', 'Real de Minas', 260, 0.6, 0.8, 0.3, 'Barrio tradicional, crecimiento moderado.')
+    ] },
+  { id: 'qro', name: 'Querétaro', state: 'Querétaro', unlock: 1800000, nx: npos('qro').x, ny: npos('qro').y, mapKind: 'acueducto',
+    colonies: [
+      zone('qro-centro', 'Centro y Acueducto', 460, 0.95, 1.05, 0.45, 'Turismo, oficinas y calles empedradas.'),
+      zone('qro-juriquilla', 'Juriquilla', 320, 1.3, 1.35, 0.35, 'Residencial de alto nivel y parques industriales.'),
+      zone('qro-carretas', 'Carretas', 340, 0.9, 1.0, 0.4, 'Clase media con mucho movimiento.')
+    ] },
+  { id: 'ver', name: 'Veracruz', state: 'Veracruz', unlock: 1500000, nx: npos('ver').x, ny: npos('ver').y, mapKind: 'puerto', tourism: 0.2, hurricane: true,
+    colonies: [
+      zone('ver-malecon', 'Malecón y Puerto', 500, 0.9, 0.95, 0.45, 'Puerto, turistas y café de la parroquia.'),
+      zone('ver-boca', 'Boca del Río', 380, 1.2, 1.25, 0.4, 'Torres frente al mar y plazas comerciales.'),
+      zone('ver-centro', 'Centro', 420, 0.7, 0.8, 0.5, 'Comercio popular y mercados.')
+    ] },
+  { id: 'nau', name: 'Naucalpan', state: 'Estado de México', unlock: 1000000, nx: npos('nau').x, ny: npos('nau').y, cedisRadius: true, smog: true,
+    colonies: [
+      zone('nau-satelite', 'Ciudad Satélite', 480, 1.05, 1.15, 0.5, 'Mucho volumen de gente y tráfico pesado.'),
+      zone('nau-centro', 'Naucalpan Centro', 520, 0.7, 0.8, 0.55, 'Comercio popular y paraderos de transporte.'),
+      zone('nau-izcalli', 'Cuautitlán Izcalli', 440, 0.75, 0.9, 0.45, 'Unidades habitacionales: rentas medias.')
     ] }
 ]
 export const STATES = national.states
 export const NATIONAL_MAP = { n: national.n, ny: national.ny, grid: national.grid, aspect: national.aspect }
-export const CITY_STATE: Record<string, string> = { cdmx: 'cdmx', pue: 'pue', gdl: 'jal', mty: 'nl', tij: 'bc', mer: 'yuc' }
+export const CITY_STATE: Record<string, string> = { cdmx: 'cdmx', pue: 'pue', gdl: 'jal', mty: 'nl', tij: 'bc', mer: 'yuc', oax: 'oax', aca: 'gro', pach: 'hgo', qro: 'qro', ver: 'ver', nau: 'mex' }
 // qué estado hay en un punto del mapa nacional (0–1)
 export function stateAt (px: number, py: number) {
   const near = STATES.filter(s => ['cdmx', 'tlax', 'mor', 'ags', 'col'].includes(s.id)).find(s => Math.hypot((s.x / 100 - px) * national.aspect, s.y / 100 - py) < 0.018)

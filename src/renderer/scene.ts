@@ -70,6 +70,7 @@ const LOOKS: Record<string, { wall: string; awning: [string, string]; sign: stri
   conveniencia: { wall: '#FFFFFF', awning: ['#D63B2F', '#F2B705'], sign: 'TIENDA MX 24/7', signBg: '#D63B2F', signFg: '#FFFFFF', h: 1.6, band: '#F2B705' },
   hardDiscount: { wall: '#F2B705', awning: ['#D63B2F', '#D63B2F'], sign: 'TMX AHORRO', signBg: '#D63B2F', signFg: '#FFFFFF', h: 1.8, band: '#D63B2F' },
   bodega: { wall: '#FFFFFF', awning: ['#2E7D5B', '#FFFFFF'], sign: 'BODEGA MX + FARMACIA', signBg: '#2E7D5B', signFg: '#FFFFFF', h: 1.9, band: '#2E7D5B' },
+  ambulante: { wall: '#FFF4D6', awning: ['#F2B705', '#D63B2F'], sign: 'DULCES', signBg: '#F2B705', signFg: '#2B2D33', h: 0.9 },
   taqueria: { wall: '#F6D9A8', awning: ['#2E7D5B', '#FFFFFF'], sign: 'TAQUERÍA MX', signBg: '#2E7D5B', signFg: '#FFFFFF', h: 1.4 },
   paleteria: { wall: '#FFE3EC', awning: ['#E5649B', '#FFFFFF'], sign: 'PALETAS MX', signBg: '#E5649B', signFg: '#FFFFFF', h: 1.2 },
   darkStore: { wall: '#2B2D33', awning: ['#1B4D8F', '#1B4D8F'], sign: 'TMX 15 MIN', signBg: '#1B4D8F', signFg: '#FFFFFF', h: 1.5 }
@@ -450,7 +451,7 @@ export class StreetScene {
     // alertas fijas sobre la tienda
     if (store) {
       const alerts: [string, Bubble['kind']][] = []
-      if (!store.cashiers.length && !store.selfCheckouts) alerts.push(['👤 Sin cajeros', 'bad'])
+      if (!store.cashiers.length && !store.selfCheckouts && store.formatId !== 'ambulante') alerts.push(['👤 Sin cajeros', 'bad'])
       if (store.queue.length > ECONOMY.queueTolerance) alerts.push(['⏱️ ¡Fila larga!', 'bad'])
       if (PRODUCT_CATEGORIES.some(c => store.inventory[c.id] < shelfCapacity(store) * 0.15)) alerts.push(['📦 ¡Reabastecer!', 'info'])
       if (!open) alerts.push(['🔒 Cerrado', 'info'])

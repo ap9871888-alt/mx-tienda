@@ -6,6 +6,7 @@ import { assetUrl } from '../../renderer/assets'
 import { START_YEARS } from '../../data/eras'
 import { Btn, Modal } from '../components/kit'
 import { sfx, soundOn, setSound } from '../sound'
+import { Avatar, SKINS } from '../Avatar'
 import type { CompanyProfile, Difficulty, GameState } from '../../engine/types'
 
 export const ICONS = ['carrito', 'tienda', 'estrella', 'caja', 'boleto']
@@ -66,8 +67,9 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
   const [founder, setFounder] = useState<'h' | 'm'>('m'); const [perk, setPerk] = useState<'ventas' | 'logistica'>('ventas')
   const [year, setYear] = useState(2027); const [diff, setDiff] = useState<Difficulty>('normal')
   const [confirm, setConfirm] = useState(false)
+  const [street, setStreet] = useState(false); const [age, setAge] = useState(16); const [skin, setSkin] = useState(SKINS[2])
   const start = () => {
-    const profile: CompanyProfile = { icon, color, founder, perk, difficulty: diff }
+    const profile: CompanyProfile = { icon, color, founder, perk, difficulty: diff, street, age, skin }
     sfx.good(); useApp.getState().newGame(name.trim() || 'Tienda MX Inc.', year, profile)
   }
   const card = (on: boolean) => `rounded-2xl border-2 bg-white ${on ? 'border-rojo shadow-card' : 'border-borde'}`
@@ -87,7 +89,20 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
         </div>
         <p className='text-xs text-tenue'>Tip de jugadores de tycoon: evita el gris, en el mapa tus tiendas se pierden entre los edificios.</p>
       </Section>
-      <Section t='Fundador / CEO'>
+      <Section t='¿Cómo empiezas?'>
+        <div className='grid grid-cols-2 gap-3'>
+          <button onClick={() => setStreet(false)} className={`${card(!street)} p-3 text-left`}><span className='text-2xl'>🏢</span><b className='block'>Con capital</b><span className='text-xs text-tenue'>Abres tu tiendita en la CDMX con dinero inicial.</span></button>
+          <button onClick={() => setStreet(true)} className={`${card(street)} p-3 text-left`}><span className='text-2xl'>🛒</span><b className='block'>Desde la calle</b><span className='text-xs text-tenue'>Ciudad al azar, $6,000 y un puesto ambulante. De cero a millonario.</span></button>
+        </div>
+        {street && <div className='rounded-2xl bg-white border border-borde p-3 flex items-center gap-3'>
+          <Avatar skin={skin} age={age} shirt={color} size={84} />
+          <div className='flex-1 flex flex-col gap-2'>
+            <label className='text-sm font-semibold'>Edad: {age} años<input type='range' min={10} max={25} value={age} onChange={e => setAge(+e.target.value)} className='w-full' /></label>
+            <div className='flex gap-2'>{SKINS.map(c => <button key={c} aria-label='Tono de piel' onClick={() => setSkin(c)} className={`w-9 h-9 rounded-full border-2 ${skin === c ? 'border-urbano ring-2 ring-oferta' : 'border-white'}`} style={{ background: c }} />)}</div>
+          </div>
+        </div>}
+      </Section>
+      {!street && <Section t='Fundador / CEO'>
         <div className='grid grid-cols-2 gap-3'>
           {(['h', 'm'] as const).map(f => (
             <button key={f} onClick={() => setFounder(f)} className={`${card(founder === f)} p-3 flex flex-col items-center gap-1`}>
@@ -98,7 +113,7 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
           {([['ventas', 'Comercial', '+10 % clientes'], ['logistica', 'Operaciones', '−5 % costo de mercancía']] as const).map(([k, l, d]) => (
             <button key={k} onClick={() => setPerk(k)} className={`${card(perk === k)} p-3 text-left`}><b className='block'>{l}</b><span className='text-xs text-tenue'>{d}</span></button>))}
         </div>
-      </Section>
+      </Section>}
       <Section t='Época de inicio'>
         <div className='grid grid-cols-2 gap-3'>
           {START_YEARS.map(y => (

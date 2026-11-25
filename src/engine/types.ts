@@ -68,6 +68,13 @@ export interface GameState {
   trip?: { to: string; arrive: number; mode: 'bus' | 'avion' } | null
   tutorial?: number
   products?: { id: string; quality: number; sold: number }[]
+  dilemma?: { id: string; colonies: string[] } | null
+  offer?: { who: number; pct: number; amount: number; tries: number } | null
+  equity?: number // parte de la empresa que sigue siendo tuya (1 = 100 %)
+  investors?: { who: number; pct: number; amount: number }[]
+  lifestyle?: string[]
+  stocks?: Record<string, { price: number; hist: number[]; shares: number; cost: number }>
+  founder?: { age: number; skin: string; street: boolean }
   minute: number // minutos de juego desde el inicio (entero)
   carry: number // fracción de minuto pendiente
   cash: number
@@ -99,4 +106,4 @@ export type GameEvent =
 export interface Result<T = undefined> { ok: boolean; msg: string; data?: T }
 
 export type Difficulty = 'facil' | 'normal' | 'dificil'
-export interface CompanyProfile { icon: string; color: string; founder: 'h' | 'm'; perk: 'ventas' | 'logistica'; difficulty: Difficulty }
+export interface CompanyProfile { icon: string; color: string; founder: 'h' | 'm'; perk: 'ventas' | 'logistica'; difficulty: Difficulty; street?: boolean; age?: number; skin?: string }

@@ -63,7 +63,7 @@ export function effectiveCompetition (g: GameState | null | undefined, cityId: s
   const base = colonyById(colonyId).colony.competition; void cityId
   if (!g?.market) return base
   const m = g.market.colonies[colonyId]
-  return clamp(base * 0.55 + rivalStoresIn(g, colonyId) * 0.07 + (m.war > 0 ? 0.15 : 0), 0.05, 0.92)
+  return clamp(base * 0.55 + rivalStoresIn(g, colonyId) * 0.07 + ((m?.war ?? 0) > 0 ? 0.15 : 0), 0.05, 0.92)
 }
 
 // ---------- decisiones de los rivales (cada lunes) ----------

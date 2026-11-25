@@ -8,7 +8,7 @@ import type { GameState } from '../engine/types'
 interface Step { text: string; tab?: Tab; done: (g: GameState) => boolean }
 const STEPS: Step[] = [
   { text: 'Abre tu primera tienda: entra a Mapa, toca una colonia y pulsa Abrir.', tab: 'mapa', done: g => g.stores.length > 0 },
-  { text: 'Contrata a tu primer cajero en Tienda → Personal. Sin cajero nadie te puede pagar.', tab: 'tienda', done: g => g.stores.some(s => s.cashiers.length > 0 || s.selfCheckouts > 0) },
+  { text: 'Contrata a tu primer cajero en Tienda → Personal. Sin cajero nadie te puede pagar.', tab: 'tienda', done: g => g.stores.some(s => s.cashiers.length > 0 || s.selfCheckouts > 0 || s.formatId === 'ambulante') },
   { text: 'Pulsa ▶ arriba para que corra el tiempo y mira a tus clientes en la Calle.', tab: 'calle', done: g => g.reports.length > 0 },
   { text: 'Revisa tu primer corte en Corporativo: cuánto vendiste y cuánto gastaste.', tab: 'corporativo', done: g => g.reports.length > 2 },
   { text: 'Abre una segunda tienda. Tip: lejos de la primera para que no se roben clientes.', tab: 'mapa', done: g => g.stores.length >= 2 },
@@ -20,7 +20,7 @@ const STEPS: Step[] = [
 const WHERE: [string, Tab, string][] = [
   ['🏪', 'mapa', 'Abrir tiendas y ver colonias'], ['✈️', 'mapa', 'Viajar a otra ciudad'], ['👥', 'tienda', 'Contratar cajeros'],
   ['🏷️', 'tienda', 'Cambiar precios'], ['📦', 'tienda', 'Pedir mercancía'], ['🚚', 'logistica', 'CEDIS y camiones'],
-  ['🏷️', 'productos', 'Crear productos de tu marca'], ['🏦', 'banco', 'Préstamos e inversiones'], ['🏢', 'banco', 'Oficinas corporativas'], ['📊', 'corporativo', 'Ganancias y cortes']
+  ['🏷️', 'productos', 'Crear productos de tu marca'], ['🤝', 'inversion', 'Inversionistas'], ['📈', 'bolsa', 'Bolsa MX'], ['🕶️', 'estilo', 'Estilo de vida'], ['🏦', 'banco', 'Préstamos e inversiones'], ['🏢', 'banco', 'Oficinas corporativas'], ['📊', 'corporativo', 'Ganancias y cortes']
 ]
 export function currentStep (g: GameState) { return STEPS.findIndex(s => !s.done(g)) }
 

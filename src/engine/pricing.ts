@@ -85,7 +85,8 @@ export function arrivalsPerHour (store: Store, hour: number, dayMult: number, g?
 export const cashierRate = (stars: number, bonus: boolean) =>
   (ECONOMY.cashierBaseRate + ECONOMY.cashierRatePerStar * stars) * (bonus ? 1 + ECONOMY.bonusSpeed : 1)
 export function serviceRate (store: Store) {
-  return (store.cashiers.reduce((a, c) => a + cashierRate(c.stars, store.bonus), 0) + store.selfCheckouts * ECONOMY.selfCheckoutRate) * (store.equipment?.includes('pos') ? 1.12 : 1)
+  const f0 = formatOf(store.formatId)
+  return (f0.ownerSells && !store.cashiers.length ? 16 : 0) + (store.cashiers.reduce((a, c) => a + cashierRate(c.stars, store.bonus), 0) + store.selfCheckouts * ECONOMY.selfCheckoutRate) * (store.equipment?.includes('pos') ? 1.12 : 1)
 }
 export const shelfCapacity = (store: Store) => formatOf(store.formatId).shelfUnits
 export const salaryFor = (stars: number) => ECONOMY.salaryBase + ECONOMY.salaryPerStar * stars

@@ -15,12 +15,12 @@ export function estimateStore (cityId: string, colonyId: string, formatId: Forma
   const f = formatOf(formatId)
   const probe: Store = {
     id: 0, label: '', cityId, colonyId, formatId, openedDay: 0, margins: defaultMargins(formatId),
-    cashiers: Array.from({ length: Math.max(2, Math.ceil(f.maxCashiers * 0.6)) }, (_, i) => ({ id: i, name: '', stars: 2, salary: salaryFor(2) })),
+    cashiers: Array.from({ length: f.ownerSells ? 0 : Math.max(2, Math.ceil(f.maxCashiers * 0.6)) }, (_, i) => ({ id: i, name: '', stars: 2, salary: salaryFor(2) })),
     selfCheckouts: 0, security: 0, cleaning: 0, bonus: false, autoReorder: true,
     inventory: {} as CatMap<number>, orders: [], queue: [], serviceCarry: 0, satisfaction: 70, reputation: 3,
     today: { sales: 0, commissions: 0, cogs: 0, fees: 0, arrivals: 0, tickets: 0, abandoned: 0, lostItems: 0, waitSum: 0, maxQueue: 0, catUnits: {} }, history: []
   }
-  const capacity = probe.cashiers.reduce((a, c) => a + cashierRate(c.stars, false), 0)
+  const capacity = probe.cashiers.reduce((a, c) => a + cashierRate(c.stars, false), 0) + (f.ownerSells ? 16 : 0)
   let customers = 0
   for (let h = 0; h < 24; h++) customers += Math.min(arrivalsPerHour(probe, h, 1.08, g ? { ...g, stores: [...g.stores, probe] } : null), capacity)
   let ticket = 0; let gross = 0; let units = 0

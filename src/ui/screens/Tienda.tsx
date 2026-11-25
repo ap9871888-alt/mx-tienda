@@ -41,7 +41,7 @@ export function Tienda () {
     <div className='flex flex-col gap-3'>
       <div><h1 className='font-display text-2xl uppercase leading-tight'>{E.storeName(st)}</h1>
         <p className='text-xs text-tenue'>Abierta de {f.hours[0]}:00 a {f.hours[1]}:00 · renta {fmt(E.monthlyRent(st))}/mes</p></div>
-      {!st.cashiers.length && <Pill tone='bad'>Sin cajeros nadie puede cobrar: contrata al menos uno</Pill>}
+      {!st.cashiers.length && !f.ownerSells && <Pill tone='bad'>Sin cajeros nadie puede cobrar: contrata al menos uno</Pill>}
       <div className='grid grid-cols-2 gap-2'>
         <Kpi label='Ventas hoy' value={fmt(t.sales + t.commissions)} />
         <Kpi label='Clientes atendidos' value={`${t.tickets} / ${t.arrivals}`} />

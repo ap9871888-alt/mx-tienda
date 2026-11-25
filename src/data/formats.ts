@@ -1,6 +1,6 @@
 // Formatos de tienda. Desde el Hito 2 se abren Tiendita, 24/7, Hard Discount y Bodega; la Dark Store llega en el Hito 4.
 import type { CategoryId } from './categories'
-export type FormatId = 'tiendita' | 'conveniencia' | 'hardDiscount' | 'bodega' | 'darkStore' | 'taqueria' | 'paleteria'
+export type FormatId = 'ambulante' | 'tiendita' | 'conveniencia' | 'hardDiscount' | 'bodega' | 'darkStore' | 'taqueria' | 'paleteria'
 
 export interface StoreFormat {
   id: FormatId
@@ -25,9 +25,13 @@ export interface StoreFormat {
   catNames?: Partial<Record<CategoryId, string>> // negocios de comida: las 4 líneas cambian de nombre
   noServices?: boolean // no cobra recargas ni servicios
   food?: boolean
+  ownerSells?: boolean // lo atiendes tú: cobra sin cajeros
 }
 
 export const FORMATS: StoreFormat[] = [
+  { id: 'ambulante', name: 'Puesto ambulante', capex: 1500, rent: 300, grossMargin: 0.35, capture: 0.024, hours: [9, 19], maxCashiers: 1, selfCheckoutSlots: 0, shelfUnits: 40, kwhDay: 0, overhead: 150, basketMult: 0.6, marginMult: 1.6, priceSensitivity: 1.2, available: true, food: true, noServices: true, ownerSells: true,
+    advantage: 'Etapa 1: tú mismo vendes en la calle. Junta tus primeros ahorros',
+    catNames: { abarrotes: 'Chocolates', bebidas: 'Aguas frescas', botanas: 'Dulces', panLacteos: 'Paletas' } },
   { id: 'tiendita', name: 'Tiendita de Esquina', capex: 250000, rent: 12000, grossMargin: 0.22, capture: 0.028, hours: [7, 22], maxCashiers: 3, selfCheckoutSlots: 1, shelfUnits: 420, kwhDay: 38, overhead: 9000, basketMult: 1, marginMult: 1, priceSensitivity: 1, available: true, advantage: 'Arranque rápido, bajo riesgo y flujo diario inmediato' },
   { id: 'conveniencia', name: 'Conveniencia 24/7', capex: 1200000, rent: 38000, grossMargin: 0.32, capture: 0.05, hours: [0, 24], allDay: true, maxCashiers: 6, selfCheckoutSlots: 2, shelfUnits: 820, kwhDay: 160, overhead: 22000, basketMult: 1.15, marginMult: 1.45, priceSensitivity: 0.6, available: true, advantage: 'Bebidas frías, café y comida rápida, pago de servicios 24 h' },
   { id: 'hardDiscount', name: 'Hard Discount', capex: 1800000, rent: 32000, grossMargin: 0.18, capture: 0.06, hours: [8, 21], maxCashiers: 6, selfCheckoutSlots: 2, shelfUnits: 1700, kwhDay: 90, overhead: 26000, basketMult: 2.4, marginMult: 0.75, priceSensitivity: 1.3, available: true, advantage: 'Volumen en tarimas y dominio de Marca Propia' },

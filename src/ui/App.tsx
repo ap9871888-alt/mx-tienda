@@ -1,3 +1,5 @@
+import { assetUrl } from '../renderer/assets'
+import { SEASON_ICON } from '../data/empire'
 import { Portada } from './screens/Portada'
 import { GuiaButton } from './Guia'
 import { useEffect, useState } from 'react'
@@ -12,6 +14,7 @@ import { Logistica } from './screens/Logistica'
 import { Corporativo } from './screens/Corporativo'
 import { Banco } from './screens/Banco'
 import { Productos } from './screens/Productos'
+import { Inversion, Estilo, Bolsa, DilemmaModal } from './screens/Imperio'
 
 const TABS: [Tab, string, typeof Map][] = [['calle', 'Calle Viva', Footprints], ['mapa', 'Mapa', Map], ['tienda', 'Tienda', Store], ['logistica', 'Logística', Truck]]
 const SPEEDS: [Speed, typeof Play, string][] = [[0, Pause, 'Pausa'], [1, Play, '1x'], [2, FastForward, '2x'], [4, ChevronsRight, '4x']]
@@ -22,6 +25,7 @@ function TopBar () {
   const speed = useApp(s => s.speed)
   const d = E.dateLabel(E.dayOf(game.minute))
   const { tags } = E.dayMultiplier(E.dayOf(game.minute))
+  const season = E.seasonsAt(E.dateOfDay(E.dayOf(game.minute)))[0]
   return (
     <header style={{ background: game.profile?.color ?? '#D63B2F' }} className='sticky top-0 z-30 text-white pt-[calc(8px+env(safe-area-inset-top))] pb-2 px-3 flex flex-col gap-1.5 shadow-md'>
       <div className='flex items-center gap-2'>
@@ -29,7 +33,7 @@ function TopBar () {
         <button onClick={() => useApp.getState().setTab('banco')} aria-label='Abrir banco' className={`num font-bold text-[17px] px-3 py-1 rounded-full border-[1.5px] border-oferta whitespace-nowrap min-w-[118px] text-center ${game.cash < 0 ? 'bg-urbano' : 'bg-black/15'}`}>{fmt(game.cash)}<small className='text-[11px] opacity-80 ml-1'>MXN</small></button>
         <div className='flex-1 min-w-0 text-right leading-tight h-[30px] overflow-hidden'>
           <div className='text-[12px] font-semibold num whitespace-nowrap'>{d.date.replace(/ \d{4}$/, '')} · {E.clockLabel(game.minute)}</div>
-          <div className='text-[11px] opacity-85 truncate'>{d.weekday}{tags.length ? ` · ${tags.join(' · ')}` : ''}</div>
+          <div className='text-[11px] opacity-85 truncate'>{season ? <><img src={assetUrl(`ui/temp-${SEASON_ICON[season.id]}.webp`)} alt='' className='inline h-3.5 -mt-0.5 mr-0.5' />{season.name}</> : <>{d.weekday}{tags.length ? ` · ${tags.join(' · ')}` : ''}</>}</div>
         </div>
         <div className='flex bg-black/15 rounded-xl p-0.5' role='group' aria-label='Velocidad'>
           {SPEEDS.map(([v, Icon, l]) => (
@@ -62,7 +66,7 @@ export function App () {
   }, [])
   const [more, setMore] = useState(false)
   if (!hasGame || title) return <><Portada /><Toast /></>
-  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco, productos: Productos }[tab]
+  const Screen = { calle: CalleViva, mapa: Mapa, tienda: Tienda, logistica: Logistica, corporativo: Corporativo, banco: Banco, productos: Productos, inversion: Inversion, estilo: Estilo, bolsa: Bolsa }[tab]
   return (
     <div className='max-w-[620px] mx-auto min-h-full flex flex-col'>
       <TopBar />
@@ -74,11 +78,12 @@ export function App () {
             <Icon size={22} />{l}
           </button>
         ))}
-        <button onClick={() => setMore(m => !m)} aria-expanded={more} className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10.5px] font-semibold ${more || ['corporativo', 'banco', 'productos'].includes(tab) ? 'text-rojo bg-rojo/5' : 'text-tenue'}`}>
-          <Menu size={22} />Más
+        <button onClick={() => setMore(m => !m)} aria-expanded={more} className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[10.5px] font-semibold ${more || ['corporativo', 'banco', 'productos', 'inversion', 'estilo', 'bolsa'].includes(tab) ? 'text-rojo bg-rojo/5' : 'text-tenue'}`}>
+          <span className='relative'><Menu size={22} />{g?.offer && <span className='absolute -top-1 -right-1.5 w-3 h-3 rounded-full bg-oferta border-2 border-white animate-pulse' />}</span>Más
         </button>
       </nav>
       {more && <MasMenu onClose={() => setMore(false)} />}
+      <DilemmaModal />
       <Toast />
     </div>
   )
@@ -91,6 +96,9 @@ function MasMenu ({ onClose }: { onClose: () => void }) {
     ['🏦', 'Banco', 'Préstamos, inversiones y oficinas', () => go('banco')],
     ['📊', 'Corporativo', 'Ganancias, cortes y partida', () => go('corporativo')],
     ['🏷️', 'Marca propia', 'Crea tus productos', () => go('productos')],
+    ['🤝', 'Inversionistas', 'Ofertas por tu empresa', () => go('inversion')],
+    ['📈', 'Bolsa MX', 'Compra acciones', () => go('bolsa')],
+    ['🕶️', 'Estilo de vida', 'Compras de estatus', () => go('estilo')],
     ['🗺️', 'Viajar', 'Otras ciudades y estados', () => go('mapa')],
     ['🏆', 'Logros', 'Tus medallas', () => { useApp.getState().setTitle(true); onClose() }],
     ['🏠', 'Menú principal', 'Partidas y ajustes', () => { useApp.getState().setTitle(true); onClose() }]

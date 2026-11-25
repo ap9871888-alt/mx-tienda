@@ -5,7 +5,7 @@ import { bus } from '../../state/bus'
 import { useApp, fmt } from '../../state/store'
 import * as E from '../../engine'
 import { Btn, Kpi, Stars, Bar } from '../components/kit'
-import { colonyOf, colonyById } from '../../data/cities'
+import { colonyOf, colonyById, cityOf } from '../../data/cities'
 import LOTS from '../../data/cityLots.json'
 import { assetUrl } from '../../renderer/assets'
 import { ColonyTraffic } from '../ColonyTraffic'
@@ -82,7 +82,7 @@ function Calle () {
 }
 
 // ---------- vista principal: tu colonia desde arriba, estilo mapa de ciudad ----------
-type Kind = 'popular' | 'oficinas' | 'media'
+type Kind = 'popular' | 'oficinas' | 'media' | 'puerto' | 'colonial' | 'playa' | 'acueducto' | 'arco'
 const kindOf = (id: string, wealth: number): Kind => ['santafe', 'polanco'].includes(id) || wealth >= 1.25 ? 'oficinas' : wealth < 0.95 ? 'popular' : 'media'
 const DECOR = ['depas', 'oficinas', 'depas', 'mercado', 'plaza', 'torre']
 
@@ -91,9 +91,9 @@ function Colonia ({ onStreet }: { onStreet: () => void }) {
   const game = useApp(s => s.game)!
   const storeId = useApp(s => s.storeId)
   const store = game.stores.find(s => s.id === storeId) ?? game.stores[0]
-  const [colId, setColId] = useState<string>(store?.colonyId ?? 'roma')
+  const [colId, setColId] = useState<string>(store?.colonyId ?? (game.here && game.here !== 'cdmx' ? cityOf(game.here).colonies[0].id : 'roma'))
   const { city, colony } = colonyById(colId)
-  const kind = kindOf(colony.id, E.effectiveWealth(game, city.id, colony.id))
+  const kind = (city.mapKind ?? kindOf(colony.id, E.effectiveWealth(game, city.id, colony.id))) as Kind
   const map = (LOTS as unknown as Record<Kind, { lots: number[][]; n: number; ny: number; road: string; side: string }>)[kind]
   const lots = map.lots
   const myColor = game.profile?.color ?? '#D63B2F'; const myIcon = game.profile?.icon ?? 'carrito'
@@ -126,7 +126,7 @@ function Colonia ({ onStreet }: { onStreet: () => void }) {
         ))}
       </div>
       <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card'>
-        <div className='relative w-full isolate' style={{ aspectRatio: '1438 / 2576' }}>
+        <div className='relative w-full isolate' style={{ aspectRatio: '572 / 1024' }}>
           <img src={assetUrl(`city/${kind}.webp`)} alt={`Mapa de ${colony.name}`} className='absolute inset-0 w-full h-full' draggable={false} style={{ filter: night ? 'brightness(.55) saturate(.8) hue-rotate(10deg)' : undefined }} />
           <ColonyTraffic grid={map} night={night} />
           {[...items].sort((a, b) => a.y - b.y).map((l, k) => (

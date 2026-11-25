@@ -1,7 +1,7 @@
 // Partida, acciones del jugador y simulación minuto a minuto. Sin React: se puede probar en Node.
 import { CATEGORIES, PRODUCT_CATEGORIES, categoryOf, type CategoryId } from '../data/categories'
 import { formatOf, type FormatId } from '../data/formats'
-import { colonyOf, cityOf } from '../data/cities'
+import { CITIES, colonyOf, cityOf } from '../data/cities'
 import { ECONOMY } from '../data/economy'
 import { FIRST_NAMES, LAST_NAMES } from '../data/names'
 import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/logistics'
@@ -9,6 +9,7 @@ import { nextRandom, pick, poisson, randInt } from './rng'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
 import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
+import { initStocks, empireDaily, seasonMultiplier, lifestyleValue, portfolioValue } from './empire'
 import { OFFICES, OFFICE_CREDIT, OFFICE_RATE_CUT, TERM_LOANS } from '../data/bank'
 import { priceLevelAt, loanRateAt, hasFeature, historicMultiplier, historicEvents } from './era'
 import { HISTORIC_EVENTS } from '../data/eras'
@@ -38,9 +39,16 @@ export function newGame (seed: number, company = 'Tienda MX Inc.', startYear = 2
     market: null as unknown as GameState['market']
   }
   s.market = generateMarket(s)
+  // modo «desde la calle»: ciudad aleatoria, poco dinero y un puesto ambulante
+  if (profile?.street) {
+    const c = CITIES[Math.floor(nextRandom(s) * CITIES.length)]
+    s.here = c.id; s.cities = [c.id]; s.cash = 6000
+    s.founder = { age: profile.age ?? 16, skin: profile.skin ?? '#C68642', street: true }
+  }
   for (const r of s.market.rivals) r.aggression = +(r.aggression * DIFFICULTY[profile?.difficulty ?? 'normal'].rivals).toFixed(2)
   refreshCandidates(s)
-  log(s, `¡Bienvenido a ${company}! Abre tu tienda piloto en la Ciudad de México.`, 'info')
+  initStocks(s)
+  log(s, profile?.street ? `Empiezas en ${cityOf(s.here!).name} con $6,000 y muchas ganas: abre un puesto ambulante en Mapa.` : `¡Bienvenido a ${company}! Abre tu tienda piloto en la Ciudad de México.`, 'info')
   return s
 }
 export function log (s: GameState, text: string, kind: LogEntry['kind'] = 'info', events?: GameEvent[]) {
@@ -424,10 +432,10 @@ function stepMinute (s: GameState, events: GameEvent[]) {
       const r = placeOrder(s, st.id, events)
       if (!r.ok && hour === 9) log(s, `No alcanzó para resurtir ${colonyOf(st.cityId, st.colonyId).name}`, 'bad', events)
     }
-    const canServe = st.cashiers.length + st.selfCheckouts > 0
+    const canServe = st.cashiers.length + st.selfCheckouts > 0 || !!formatOf(st.formatId).ownerSells
     // llegadas
     if (canServe) {
-      const n = poisson(s, arrivalsPerHour(st, hour, mult * historicMultiplier(date, st.cityId) * (s.profile?.perk === 'ventas' ? 1.1 : 1), s) / 60)
+      const n = poisson(s, arrivalsPerHour(st, hour, mult * historicMultiplier(date, st.cityId) * seasonMultiplier(date, st.cityId) * (s.profile?.perk === 'ventas' ? 1.1 : 1), s) / 60)
       for (let i = 0; i < n; i++) {
         const basket = makeBasket(s, st)
         if (!basket.length) continue
@@ -514,6 +522,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   company.profit -= company.interest + company.logistics
   s.tripsToday = 0
   dailyMarket(s, (t, k) => log(s, t, k, events))
+  empireDaily(s, netWorth(s))
   company.satisfaction = s.stores.length ? s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length : 0
   s.reports.push(company); if (s.reports.length > 90) s.reports.shift()
   events.push({ type: 'dayEnd', report: company })
@@ -556,7 +565,7 @@ export function netWorth (s: GameState) {
   const stores = s.stores.reduce((a, st) => a + formatOf(st.formatId).capex * 0.6 +
     PRODUCT_CATEGORIES.reduce((b, c) => b + st.inventory[c.id] * unitCost(c.id), 0), 0)
   const cedis = s.cedis ? (CEDIS.cost + CEDIS.upgradeCost.slice(0, s.cedis.level).reduce((a, b) => a + b, 0) + s.cedis.trucks * CEDIS.truckCost) * 0.6 : 0
-  return Math.round(s.cash + stores + cedis + fundValue(s) + OFFICES.slice(1, (s.office ?? 0) + 1).reduce((a, o) => a + o.cost * 0.5, 0) - s.loan - termDebt(s))
+  return Math.round(s.cash + stores + cedis + fundValue(s) + lifestyleValue(s) + portfolioValue(s) + OFFICES.slice(1, (s.office ?? 0) + 1).reduce((a, o) => a + o.cost * 0.5, 0) - s.loan - termDebt(s))
 }
 export function phaseInfo (s: GameState) {
   const n = s.stores.length
