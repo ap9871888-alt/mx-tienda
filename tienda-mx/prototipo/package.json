@@ -1,8 +1,0 @@
-{
-  "name": "tienda-mx-inc",
-  "version": "0.2.0",
-  "private": true,
-  "description": "Tienda MX Inc.: simulador de negocios con tiendas, cafeterías y taquerías en México",
-  "type": "module",
-  "scripts": { "start": "python3 -m http.server 8080", "test": "node --test tests/engine.test.js" }
-}
