@@ -7,6 +7,7 @@ import { START_YEARS } from '../../data/eras'
 import { Btn, Modal } from '../components/kit'
 import { sfx, soundOn, setSound } from '../sound'
 import { Avatar, SKINS } from '../Avatar'
+import { musicVolume, setMusicVolume } from '../music'
 import type { CompanyProfile, Difficulty, GameState } from '../../engine/types'
 
 export const ICONS = ['carrito', 'tienda', 'estrella', 'caja', 'boleto']
@@ -183,11 +184,16 @@ function Logros ({ onClose }: { onClose: () => void }) {
 }
 function Ajustes ({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState(soundOn())
+  const [vol, setVol] = useState(musicVolume())
   return (
     <Modal title='Ajustes' onClose={onClose}>
       <label className='flex items-center justify-between bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
-        <span className='font-semibold'>Sonidos</span>
+        <span className='font-semibold'>Efectos de sonido</span>
         <input type='checkbox' checked={s} onChange={e => { setSound(e.target.checked); setS(e.target.checked); sfx.click() }} className='w-6 h-6 accent-rojo' />
+      </label>
+      <label className='flex items-center gap-3 bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
+        <span className='font-semibold'>Música</span>
+        <input type='range' min={0} max={1} step={0.05} value={vol} onChange={e => { setMusicVolume(+e.target.value); setVol(+e.target.value) }} className='flex-1' aria-label='Volumen de la música' />
       </label>
       <Btn kind='ghost' onClick={() => { useApp.getState().run(g => { g.tutorial = 0; return { ok: true, msg: 'La guía empieza de nuevo' } }) }}>Reiniciar guía</Btn>
       <p className='text-xs text-tenue'>Espacio = pausa · los datos se guardan en este dispositivo.</p>

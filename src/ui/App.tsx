@@ -1,3 +1,4 @@
+import { setMood, unlockMusic } from './music'
 import { assetUrl } from '../renderer/assets'
 import { SEASON_ICON } from '../data/empire'
 import { Portada } from './screens/Portada'
@@ -57,6 +58,11 @@ export function App () {
   const tab = useApp(s => s.tab)
   const title = useApp(s => s.title)
   useEffect(() => { startLoop() }, [])
+  useEffect(() => { const u = () => unlockMusic(); window.addEventListener('pointerdown', u, { once: true }); window.addEventListener('keydown', u, { once: true }) }, [])
+  // música según el momento: menú, bolsa, fiesta, día o noche
+  const festive = g ? E.seasonsAt(E.dateOfDay(E.dayOf(g.minute))).some(x => ['navidad', 'guadalupe', 'patrias', 'buenfin', 'mundial', 'reyes'].includes(x.id)) : false
+  const night = g ? E.daylight(g.minute) < 0.5 : false
+  setMood(!hasGame || title ? 'menu' : ['bolsa', 'inversion', 'banco'].includes(tab) ? 'bolsa' : festive ? 'fiesta' : night ? 'noche' : 'dia')
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).matches('input, textarea') || e.key !== ' ') return
