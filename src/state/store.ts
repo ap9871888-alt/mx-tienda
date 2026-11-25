@@ -75,7 +75,9 @@ export const useApp = create<AppState>()(persist((set, get) => ({
   run: fn => {
     const g = get().game
     if (!g) return null
+    const before = g.cash
     const r = fn(g)
+    if (r.ok && g.cash - before > 50000) sfx.money()
     if (r.msg) get().say(r.msg, !r.ok)
     if (r.ok && r.msg) sfx.good(); else if (!r.ok) sfx.error()
     set({ game: g, rev: get().rev + 1 })
