@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Play, Save, Trophy, Settings, Volume2, VolumeX } from 'lucide-react'
+import { ArrowLeft, Play } from 'lucide-react'
 import * as E from '../../engine'
 import { useApp, fmt } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
@@ -99,7 +99,7 @@ export function Portada () {
       <div className={`relative min-h-[100dvh] flex flex-col justify-between px-5 pt-[calc(20px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))] transition-all duration-500 ${leaving ? 'opacity-0' : ''}`}>
         <div className='flex items-center justify-between gap-2 rise-in'>
           <span className='bg-urbano/75 text-white text-xs font-semibold rounded-full px-3 py-1.5 backdrop-blur'>{news}</span>
-          <button aria-label='Sonido' onClick={() => { setSound(!soundOn()); sfx.click(); setModal(null) }} className='w-11 h-11 rounded-full bg-urbano/80 text-white grid place-items-center'>{soundOn() ? <Volume2 size={20} /> : <VolumeX size={20} />}</button>
+          <button aria-label='Sonido' onClick={() => { setSound(!soundOn()); sfx.click(); setModal(null) }} className='w-11 h-11 rounded-full bg-urbano/80 text-white grid place-items-center'><img src={assetUrl('ui/pi-altavoz_sonido.webp')} alt='' className={`w-7 h-7 object-contain ${soundOn() ? '' : 'opacity-40 grayscale'}`} /></button>
         </div>
         {/* el logo flota libre en el tercio de arriba para dejar ver la glorieta */}
         <div className={`mx-auto text-center drop-in mt-6 transition-transform duration-500 ${leaving ? '-translate-y-40' : ''}`}>
@@ -121,8 +121,8 @@ export function Portada () {
           )}
           <button onClick={() => { sfx.click(); setStep('nueva') }} className={`press rise-in ${game ? 'bg-urbano' : 'bg-rojo'} text-white rounded-2xl px-4 py-3.5 text-xl font-bold`} style={{ animationDelay: '.78s', ['--lip' as string]: game ? '#111' : '#8E2219' }}>Nueva empresa</button>
           <div className='grid grid-cols-3 gap-2'>
-            {([['partidas', Save, 'Partidas'], ['logros', Trophy, 'Logros'], ['ajustes', Settings, 'Ajustes']] as const).map(([k, Icon, l], i) => (
-              <button key={k} onClick={() => { sfx.click(); setModal(k) }} className='press rise-in bg-white/90 rounded-2xl flex flex-col items-center gap-0.5 py-2 text-xs font-semibold text-urbano' style={{ animationDelay: `${0.86 + i * 0.07}s` }}><Icon size={24} />{l}</button>
+            {([['partidas', 'disquete_guardar', 'Partidas'], ['logros', 'trofeo_dorado', 'Logros'], ['ajustes', 'engrane_ajustes', 'Ajustes']] as const).map(([k, ic, l], i) => (
+              <button key={k} onClick={() => { sfx.click(); setModal(k) }} className='press rise-in bg-white/90 rounded-2xl flex flex-col items-center gap-0.5 py-2 text-xs font-semibold text-urbano' style={{ animationDelay: `${0.86 + i * 0.07}s` }}><img src={assetUrl(`ui/pi-${ic}.webp`)} alt='' className='w-9 h-9 object-contain' />{l}</button>
             ))}
           </div>
         </div>

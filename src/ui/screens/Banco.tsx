@@ -1,4 +1,3 @@
-import { ChevronLeft } from 'lucide-react'
 import * as E from '../../engine'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { Card, Btn, Kpi, Bar, Advisor } from '../components/kit'
@@ -18,10 +17,6 @@ export function Banco () {
   const debt = game.loan + E.termDebt(game)
   return (
     <div className='flex flex-col gap-3'>
-      <div className='flex items-center gap-2'>
-        <button onClick={() => useApp.getState().setTab('corporativo')} aria-label='Volver' className='w-10 h-10 rounded-full bg-white border border-borde grid place-items-center'><ChevronLeft size={20} /></button>
-        <h1 className='font-display text-2xl uppercase'>Banco</h1>
-      </div>
       <div className='rounded-2xl bg-gradient-to-br from-corp to-[#0F2F5C] text-white p-4 shadow-card'>
         <span className='text-xs uppercase tracking-wider opacity-80'>Banca Mexicana del Comercio · cuenta empresarial</span>
         <div className='font-display text-3xl num mt-1'>{fmt(game.cash)}</div>
