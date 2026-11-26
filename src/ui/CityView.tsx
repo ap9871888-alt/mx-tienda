@@ -9,7 +9,7 @@ import LOTS from '../data/cityLots.json'
 import { ColonyTraffic } from './ColonyTraffic'
 import { ModularTraffic } from './ModularTraffic'
 import { usePrefs } from './settings'
-import { RES, CURVE_SPRITES, KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
+import { RES, CURVE_SPRITES, WATER, KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
 import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
@@ -333,7 +333,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
   }
   const kitEd: Record<string, string> = { central: 'kit/px/terminal_tapo_cupula.webp', bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
   // tamaño de cada sprite respecto a la cuadra: árboles y puestos más chicos que los edificios
-  const scale = (ed?: string) => !ed ? 0.7 : /kit\/v3\//.test(ed) ? 1.0 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento|estadio|rectoria|antropologia|auditorio|chinampa|embarcadero|plaza_toros|soumaya/.test(ed) ? 0.88 : 0.7
+  const scale = (ed?: string) => !ed ? 0.7 : /kit\/v3\//.test(ed) ? 1.0 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento|estadio|rectoria|antropologia|auditorio|chinampa|embarcadero|plaza_toros|soumaya/.test(ed) ? 0.78 : 0.68
   // el edificio se encoge y su base queda dentro de la plaza, con banqueta alrededor
   const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => { const k = scale(ed) * 0.95; return { ...r, w: r.w * scale(ed), bottom: r.y + (r.bottom - r.y) * Math.min(1, k + 0.05) } }
   const items: Lot[] = []
@@ -344,8 +344,12 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
     else if (u.kind === 'civic') { const c = civicById[u.id]; if (c) { const ed = kitEd[u.id] ?? c.ed; items.push({ ...c, ...sized(r, ed), ed }) } }
     else if (u.kind === 'park') {
       const tx = bx * 4 + 1; const ty = by * 4 + 1
-      items.push({ ...at(tx + 1.5, ty + 1.5, 1.6), ed: 'kit/cdmx2/veg_parquecito_denso.webp' })
-      for (const [a, b, ed] of [[0.7, 0.7, 'veg_ahuehuete_chapultepec'], [2.6, 0.9, 'veg_jardin_agaves_nopales'], [0.9, 2.6, 'veg_jardinera_bugambilias'], [2.6, 2.6, 'veg_ahuehuete_chapultepec']] as const) items.push({ ...at(tx + a, ty + b, 0.8), ed: `kit/cdmx2/${ed}.webp` })
+      const wt = WATER[`${bx},${by}`]
+      // parque plano: árboles sueltos alrededor y, si no hay agua, un jardín al centro (o la trajinera en el canal)
+      if (wt === 'canal') items.push({ ...at(tx + 1.5, ty + 1.6, 0.9), ed: 'kit/px/08_trajinera_navegando.webp' })
+      else if (!wt) items.push({ ...at(tx + 1.5, ty + 1.5, 1.1), ed: (bx + by) % 2 ? 'kit/cdmx2/veg_parquecito_denso.webp' : 'kit/cdmx/deco_jacaranda.webp' })
+      const tree = (bx * 3 + by) % 3 === 0 ? 'cdmx/deco_jacaranda' : 'cdmx2/veg_ahuehuete_chapultepec'
+      for (const [a, b] of [[0.55, 0.55], [2.5, 0.6], [0.6, 2.5], [2.55, 2.55]] as const) items.push({ ...at(tx + a, ty + b, 0.62), ed: `kit/${tree}.webp` })
     }
     else if (u.kind === 'lot') (byColony[u.colony] ??= []).push({ ...r, bx, by } as typeof r)
   }

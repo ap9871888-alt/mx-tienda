@@ -36,25 +36,25 @@ const X = (s: string) => `kit/px/${s}.webp`; const K = (s: string) => `kit/cdmx/
 // y luego se ajustó a la retícula: Reforma corre sobre tx=16 de Chapultepec (abajo-izquierda)
 // a la Alameda (arriba-derecha); Insurgentes la cruza en ty=24, en la glorieta del Ángel.
 // La Basílica queda lejos al norte, el aeropuerto al oriente y CU, el Azteca y Xochimilco al sur.
-const V3 = (s: string) => `kit/v3/${s}.webp`
 const MON: Record<string, string> = {
   '3,0': K('monumento_basilica'), '1,1': X('10_monumento_raza'), // norte: La Villa y La Raza
   '4,2': X('14_arco_garibaldi'),
-  '3,3': V3('alameda_central_jacarandas'), '4,3': K('monumento_bellas_artes'), '3,2': X('13_hemiciclo_juarez'),
+  '4,3': K('monumento_bellas_artes'), '3,2': X('13_hemiciclo_juarez'),
   '5,3': K('monumento_torre_latino'), '5,2': K('monumento_catedral'), '6,2': K('monumento_zocalo'), '6,3': K('monumento_palacio_nacional'),
   '2,4': K('monumento_revolucion'), '3,4': X('12_senado_moderno'), '5,4': X('15_mercado_artesanias'), '5,5': X('20_arena_lucha_libre'),
   '4,6': K('monumento_angel'), '3,6': X('19_torre_reforma'), '3,7': X('11_torre_mayor'), '4,8': K('monumento_estela_luz'),
   '3,8': K('monumento_chapultepec'), '2,7': X('02_museo_antropologia'), '1,7': X('17_auditorio_nacional'),
-  '2,8': V3('parque_chapultepec_1_lago'), '2,9': V3('parque_chapultepec_2_bosque'), '3,9': V3('parque_chapultepec_3_cerro'), '1,8': V3('parque_chapultepec_2_bosque'),
   '0,5': X('01_museo_soumaya'), '1,6': KP('polanco_estanque_lincoln'),
-  '5,7': V3('parque_mexico_ovalado'), '6,6': X('18_hospital_grande'), '6,8': X('16_plaza_toros'),
-  '8,9': X('03_casa_azul_frida'), '7,11': X('05_biblioteca_central_cu'), '8,11': X('04_rectoria_cu'), '8,12': V3('parque_chapultepec_2_bosque'),
-  '10,10': X('06_estadio_azteca'), '10,11': X('07_embarcadero_xochimilco'), '10,12': V3('borde_canal_xochimilco'), '9,12': X('09_chinampa_cultivos'), '9,13': V3('borde_canal_xochimilco'), '10,13': X('09_chinampa_cultivos')
+  '6,6': X('18_hospital_grande'), '6,8': X('16_plaza_toros'),
+  '8,9': X('03_casa_azul_frida'), '7,11': X('05_biblioteca_central_cu'), '8,11': X('04_rectoria_cu'),
+  '10,10': X('06_estadio_azteca'), '10,11': X('07_embarcadero_xochimilco'), '9,12': X('09_chinampa_cultivos'), '10,13': X('09_chinampa_cultivos')
 }
 const CIVIC: Record<string, string> = {
   '4,5': 'banco', '3,5': 'bolsa', '1,5': 'inversion', '0,4': 'estilo', '10,3': 'logistica', '1,9': 'corporativo', '8,1': 'aeropuerto', '7,1': 'central'
 }
-const PARKS = new Set<string>()
+// parques planos (sin bordes de tierra): el piso los pinta verdes y encima van árboles sueltos
+const PARKS = new Set<string>(['3,3', '2,8', '2,9', '3,9', '1,8', '5,7', '8,12', '10,12', '9,13'])
+export const WATER: Record<string, 'lago' | 'canal'> = { '2,8': 'lago', '10,12': 'canal', '9,13': 'canal', '5,7': 'lago' }
 // centro de cada colonia en la retícula; cada manzana libre pertenece a la colonia más cercana
 const COLONY_AT: [string, number, number][] = [
   ['polanco', 1, 4.5], ['centro', 5, 1.5], ['santafe', 0, 10], ['roma', 4.5, 7.5], ['narvarte', 7, 6.5],
@@ -259,6 +259,9 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     rect(x0 - 0.02, y0 - 0.02, x0 + 3.02, y0 + 3.02, '#B9B2A4') // guarnición
     rect(x0, y0, x0 + 3, y0 + 3, '#DCD5C6') // banqueta
     rect(x0 + 0.28, y0 + 0.28, x0 + 2.72, y0 + 2.72, park ? '#7DB35A' : u.kind === 'mon' ? '#E6DCC6' : '#C9C2B2', park ? '#5E9440' : '#B3AB9A')
+    const wt = WATER[`${bx},${by}`]
+    if (wt === 'lago') { const c = toScreen(x0 + 1.5, y0 + 1.5); ctx.fillStyle = '#4FB3C8'; ctx.beginPath(); ctx.ellipse(c.x, c.y, TW * 0.95, TH * 0.75, 0, 0, 7); ctx.fill(); ctx.strokeStyle = '#E9E2D2'; ctx.lineWidth = 4; ctx.stroke() }
+    if (wt === 'canal') { rect(x0 + 0.3, y0 + 1.2, x0 + 2.7, y0 + 1.8, '#4FB3C8'); rect(x0 + 1.2, y0 + 0.3, x0 + 1.8, y0 + 2.7, '#4FB3C8') }
     if (!park) for (const [a, b] of [[0.14, 0.14], [2.86, 0.14], [0.14, 2.86], [2.86, 2.86], [1.5, 0.14], [0.14, 1.5]]) {
       const p = toScreen(x0 + a, y0 + b); ctx.beginPath(); ctx.ellipse(p.x, p.y - 10, 11, 9, 0, 0, 7); ctx.fillStyle = '#5C8F3C'; ctx.fill()
     }

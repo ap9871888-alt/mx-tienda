@@ -61,3 +61,11 @@ if (typeof document !== 'undefined') document.addEventListener('visibilitychange
   if (!current) return
   if (document.hidden) current.pause(); else if (unlocked && volume > 0) current.play().catch(() => {})
 })
+
+// silenciar todo (música y efectos) recordando el volumen anterior para volver a encender
+export function muteAll (mute: boolean, setSfx: (on: boolean) => void) {
+  try {
+    if (mute) { if (volume > 0) localStorage.setItem('tienda-mx-musica-antes', String(volume)); setMusicVolume(0) } else setMusicVolume(+(localStorage.getItem('tienda-mx-musica-antes') ?? '0.5') || 0.5)
+  } catch { setMusicVolume(mute ? 0 : 0.5) }
+  setSfx(!mute)
+}

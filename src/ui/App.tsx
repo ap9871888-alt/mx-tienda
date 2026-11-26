@@ -147,8 +147,8 @@ function MasMenu ({ onClose }: { onClose: () => void }) {
   const go = (t: Tab) => { useApp.getState().setTab(t); window.scrollTo(0, 0); onClose() }
   const items: [string, string, string, () => void][] = [
     ['pi-matraz_laboratorio', 'Laboratorio', 'Inventa productos y tecnología', () => go('laboratorio')],
-    ['pi-periodico_doblado', 'Noticias y gobierno', 'Elecciones, impuestos, obras y escándalos', () => go('mundo')],
-    ['ic-personal', 'Directivos y comunidad', 'Delega, metas y programas sociales', () => go('directivos')],
+    ['pi-periodico_doblado', 'Noticias', 'Elecciones, impuestos, obras y escándalos', () => go('mundo')],
+    ['ic-personal', 'Directivos', 'Delega, metas y programas sociales', () => go('directivos')],
     ['ic-tiendas', 'Mis tiendas', 'Precios, personal e interior', () => go('tienda')],
     ['ic-mapa', 'Abrir tienda', 'Elige colonia y formato', () => go('mapa')],
     ['pi-camion_reparto', 'Logística', 'Pedidos, CEDIS y camiones', () => go('logistica')],
@@ -158,19 +158,20 @@ function MasMenu ({ onClose }: { onClose: () => void }) {
     ['pi-maletin_inversionista', 'Inversionistas', 'Ofertas por tu empresa', () => go('inversion')],
     ['pi-certificado_acciones', 'Bolsa MX', 'Acciones, tu empresa y conglomerado', () => go('bolsa')],
     ['pi-calendario_fiesta', 'Calendario', 'Temporadas y fiestas por ciudad', () => go('calendario')],
-    ['ic-premium', 'Estilo de vida', 'Compras de estatus', () => go('estilo')],
+    ['ic-premium', 'Estilo', 'Compras de estatus', () => go('estilo')],
     ['pi-globo_avion', 'Viajar', 'Otros estados', () => useApp.getState().openStates()],
     ['pi-trofeo_dorado', 'Logros', 'Tus medallas', () => { useApp.getState().setTitle(true); onClose() }],
     ['pi-engrane_ajustes', 'Ajustes', 'Sonido, tráfico y vista del mapa', () => setAj(true)],
-    ['pi-casa_menu', 'Menú principal', 'Partidas y nueva empresa', () => { useApp.getState().setTitle(true); onClose() }]
+    ['pi-casa_menu', 'Inicio', 'Partidas y nueva empresa', () => { useApp.getState().setTitle(true); onClose() }]
   ]
   return (
     <div className='fixed inset-0 z-50' onClick={onClose}>
       <div className='absolute inset-0 bg-black/30' />
-      <div className='absolute inset-x-0 mx-auto max-w-[620px] bottom-0 pb-[calc(16px+env(safe-area-inset-bottom))] max-h-[85dvh] overflow-y-auto bg-arena rounded-t-3xl p-4 grid grid-cols-2 gap-2.5 shadow-2xl' onClick={e => e.stopPropagation()}>
+      <div className='absolute inset-x-0 mx-auto max-w-[620px] bottom-0 pb-[calc(16px+env(safe-area-inset-bottom))] max-h-[85dvh] overflow-y-auto bg-arena rounded-t-3xl p-4 grid grid-cols-4 gap-2 shadow-2xl' onClick={e => e.stopPropagation()}>
+        <span className='col-span-4 mx-auto w-12 h-1.5 rounded-full bg-borde mb-1' />
         {items.map(([ic, t, d, f]) => (
-          <button key={t} onClick={f} className='bg-white border border-borde rounded-2xl p-3 text-left min-h-[76px] active:bg-borde/40'>
-            {/^(ic|pi)-/.test(ic) ? <img src={assetUrl(`ui/${ic}.webp`)} alt='' className='w-11 h-11 object-contain mb-1' /> : <span className='text-3xl leading-[44px]'>{ic}</span>}<b className='block text-[15px] leading-tight'>{t}</b><span className='text-[11.5px] text-tenue leading-tight'>{d}</span>
+          <button key={t} onClick={f} title={d} aria-label={`${t}: ${d}`} className='bg-white border border-borde rounded-2xl p-1.5 pt-2 flex flex-col items-center gap-1 text-center active:bg-borde/40'>
+            {/^(ic|pi)-/.test(ic) ? <img src={assetUrl(`ui/${ic}.webp`)} alt='' className='w-10 h-10 object-contain' /> : <span className='text-3xl'>{ic}</span>}<b className='text-[11.5px] leading-tight'>{t}</b>
           </button>
         ))}
       </div>

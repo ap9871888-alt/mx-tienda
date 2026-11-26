@@ -6,7 +6,7 @@ import { assetUrl } from '../../renderer/assets'
 import { Btn, Modal } from '../components/kit'
 import { sfx, soundOn, setSound, sfxVolume, setSfxVolume } from '../sound'
 import { Avatar, SKINS } from '../Avatar'
-import { musicVolume, setMusicVolume } from '../music'
+import { musicVolume, setMusicVolume, muteAll } from '../music'
 import { usePrefs, setPrefs, getPrefs } from '../settings'
 import type { CompanyProfile, Difficulty, GameState } from '../../engine/types'
 
@@ -99,7 +99,7 @@ export function Portada () {
       <div className={`relative min-h-[100dvh] flex flex-col justify-between px-5 pt-[calc(20px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))] transition-all duration-500 ${leaving ? 'opacity-0' : ''}`}>
         <div className='flex items-center justify-between gap-2 rise-in'>
           <span className='bg-urbano/75 text-white text-xs font-semibold rounded-full px-3 py-1.5 backdrop-blur'>{news}</span>
-          <button aria-label='Sonido' onClick={() => { setSound(!soundOn()); sfx.click(); setModal(null) }} className='w-11 h-11 rounded-full bg-urbano/80 text-white grid place-items-center'><img src={assetUrl('ui/pi-altavoz_sonido.webp')} alt='' className={`w-7 h-7 object-contain ${soundOn() ? '' : 'opacity-40 grayscale'}`} /></button>
+          <button aria-label='Sonido' onClick={() => { muteAll(soundOn(), setSound); sfx.click(); setModal(null) }} className='w-11 h-11 rounded-full bg-urbano/80 text-white grid place-items-center'><img src={assetUrl('ui/pi-altavoz_sonido.webp')} alt='' className={`w-7 h-7 object-contain ${soundOn() ? '' : 'opacity-40 grayscale'}`} /></button>
         </div>
         {/* el logo flota libre en el tercio de arriba para dejar ver la glorieta */}
         <div className={`mx-auto text-center drop-in mt-6 transition-transform duration-500 ${leaving ? '-translate-y-40' : ''}`}>
@@ -330,6 +330,9 @@ export function Ajustes ({ onClose }: { onClose: () => void }) {
   const [vol, setVol] = useState(musicVolume())
   return (
     <Modal title='Ajustes' onClose={onClose}>
+      <button onClick={() => { const m = s > 0 || vol > 0; muteAll(m, setSound); setS(m ? 0 : sfxVolume() || 0.8); if (!m) setSfxVolume(0.8); setVol(musicVolume()) }} className='flex items-center gap-3 bg-white border border-borde rounded-xl px-3 min-h-[48px] font-semibold'>
+        <img src={assetUrl('ui/pi-altavoz_sonido.webp')} alt='' className={`w-8 h-8 object-contain ${s > 0 || vol > 0 ? '' : 'grayscale opacity-40'}`} />{s > 0 || vol > 0 ? 'Silenciar todo' : 'Activar sonido'}
+      </button>
       <label className='flex items-center gap-3 bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
         <span className='font-semibold'>Efectos</span>
         <input type='range' min={0} max={1} step={0.05} value={s} onChange={e => { setSfxVolume(+e.target.value); setS(+e.target.value); sfx.click() }} className='flex-1' aria-label='Volumen de los efectos' />
