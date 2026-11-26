@@ -8,6 +8,9 @@ import { assetUrl } from '../renderer/assets'
 import { cityOf } from '../data/cities'
 import LOTS from '../data/cityLots.json'
 import { ColonyTraffic } from './ColonyTraffic'
+import { ModularTraffic } from './ModularTraffic'
+import { KITS, W as MW, H as MH, NBX, NBY, blockRect, colonyCenters, drawGround, type CityKit } from './modular'
+import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
 
@@ -55,8 +58,9 @@ export function CityView () {
   // cuadrícula de zonas: 2 columnas, como un teléfono en vertical
   const cols = 2; const rows = Math.ceil(city.colonies.length / cols) + (city.colonies.length % 2 ? 0 : 0)
   const tiles = Array.from({ length: cols * rows }, (_, k) => city.colonies[k] ?? null)
-  const full = MAPS[`${city.id}-full`]
-  const W = full ? full.w! : cols * TW; const H = full ? full.h! : rows * TH
+  const kit = KITS[city.id]
+  const full = kit ? undefined : MAPS[`${city.id}-full`]
+  const W = kit ? MW : full ? full.w! : cols * TW; const H = kit ? MH : full ? full.h! : rows * TH
   // edificios cívicos: se reparten en las primeras zonas
   const office = game.office ?? 0
   const civicBy: Civic[][] = tiles.map(() => [])
@@ -71,6 +75,7 @@ export function CityView () {
 
   // mapa completo de una sola pieza: los lotes se reparten entre las colonias por cercanía
   const fullItems = full ? fullLayout(game, city.colonies, full, civicBy.flat(), tod) : null
+  const modItems = kit ? modularLayout(game, city.colonies, kit, civicBy.flat(), tod) : null
   // ---------- arrastrar y hacer zoom ----------
   const box = useRef<HTMLDivElement>(null); const world = useRef<HTMLDivElement>(null)
   const cam = useRef({ x: 0, y: 0, s: 1, init: '' })
@@ -86,12 +91,13 @@ export function CityView () {
     const el = box.current; if (!el) return
     if (cam.current.init !== city.id) {
       const vw = el.clientWidth
-      cam.current = { s: full ? vw / (W * 0.62) : vw / (TW * 0.95), x: 0, y: 0, init: city.id }
+      cam.current = { s: kit ? vw / (W * 0.55) : full ? vw / (W * 0.62) : vw / (TW * 0.95), x: 0, y: 0, init: city.id }
       // centra en tu primera tienda de esta ciudad, si hay
       const st = game.stores.find(s => s.cityId === city.id)
       const k = st ? city.colonies.findIndex(c => c.id === st.colonyId) : 0
       const c = cam.current
-      const fl = full && fullItems ? fullItems.labels.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
+      const lb = modItems?.labels ?? fullItems?.labels
+      const fl = lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
       if (fl) { c.x = -(fl.x / 100 * W) * c.s + vw / 2; c.y = -(fl.y / 100 * H) * c.s + el.clientHeight / 2 }
       else { c.x = -((k % cols) * TW + TW / 2) * c.s + vw / 2; c.y = -(Math.floor(k / cols) * TH + TH * 0.4) * c.s + el.clientHeight / 2 }
       clamp(); apply(); force(n => n + 1)
@@ -136,6 +142,14 @@ export function CityView () {
   return (
     <div ref={box} className='relative flex-1 overflow-hidden bg-[#8FA3B5] touch-none select-none' style={{ overscrollBehavior: 'none' }}>
       <div ref={world} className='absolute left-0 top-0 origin-top-left will-change-transform' style={{ width: W, height: H }}>
+        {kit && modItems && (
+          <div className='absolute inset-0 isolate'>
+            <ModularGround kit={kit} night={night} />
+            <ModularTraffic night={night} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
+            {modItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/80 text-white text-[15px] font-bold rounded-full px-3 py-0.5 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
+            {modItems.items.map((l, j) => <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} />)}
+          </div>
+        )}
         {full && fullItems && (
           <div className='absolute inset-0 isolate'>
             <img src={assetUrl(`city/${city.id}-full.webp`)} alt='' className='absolute inset-0 w-full h-full' draggable={false} style={{ filter: night ? 'brightness(.55) saturate(.8) hue-rotate(10deg)' : undefined }} />
@@ -144,7 +158,7 @@ export function CityView () {
             {fullItems.items.map((l, j) => <LotButton key={j} l={l} width='12.5%' big='14%' myColor={myColor} myIcon={myIcon} dy={2.2} ps={1.9} />)}
           </div>
         )}
-        {!full && tiles.map((col, k) => {
+        {!kit && !full && tiles.map((col, k) => {
           const kind = city.mapKind ?? (col ? kindOf(col.id, E.effectiveWealth(game, city.id, col.id)) : 'media')
           const map = MAPS[kind] ?? MAPS.media
           const items = lotsFor(game, col, kind, civicBy[k] ?? [], tod)
@@ -177,7 +191,7 @@ export function CityView () {
 
 function LotButton ({ l, width, big, myColor, myIcon, dy, ps }: { l: Lot; width: string; big: string; myColor: string; myIcon: string; dy: number; ps: number }) {
   // con medidas del lote: el edificio ocupa el rombo y su base cae en la punta inferior
-  const w = l.w ? `${Math.min(l.w * 1.08, l.big ? 16 : 14)}%` : (l.big ? big : width)
+  const w = l.w ? `${Math.min(l.w * 1.08, 16)}%` : (l.big ? big : width)
   const top = l.bottom != null ? `${l.bottom + 0.4}%` : `${l.y + dy}%`
   const badge = l.mine || l.icon || l.color
   return (
@@ -240,6 +254,14 @@ function fullLayout (g: GameState, colonies: Colony[], map: MapData, civic: Civi
     // el contenido va al lote del mapa completo (sus coordenadas mandan)
     groups[i].forEach((l, j) => items.push({ ...(inter[j] ?? deco[j % Math.max(1, deco.length)] ?? {}), x: l.x, y: l.y, w: l.w, bottom: l.bottom }))
   })
+  // Mérida: kit propio de casonas yucatecas y sus 3 monumentos en los lotes más grandes
+  if (colonies.some(c => c.id === 'montejo')) {
+    const casas = [1, 2, 3, 4, 5, 6].map(n => `city/mer/casa-${n}.webp`)
+    const free = items.filter(x => !x.go && x.ed?.startsWith('city/ed-'))
+    free.forEach((x, k) => { x.ed = casas[k % casas.length]; x.w = (x.w ?? 8) * 0.95 })
+    const mons = ['mon-catedral', 'mon-patria', 'mon-mercado']
+    ;[...free].sort((a, b) => (b.w ?? 0) - (a.w ?? 0)).slice(0, 3).forEach((x, k) => { x.ed = `city/mer/${mons[k]}.webp`; x.w = (x.w ?? 8) * 1.25 })
+  }
   return { items: items.sort((a, b) => a.y - b.y), labels }
 }
 
@@ -271,4 +293,64 @@ function AdvisorButton () {
       )}
     </>
   )
+}
+
+// piso del mapa modular: se dibuja una vez (y otra cuando terminan de cargar las texturas)
+function ModularGround ({ kit, night }: { kit: CityKit; night: boolean }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const cv = ref.current!; cv.width = MW; cv.height = MH
+    const ctx = cv.getContext('2d')!
+    const paths = ['kit/polanco/tile_calle_recta.webp', 'kit/polanco/tile_cruce_cebra.webp', 'kit/polanco/tile_avenida_masaryk.webp', 'kit/polanco/tile_glorieta_lujo.webp', 'sprites/piso-banqueta.webp', 'sprites/piso-pasto.webp']
+    let tries = 0; let t: ReturnType<typeof setTimeout>
+    const draw = () => {
+      drawGround(ctx, kit, p => sprite(p), night)
+      if (paths.some(p => !sprite(p)) && tries++ < 40) t = setTimeout(draw, 150)
+    }
+    draw()
+    return () => clearTimeout(t)
+  }, [kit, night])
+  return <canvas ref={ref} className='absolute inset-0 w-full h-full' aria-hidden />
+}
+
+// reparte cuadras: monumentos y edificios clave fijos; en cada colonia tus tiendas, un local libre, rivales y relleno
+function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: Civic[], tod: string) {
+  const civicById: Record<string, Civic | undefined> = {
+    banco: civic.find(c => c.icon === 'ic-banco'), bolsa: civic.find(c => c.icon === 'ic-bolsa'), inversion: civic.find(c => c.icon === 'ic-trato'),
+    estilo: civic.find(c => c.icon === 'ic-premium'), logistica: civic.find(c => c.icon === 'ic-logistica'), corporativo: civic.find(c => c.icon === 'ic-ventas'),
+    aeropuerto: civic.find(c => c.icon === 'ic-viajar'), central: civic.find(c => c.label === 'Viajar en autobús')
+  }
+  const kitEd: Record<string, string> = { bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
+  // tamaño de cada sprite respecto a la cuadra: árboles y puestos más chicos que los edificios
+  const scale = (ed?: string) => !ed ? 0.9 : /jacaranda/.test(ed) ? 0.5 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.62 : /tienda-|sprites\//.test(ed) ? 0.78 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.7 : /monumento/.test(ed) ? 1 : 0.86
+  const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => ({ ...r, w: r.w * scale(ed) })
+  const items: Lot[] = []
+  const byColony: Record<string, { x: number; y: number; w: number; bottom: number }[]> = {}
+  for (let bx = 0; bx < NBX; bx++) for (let by = 0; by < NBY; by++) {
+    const r = blockRect(bx, by); const u = kit.blocks(bx, by)
+    if (u.kind === 'mon') items.push({ ...sized(r, u.sprite), ed: u.sprite, label: u.sprite.split('/').pop()!.replace('.webp', '').replace(/_/g, ' ') })
+    else if (u.kind === 'civic') { const c = civicById[u.id]; if (c) { const ed = kitEd[u.id] ?? c.ed; items.push({ ...c, ...sized(r, ed), ed }) } }
+    else if (u.kind === 'park') items.push({ ...sized(r, 'deco_jacaranda'), ed: 'kit/cdmx/deco_jacaranda.webp' })
+    else (byColony[u.colony] ??= []).push(r)
+  }
+  const labels: { id: string; name: string; x: number; y: number; mine: number }[] = []
+  const centers = colonyCenters(kit, colonies)
+  for (const col of colonies) {
+    const lots = byColony[col.id] ?? []
+    const c = centers.find(x => x.id === col.id)
+    const mine = g.stores.filter(s => s.colonyId === col.id).length
+    if (c) labels.push({ ...c, mine })
+    const go = lotsFor(g, col, 'media', [], tod).filter(x => x.go)
+    const inter = [...go.filter(x => x.mine), ...go.filter(x => x.pin === 'renta').slice(0, 1), ...go.filter(x => !x.mine && x.pin !== 'renta')]
+    const decor = kit.decor[col.id] ?? []
+    lots.forEach((r, j) => {
+      const it = inter[j]
+      if (it) {
+        // tus tiendas y las rivales usan su fachada; las rivales con un edificio de la colonia
+        const ed = it.mine ? it.ed : it.pin === 'renta' ? undefined : decor[j % Math.max(1, decor.length)]
+        items.push({ ...it, ...sized(r, ed), ed })
+      } else { const ed = decor[(j * 7 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...sized(r, ed), ed }) }
+    })
+  }
+  return { items: items.sort((a, b) => (a.bottom ?? a.y) - (b.bottom ?? b.y)), labels }
 }
