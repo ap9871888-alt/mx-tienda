@@ -4,7 +4,7 @@ import type { Colony } from '../data/cities'
 
 export const TW = 96; export const TH = 48 // tamaño de un mosaico
 export const P = 4 // cada cuadra son 3×3 mosaicos + 1 de calle
-export const NBX = 7; export const NBY = 8 // cuadras en cada eje
+export const NBX = 7; export const NBY = 10 // cuadras en cada eje
 export const NX = NBX * P + 1; export const NY = NBY * P + 1
 export const TOP = 380 // margen para lo alto de los edificios de arriba
 export const M = 120 // margen alrededor para los cerros del borde
@@ -27,7 +27,7 @@ export interface CityKit {
   decor: Record<string, string[]> // sprites de relleno por colonia
 }
 
-const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`; const X = (s: string) => `kit/px/${s}.webp`
+const X = (s: string) => `kit/px/${s}.webp`; const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
 // manzanas: (bx, by). Arriba = norte (Gustavo A. Madero), derecha = oriente (Iztapalapa, aeropuerto),
 // izquierda = poniente (Polanco, Santa Fe), abajo = sur (Coyoacán)
 const MON: Record<string, string> = {
@@ -41,13 +41,33 @@ const MON: Record<string, string> = {
   '3,3': K('monumento_angel'), // glorieta de Reforma e Insurgentes
   '3,5': K('monumento_estela_luz'), // entrada a Chapultepec
   '2,6': K('monumento_chapultepec'), // el Castillo
-  '1,4': KP('polanco_museo_moderno'), // museos de Polanco
-  '0,3': KP('polanco_estanque_lincoln') // parque Lincoln
+  '0,3': KP('polanco_estanque_lincoln'), // parque Lincoln
+  '0,0': X('10_monumento_raza'), // al norte
+  '0,2': X('01_museo_soumaya'), // Nuevo Polanco
+  '1,4': KP('polanco_museo_moderno'),
+  '1,5': X('02_museo_antropologia'), // en el bosque, junto a Reforma
+  '2,5': X('17_auditorio_nacional'),
+  '2,4': X('11_torre_mayor'), // rascacielos de Reforma
+  '3,4': X('19_torre_reforma'),
+  '2,2': X('12_senado_moderno'),
+  '3,1': X('13_hemiciclo_juarez'), // Alameda
+  '4,2': X('15_mercado_artesanias'),
+  '5,1': X('14_arco_garibaldi'),
+  '5,2': X('20_arena_lucha_libre'),
+  '4,4': X('18_hospital_grande'),
+  '5,6': X('16_plaza_toros'), // Nápoles
+  '4,7': X('03_casa_azul_frida'), // Coyoacán
+  '2,8': X('05_biblioteca_central_cu'), // Ciudad Universitaria
+  '3,8': X('04_rectoria_cu'),
+  '4,9': X('06_estadio_azteca'),
+  '6,8': X('09_chinampa_cultivos'), // Xochimilco
+  '6,9': X('07_embarcadero_xochimilco'),
+  '5,9': X('09_chinampa_cultivos')
 }
 const CIVIC: Record<string, string> = {
   '4,1': 'banco', '3,2': 'bolsa', '2,3': 'inversion', '1,3': 'estilo', '6,3': 'logistica', '0,6': 'corporativo', '6,2': 'aeropuerto', '2,0': 'central'
 }
-const PARKS = new Set(['1,6', '1,7', '2,7', '1,5']) // bosque de Chapultepec
+const PARKS = new Set(['1,6', '1,7', '2,7', '2,9']) // bosque de Chapultepec
 // colonias por manzana (filas = by, columnas = bx)
 const GRID = [
   'CCCCCCC',
@@ -57,7 +77,9 @@ const GRID = [
   'PPRRNDI',
   'SPRRDDI',
   'SSRRDYY',
-  'SSRRDYY'
+  'SSRRDYY',
+  'SSYYYYY',
+  'SSYYYYY'
 ]
 const CODE: Record<string, string> = { C: 'centro', P: 'polanco', S: 'santafe', I: 'iztapalapa', R: 'roma', N: 'narvarte', D: 'delvalle', Y: 'coyoacan' }
 const colonyOf = (bx: number, by: number) => CODE[GRID[by]?.[bx] ?? 'C']
@@ -151,7 +173,7 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
   for (let bx = 0; bx < NBX; bx++) for (let by = 0; by < NBY; by++) {
     const x0 = bx * P + 1; const y0 = by * P + 1
     const u = kit.blocks(bx, by)
-    const park = u.kind === 'park' || (u.kind === 'mon' && /chapultepec|estanque|zocalo/.test(u.sprite))
+    const park = u.kind === 'park' || (u.kind === 'mon' && /chapultepec|estanque|zocalo|chinampa|embarcadero|antropologia/.test(u.sprite))
     rect(x0 - 0.02, y0 - 0.02, x0 + 3.02, y0 + 3.02, '#B9B2A4') // guarnición
     rect(x0, y0, x0 + 3, y0 + 3, '#DCD5C6') // banqueta
     rect(x0 + 0.28, y0 + 0.28, x0 + 2.72, y0 + 2.72, park ? '#7DB35A' : u.kind === 'mon' ? '#E6DCC6' : '#C9C2B2', park ? '#5E9440' : '#B3AB9A')

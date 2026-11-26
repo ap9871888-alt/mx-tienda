@@ -2,11 +2,18 @@
 // y la gente camina por las banquetas. Cada coche usa la vista correcta según su dirección.
 import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
-import { W, H, P, NX, NY, TW, toScreen } from './modular'
+import { W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY } from './modular'
 
-const SKINS = ['px:taxi_rosa', 'vocho', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
+const SKINS = ['px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
 // láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
-const PX_VIEW: Record<'SE' | 'SW' | 'NE' | 'NW', string> = { SE: 'se', SW: 'sw', NE: 'nw', NW: 'ne' }
+type Face = 'SE' | 'SW' | 'NE' | 'NW'
+const OLD: Record<Face, string> = { SE: 'se', SW: 'sw', NE: 'nw', NW: 'ne' }
+const PX_VIEW: Record<string, Record<Face, string>> = {
+  taxi_rosa: OLD, patrulla: OLD, camion_reparto: OLD,
+  metrobus_rojo: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' },
+  moto_repartidor: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' },
+  vocho_verde: { SE: 'sw', SW: 'se', NE: 'ne', NW: 'nw' }
+}
 // semáforos: cada 7 s cambia qué eje tiene verde
 const CYCLE = 7
 export const greenAxis = (t: number): 'x' | 'y' => Math.floor(t / CYCLE) % 2 ? 'y' : 'x'
@@ -30,7 +37,9 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
       return { axis, line, pos: rnd() * max, dir: rnd() < 0.5 ? 1 : -1, v: 1.6 + rnd() * 1.2, skin: SKINS[Math.floor(rnd() * SKINS.length)] }
     }
     const cars: Car[] = Array.from({ length: Math.round(45 * density) }, car)
-    for (let i = 0; i < riders; i++) { const c = car(); c.skin = 'moto'; c.v = 3; cars.push(c) }
+    for (let i = 0; i < riders; i++) { const c = car(); c.skin = 'px:moto_repartidor'; c.v = 3; cars.push(c) }
+    // Metrobús: corre sobre Insurgentes en los dos sentidos
+    for (let i = 0; i < 4; i++) cars.push({ axis: 'x', line: INSURGENTES_TY, pos: i * NX / 4, dir: i % 2 ? 1 : -1, v: 1.3, skin: 'px:metrobus_rojo' })
     const walkers: Walker[] = Array.from({ length: Math.round(40 * density) }, () => {
       const axis = rnd() < 0.5 ? 'x' : 'y'; const line = (axis === 'x' ? xs : ys)[Math.floor(rnd() * (axis === 'x' ? xs : ys).length)]
       return { axis, line, pos: rnd() * (axis === 'x' ? NX : NY), dir: rnd() < 0.5 ? 1 : -1, v: 0.3 + rnd() * 0.25, who: PEOPLE[Math.floor(rnd() * PEOPLE.length)], side: rnd() < 0.5 ? -0.13 : 1.13 }
@@ -87,9 +96,9 @@ function drawPole (ctx: CanvasRenderingContext2D, name: string, x: number, y: nu
 function drawCar (ctx: CanvasRenderingContext2D, c: Car, x: number, y: number, night: boolean) {
   if (c.skin.startsWith('px:')) {
     const face = c.axis === 'x' ? (c.dir > 0 ? 'SE' : 'NW') : (c.dir > 0 ? 'SW' : 'NE')
-    const im = sprite(`kit/px/${c.skin.slice(3)}_${PX_VIEW[face]}.webp`)
+    const name = c.skin.slice(3); const im = sprite(`kit/px/${name}_${PX_VIEW[name][face]}.webp`)
     if (!im) return
-    const w = (c.skin.includes('camion') ? 0.52 : 0.44) * TW; const h = w * im.height / im.width
+    const w = (name === 'metrobus_rojo' ? 0.95 : name === 'moto_repartidor' ? 0.26 : name === 'camion_reparto' ? 0.52 : 0.44) * TW; const h = w * im.height / im.width
     ctx.drawImage(im, x - w / 2, y - h * 0.75, w, h)
     if (night) { ctx.fillStyle = 'rgba(255,240,170,.5)'; ctx.beginPath(); ctx.arc(x, y - h * 0.2, 4, 0, 7); ctx.fill() }
     return

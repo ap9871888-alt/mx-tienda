@@ -103,6 +103,7 @@ export function CityView () {
       const st = game.stores.find(s => s.cityId === city.id)
       const k = st ? city.colonies.findIndex(c => c.id === st.colonyId) : 0
       const c = cam.current
+      clamp() // fija primero la escala permitida para centrar bien
       const lb = modItems?.labels ?? fullItems?.labels
       const fl = kit && !st ? blockRect(3, 3) : lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
       if (fl) { c.x = -(fl.x / 100 * W) * c.s + vw / 2; c.y = -(fl.y / 100 * H) * c.s + el.clientHeight / 2 }
@@ -329,7 +330,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
   }
   const kitEd: Record<string, string> = { central: 'kit/px/terminal_tapo_cupula.webp', bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
   // tamaño de cada sprite respecto a la cuadra: árboles y puestos más chicos que los edificios
-  const scale = (ed?: string) => !ed ? 0.7 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento/.test(ed) ? 0.86 : 0.7
+  const scale = (ed?: string) => !ed ? 0.7 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento|estadio|rectoria|antropologia|auditorio|chinampa|embarcadero|plaza_toros|soumaya/.test(ed) ? 0.88 : 0.7
   // el edificio se encoge y su base queda dentro de la plaza, con banqueta alrededor
   const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => { const k = scale(ed) * 0.95; return { ...r, w: r.w * scale(ed), bottom: r.y + (r.bottom - r.y) * Math.min(1, k + 0.05) } }
   const items: Lot[] = []

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Play, Save, Trophy, Settings, Volume2, VolumeX } from 'lucide-react'
 import * as E from '../../engine'
 import { useApp, fmt } from '../../state/store'
@@ -22,30 +22,104 @@ export function Logo ({ small }: { small?: boolean }) {
   )
 }
 
+// momento del día según la hora del teléfono: cambia el tinte del fondo
+function dayTint () {
+  const h = new Date().getHours()
+  if (h >= 20 || h < 6) return { c: 'rgba(20,32,78,.55)', mode: 'multiply' as const, night: true, label: 'Noche en la CDMX' }
+  if (h >= 17) return { c: 'rgba(255,170,95,.32)', mode: 'multiply' as const, night: false, label: 'Atardecer en Reforma' }
+  if (h < 9) return { c: 'rgba(255,220,180,.18)', mode: 'soft-light' as const, night: false, label: 'Amanece en la ciudad' }
+  return { c: 'transparent', mode: 'normal' as const, night: false, label: 'Día soleado en la CDMX' }
+}
+
+// pétalos de jacaranda y sombras de nubes sobre la portada
+function Petals ({ night }: { night: boolean }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const cv = ref.current!; const ctx = cv.getContext('2d')!
+    let w = 0; let h = 0
+    const fit = () => { w = cv.width = cv.clientWidth; h = cv.height = cv.clientHeight }
+    fit(); window.addEventListener('resize', fit)
+    const ps = Array.from({ length: 34 }, () => ({ x: Math.random() * 600, y: Math.random() * 900, s: 3 + Math.random() * 4, v: 18 + Math.random() * 22, r: Math.random() * 6, vr: (Math.random() - 0.5) * 2 }))
+    const clouds = Array.from({ length: 3 }, (_, i) => ({ x: Math.random() * 600, y: 120 + i * 260, r: 140 + Math.random() * 80, v: 8 + Math.random() * 6 }))
+    let raf = 0; let last = performance.now()
+    const frame = (t: number) => {
+      const dt = Math.min(0.05, (t - last) / 1000); last = t
+      ctx.clearRect(0, 0, w, h)
+      for (const c of clouds) {
+        c.x += c.v * dt; if (c.x - c.r > w) c.x = -c.r
+        ctx.fillStyle = night ? 'rgba(0,0,0,.05)' : 'rgba(20,30,50,.08)'; ctx.beginPath(); ctx.ellipse(c.x, c.y, c.r, c.r * 0.45, 0, 0, 7); ctx.fill()
+      }
+      if (!night) for (const p of ps) {
+        p.y += p.v * dt; p.x += p.v * 0.6 * dt + Math.sin(t / 700 + p.r) * 0.3; p.r += p.vr * dt
+        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * w - 100 }
+        if (p.x > w + 10) p.x = -10
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = 'rgba(155,95,210,.85)'
+        ctx.beginPath(); ctx.ellipse(0, 0, p.s, p.s * 0.55, 0, 0, 7); ctx.fill(); ctx.restore()
+      }
+      if (night) for (let i = 0; i < 14; i++) { // luces de ventanas que titilan
+        const x = (i * 97) % w; const y = h * 0.35 + ((i * 53) % (h * 0.4)); const a = 0.35 + 0.3 * Math.sin(t / 900 + i)
+        const g = ctx.createRadialGradient(x, y, 0, x, y, 26); g.addColorStop(0, `rgba(255,214,120,${a})`); g.addColorStop(1, 'rgba(255,214,120,0)')
+        ctx.fillStyle = g; ctx.fillRect(x - 26, y - 26, 52, 52)
+      }
+      raf = requestAnimationFrame(frame)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', fit) }
+  }, [night])
+  return <canvas ref={ref} className='absolute inset-0 w-full h-full pointer-events-none' aria-hidden />
+}
+
 export function Portada () {
   const game = useApp(s => s.game)
   const [step, setStep] = useState<'menu' | 'nueva'>('menu')
   const [modal, setModal] = useState<'partidas' | 'logros' | 'ajustes' | null>(null)
+  const [leaving, setLeaving] = useState(false)
+  const [tilt, setTilt] = useState({ x: 0, y: 0 })
+  const tint = useMemo(dayTint, [])
+  // parallax: el fondo se mueve un poco con el dedo o al inclinar el teléfono
+  useEffect(() => {
+    const on = (e: DeviceOrientationEvent) => setTilt({ x: Math.max(-1, Math.min(1, (e.gamma ?? 0) / 30)), y: Math.max(-1, Math.min(1, ((e.beta ?? 45) - 45) / 30)) })
+    window.addEventListener('deviceorientation', on)
+    return () => window.removeEventListener('deviceorientation', on)
+  }, [])
   if (step === 'nueva') return <NuevaEmpresa onBack={() => setStep('menu')} />
   const week = game ? Math.floor(E.dayOf(game.minute) / 7) + 1 : 0
+  const play = () => { sfx.good(); setLeaving(true); setTimeout(() => useApp.getState().setTitle(false), 550) }
+  const news = game ? `${tint.label} · ${game.stores.length} tienda${game.stores.length === 1 ? '' : 's'} abiertas` : tint.label
   return (
-    <div className='relative min-h-[100dvh] max-w-[620px] mx-auto overflow-hidden bg-[#E9DFC9]'>
-      <img src={assetUrl('ui/portada.webp')} alt='' className='absolute inset-0 w-full h-full object-cover' draggable={false} />
-      <div className='relative min-h-[100dvh] flex flex-col justify-between px-5 pt-[calc(28px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))]'>
-        <div className='flex justify-end gap-2'>
+    <div className={`relative min-h-[100dvh] max-w-[620px] mx-auto overflow-hidden bg-[#E9DFC9] ${leaving ? 'leave' : ''}`}
+      onPointerMove={e => { const r = e.currentTarget.getBoundingClientRect(); setTilt({ x: (e.clientX - r.left) / r.width * 2 - 1, y: (e.clientY - r.top) / r.height * 2 - 1 }) }}>
+      <div className='absolute -inset-6 transition-transform duration-300' style={{ transform: `translate(${-tilt.x * 10}px, ${-tilt.y * 10}px)` }}>
+        <img src={assetUrl('ui/portada.webp')} alt='' className='kenburns absolute inset-0 w-full h-full object-cover' draggable={false} />
+        <div className='absolute inset-0' style={{ background: tint.c, mixBlendMode: tint.mode }} />
+      </div>
+      <Petals night={tint.night} />
+      <div className={`relative min-h-[100dvh] flex flex-col justify-between px-5 pt-[calc(20px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))] transition-all duration-500 ${leaving ? 'opacity-0' : ''}`}>
+        <div className='flex items-center justify-between gap-2 rise-in'>
+          <span className='bg-urbano/75 text-white text-xs font-semibold rounded-full px-3 py-1.5 backdrop-blur'>{news}</span>
           <button aria-label='Sonido' onClick={() => { setSound(!soundOn()); sfx.click(); setModal(null) }} className='w-11 h-11 rounded-full bg-urbano/80 text-white grid place-items-center'>{soundOn() ? <Volume2 size={20} /> : <VolumeX size={20} />}</button>
         </div>
-        <div className='mx-auto w-full max-w-[340px] -mt-10'><Logo /></div>
-        <div className='bg-white/70 backdrop-blur-md rounded-3xl p-4 flex flex-col gap-3 shadow-card'>
+        {/* el logo flota libre en el tercio de arriba para dejar ver la glorieta */}
+        <div className={`mx-auto text-center drop-in mt-6 transition-transform duration-500 ${leaving ? '-translate-y-40' : ''}`}>
+          <div className='floaty'>
+            <div className='flex justify-center gap-1 mb-1'>{['#D63B2F', '#F2B705', '#D63B2F', '#F2B705', '#D63B2F'].map((c, i) => <span key={i} className='w-7 h-3.5 rounded-b-full shadow' style={{ background: c }} />)}</div>
+            <h1 className='font-display uppercase leading-[.9] text-[54px] text-white' style={{ WebkitTextStroke: '2px #2B2D33', textShadow: '0 4px 0 #2B2D33, 0 8px 18px rgba(0,0,0,.35)' }}>
+              Tienda <span className='text-rojo'>MX</span> <span className='relative inline-block overflow-hidden text-oferta shine'>Inc.</span>
+            </h1>
+            <span className='inline-block mt-2 text-[11px] font-bold tracking-wider uppercase bg-urbano text-white rounded-full px-3 py-0.5 shadow'>Imperio retail en México</span>
+          </div>
+        </div>
+        <div className='flex-1' />
+        <div className={`flex flex-col gap-3 transition-transform duration-500 ${leaving ? 'translate-y-[120%]' : ''}`}>
           {game && (
-            <button onClick={() => { sfx.good(); useApp.getState().setTitle(false) }} className='bg-rojo text-white rounded-2xl px-4 py-3 flex items-center gap-3 text-left shadow'>
-              <span className='flex-1'><b className='block text-xl'>Continuar partida</b><span className='text-xs opacity-85 num'>{game.company} · Semana {week} · {fmt(game.cash)} MXN</span></span><Play size={26} fill='white' />
+            <button onClick={play} className='press rise-in bg-rojo text-white rounded-2xl px-4 py-3 flex items-center gap-3 text-left' style={{ animationDelay: '.7s', ['--lip' as string]: '#8E2219' }}>
+              <span className='flex-1'><b className='block text-xl'>Continuar partida</b><span className='text-xs opacity-85 num'>{game.company} · Semana {week} · {fmt(game.cash)} MXN</span></span><Play size={26} fill='white' className='nudge' />
             </button>
           )}
-          <button onClick={() => { sfx.click(); setStep('nueva') }} className={`${game ? 'bg-urbano' : 'bg-rojo'} text-white rounded-2xl px-4 py-3.5 text-xl font-bold shadow`}>Nueva empresa</button>
-          <div className='grid grid-cols-3 gap-2 bg-white/80 rounded-2xl p-2'>
-            {([['partidas', Save, 'Partidas'], ['logros', Trophy, 'Logros'], ['ajustes', Settings, 'Ajustes']] as const).map(([k, Icon, l]) => (
-              <button key={k} onClick={() => { sfx.click(); setModal(k) }} className='flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold text-urbano'><Icon size={24} />{l}</button>
+          <button onClick={() => { sfx.click(); setStep('nueva') }} className={`press rise-in ${game ? 'bg-urbano' : 'bg-rojo'} text-white rounded-2xl px-4 py-3.5 text-xl font-bold`} style={{ animationDelay: '.78s', ['--lip' as string]: game ? '#111' : '#8E2219' }}>Nueva empresa</button>
+          <div className='grid grid-cols-3 gap-2'>
+            {([['partidas', Save, 'Partidas'], ['logros', Trophy, 'Logros'], ['ajustes', Settings, 'Ajustes']] as const).map(([k, Icon, l], i) => (
+              <button key={k} onClick={() => { sfx.click(); setModal(k) }} className='press rise-in bg-white/90 rounded-2xl flex flex-col items-center gap-0.5 py-2 text-xs font-semibold text-urbano' style={{ animationDelay: `${0.86 + i * 0.07}s` }}><Icon size={24} />{l}</button>
             ))}
           </div>
         </div>
