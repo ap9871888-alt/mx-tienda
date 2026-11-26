@@ -9,7 +9,7 @@ import LOTS from '../data/cityLots.json'
 import { ColonyTraffic } from './ColonyTraffic'
 import { ModularTraffic } from './ModularTraffic'
 import { usePrefs } from './settings'
-import { RES, CURVE_SPRITES, WATER, KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
+import { RES, CURVE_SPRITES, WATER, AREAS, KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
 import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
@@ -384,6 +384,8 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
       }
     })
   }
+  // áreas grandes (Zócalo, Chapultepec, Alameda, CU, Estadio Azteca, Xochimilco…)
+  for (const a of AREAS) for (const [ed, dx, dy, w] of a.items) items.push({ ...at(a.bx * 4 + 1 + dx, a.by * 4 + 1 + dy, w), ed })
   for (const s of scenery()) items.push({ ...s.r, ed: s.ed })
   return { items: items.sort((a, b) => (a.bottom ?? a.y) - (b.bottom ?? b.y)), labels }
 }

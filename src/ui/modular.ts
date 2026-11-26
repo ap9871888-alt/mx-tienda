@@ -23,7 +23,7 @@ export const REFORMA = INSURGENTES_TY; export const INSURGENTES = REFORMA_TX // 
 export const isRoad = (tx: number, ty: number) => tx % P === 0 || ty % P === 0
 export const isAvenue = (tx: number, ty: number) => tx === REFORMA_TX || ty === INSURGENTES_TY
 
-export type BlockUse = { kind: 'mon'; sprite: string } | { kind: 'civic'; id: string } | { kind: 'park' } | { kind: 'lot'; colony: string } | { kind: 'curve'; sprite: string; colony: string }
+export type BlockUse = { kind: 'mon'; sprite: string } | { kind: 'civic'; id: string } | { kind: 'park' } | { kind: 'lot'; colony: string } | { kind: 'curve'; sprite: string; colony: string } | { kind: 'area'; id: string }
 export interface CityKit {
   id: string
   blocks: (bx: number, by: number) => BlockUse
@@ -37,28 +37,46 @@ const X = (s: string) => `kit/px/${s}.webp`; const K = (s: string) => `kit/cdmx/
 // a la Alameda (arriba-derecha); Insurgentes la cruza en ty=24, en la glorieta del Ángel.
 // La Basílica queda lejos al norte, el aeropuerto al oriente y CU, el Azteca y Xochimilco al sur.
 const MON: Record<string, string> = {
-  '3,0': K('monumento_basilica'), '1,1': X('10_monumento_raza'), // norte: La Villa y La Raza
-  '4,2': X('14_arco_garibaldi'),
-  '4,3': K('monumento_bellas_artes'), '3,2': X('13_hemiciclo_juarez'),
-  '5,3': K('monumento_torre_latino'), '5,2': K('monumento_catedral'), '6,2': K('monumento_zocalo'), '6,3': K('monumento_palacio_nacional'),
-  '2,4': K('monumento_revolucion'), '3,4': X('12_senado_moderno'), '5,4': X('15_mercado_artesanias'), '5,5': X('20_arena_lucha_libre'),
-  '4,6': K('monumento_angel'), '3,6': X('19_torre_reforma'), '3,7': X('11_torre_mayor'), '4,8': K('monumento_estela_luz'),
-  '3,8': K('monumento_chapultepec'), '2,7': X('02_museo_antropologia'), '1,7': X('17_auditorio_nacional'),
-  '0,5': X('01_museo_soumaya'), '1,6': KP('polanco_estanque_lincoln'),
-  '6,6': X('18_hospital_grande'), '6,8': X('16_plaza_toros'),
-  '8,9': X('03_casa_azul_frida'), '7,11': X('05_biblioteca_central_cu'), '8,11': X('04_rectoria_cu'),
-  '10,10': X('06_estadio_azteca'), '10,11': X('07_embarcadero_xochimilco'), '9,12': X('09_chinampa_cultivos'), '10,13': X('09_chinampa_cultivos')
+  // norte
+  '4,0': K('monumento_basilica'), '2,1': X('10_monumento_raza'),
+  // Centro Histórico (al oriente de la Alameda; el Zócalo es un área grande aparte)
+  '5,1': X('14_arco_garibaldi'), '6,1': K('monumento_catedral'), '8,2': K('monumento_palacio_nacional'),
+  '5,3': K('monumento_torre_latino'), '4,3': K('monumento_bellas_artes'), '3,5': X('13_hemiciclo_juarez'),
+  '5,5': X('15_mercado_artesanias'), '6,6': X('20_arena_lucha_libre'),
+  // Reforma, de la Alameda a Chapultepec
+  '2,5': K('monumento_revolucion'), '4,5': X('12_senado_moderno'), '4,6': K('monumento_angel'),
+  '3,7': X('19_torre_reforma'), '3,8': X('11_torre_mayor'), '4,8': K('monumento_estela_luz'),
+  // Polanco y museos junto al bosque
+  '2,8': X('02_museo_antropologia'), '1,8': X('17_auditorio_nacional'), '0,6': X('01_museo_soumaya'), '1,6': KP('polanco_estanque_lincoln'),
+  // sur
+  '7,8': X('18_hospital_grande'), '6,11': X('16_plaza_toros'), '8,12': X('03_casa_azul_frida')
 }
 const CIVIC: Record<string, string> = {
-  '4,5': 'banco', '3,5': 'bolsa', '1,5': 'inversion', '0,4': 'estilo', '10,3': 'logistica', '1,9': 'corporativo', '8,1': 'aeropuerto', '7,1': 'central'
+  '3,6': 'bolsa', '4,7': 'banco', '2,7': 'inversion', '0,7': 'estilo', '10,6': 'logistica', '0,11': 'corporativo', '10,3': 'aeropuerto', '9,2': 'central'
 }
-// parques planos (sin bordes de tierra): el piso los pinta verdes y encima van árboles sueltos
-const PARKS = new Set<string>(['3,3', '2,8', '2,9', '3,9', '1,8', '5,7', '8,12', '10,12', '9,13'])
-export const WATER: Record<string, 'lago' | 'canal'> = { '2,8': 'lago', '10,12': 'canal', '9,13': 'canal', '5,7': 'lago' }
+// Lugares grandes: ocupan varias manzanas juntas, sin calles por dentro (los coches las rodean).
+// Cada uno tiene su piso y sus piezas acomodadas en mosaicos relativos a su esquina.
+export interface Area { id: string; bx: number; by: number; w: number; h: number; ground: 'plaza' | 'park' | 'water'; items: [string, number, number, number][] }
+const TREE = K2('veg_ahuehuete_chapultepec'); const JAC = K('deco_jacaranda'); const BUG = K2('veg_jardinera_bugambilias')
+const ring = (w: number, h: number, sp: string, n = 2) => { const out: [string, number, number, number][] = []; const L = w * P - 1; const Hh = h * P - 1; for (let i = 0.6; i < L; i += n) { out.push([sp, i, 0.6, 0.55]); out.push([sp, i, Hh - 0.4, 0.55]) } for (let j = 2.6; j < Hh - 1; j += n) { out.push([sp, 0.6, j, 0.55]); out.push([sp, L - 0.4, j, 0.55]) } return out }
+export const AREAS: Area[] = [
+  { id: 'zocalo', bx: 6, by: 2, w: 2, h: 2, ground: 'plaza', items: [[K('monumento_zocalo'), 4.8, 4.8, 4.2], ...ring(2, 2, BUG, 2.4)] },
+  { id: 'alameda', bx: 3, by: 3, w: 1, h: 2, ground: 'park', items: [[K('deco_kiosco_jardin'), 1.6, 3.6, 0.9], ...[[0.7, 0.8], [2.4, 1.2], [0.8, 2.6], [2.3, 5.6], [0.7, 6.2], [2.4, 3.4], [1.5, 1.8], [1.4, 5.0]].map(([x, y]) => [JAC, x, y, 0.75] as [string, number, number, number])] },
+  { id: 'chapultepec', bx: 1, by: 9, w: 3, h: 3, ground: 'park', items: [[K('monumento_chapultepec'), 8.6, 2.8, 2.4], ...Array.from({ length: 22 }, (_, i) => [TREE, 0.8 + (i * 4.7) % 9.6, 0.8 + (i * 2.9 + Math.floor(i / 4) * 1.3) % 10, 0.62] as [string, number, number, number]).filter(([, x, y]) => !(x > 6.5 && y < 5) && !((x - 4.5) ** 2 + (y - 7) ** 2 < 4))] },
+  { id: 'parque_mexico', bx: 5, by: 9, w: 1, h: 1, ground: 'park', items: ring(1, 1, JAC, 1.2) },
+  { id: 'xochimilco', bx: 9, by: 10, w: 2, h: 2, ground: 'water', items: [[X('07_embarcadero_xochimilco'), 2.4, 2.6, 2.2], [X('09_chinampa_cultivos'), 5.6, 2.2, 1.6], [X('09_chinampa_cultivos'), 2.3, 5.8, 1.6], [X('09_chinampa_cultivos'), 5.8, 5.8, 1.6], [X('08_trajinera_navegando'), 4.0, 4.2, 0.9], [X('08_trajinera_navegando'), 4.1, 1.2, 0.9]] },
+  { id: 'azteca', bx: 9, by: 12, w: 2, h: 2, ground: 'plaza', items: [[X('06_estadio_azteca'), 4.8, 4.8, 5.2], ...ring(2, 2, TREE, 2.6)] },
+  { id: 'cu', bx: 6, by: 13, w: 2, h: 2, ground: 'park', items: [[X('04_rectoria_cu'), 2.6, 2.6, 2.4], [X('05_biblioteca_central_cu'), 5.8, 5.6, 2.2], ...[[5.6, 1.4], [1.4, 5.6], [3.6, 6.4], [6.4, 3.4]].map(([x, y]) => [TREE, x, y, 0.62] as [string, number, number, number])] }
+]
+const AREA_AT = new Map<string, Area>(); for (const a of AREAS) for (let i = 0; i < a.w; i++) for (let j = 0; j < a.h; j++) AREA_AT.set(`${a.bx + i},${a.by + j}`, a)
+// ¿esta calle (mosaico) quedó dentro de un área grande? Los coches no entran ahí
+export const blocked = (tx: number, ty: number) => AREAS.some(a => tx >= a.bx * P + 1 && tx < (a.bx + a.w) * P && ty >= a.by * P + 1 && ty < (a.by + a.h) * P)
+const PARKS = new Set<string>()
+export const WATER: Record<string, 'lago' | 'canal'> = {}
 // centro de cada colonia en la retícula; cada manzana libre pertenece a la colonia más cercana
 const COLONY_AT: [string, number, number][] = [
-  ['polanco', 1, 4.5], ['centro', 5, 1.5], ['santafe', 0, 10], ['roma', 4.5, 7.5], ['narvarte', 7, 6.5],
-  ['delvalle', 6, 10], ['coyoacan', 8.5, 12], ['iztapalapa', 10, 6]
+  ['polanco', 1, 6.5], ['centro', 6, 3.5], ['santafe', 0, 11], ['roma', 5, 8.5], ['narvarte', 7.5, 8],
+  ['delvalle', 7, 10.5], ['coyoacan', 8, 13], ['iztapalapa', 10, 7.5]
 ]
 const colonyOf = (bx: number, by: number) => {
   let best = 'centro'; let bd = Infinity
@@ -74,7 +92,7 @@ const CURVE_BY: Record<string, string[]> = {
 const CURVES: Record<string, string> = (() => {
   const out: Record<string, string> = {}; const used: Record<string, number> = {}
   for (let by = 0; by < NBY; by++) for (let bx = 0; bx < NBX; bx++) {
-    const k = `${bx},${by}`; if (MON[k] || CIVIC[k] || PARKS.has(k)) continue
+    const k = `${bx},${by}`; if (MON[k] || CIVIC[k] || PARKS.has(k) || AREA_AT.has(k)) continue
     const col = colonyOf(bx, by); const opts = CURVE_BY[col]; if (!opts) continue
     const n = used[col] ?? 0
     if (n < opts.length && (bx * 7 + by * 13) % 6 === 0) { out[k] = `kit/v3/${opts[n]}.webp`; used[col] = n + 1 }
@@ -88,6 +106,7 @@ export const CDMX_KIT: CityKit = {
     const k = `${bx},${by}`
     if (MON[k]) return { kind: 'mon', sprite: MON[k] }
     if (CIVIC[k]) return { kind: 'civic', id: CIVIC[k] }
+    if (AREA_AT.has(k)) return { kind: 'area', id: AREA_AT.get(k)!.id }
     if (PARKS.has(k)) return { kind: 'park' }
     const col = colonyOf(bx, by)
     if (CURVES[k]) return { kind: 'curve', sprite: CURVES[k], colony: col }
@@ -245,6 +264,7 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     const x0 = bx * P + 1; const y0 = by * P + 1
     const u = kit.blocks(bx, by)
     const park = u.kind === 'park' || (u.kind === 'mon' && /chapultepec|estanque|zocalo|chinampa|embarcadero|antropologia|parque_|alameda|borde_/.test(u.sprite))
+    if (u.kind === 'area') continue // las áreas grandes se pintan completas más abajo
     if (u.kind === 'curve') { // la manzana entera es calle curva: se estira al rombo exacto de la cuadra
       const im = _img(u.sprite); const top = toScreen(x0 - 0.1, y0 - 0.1); const w = 3.2 * TW; const h = 3.2 * TH
       if (im) ctx.drawImage(im, top.x - w / 2, top.y, w, h)
@@ -265,6 +285,17 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     if (!park) for (const [a, b] of [[0.14, 0.14], [2.86, 0.14], [0.14, 2.86], [2.86, 2.86], [1.5, 0.14], [0.14, 1.5]]) {
       const p = toScreen(x0 + a, y0 + b); ctx.beginPath(); ctx.ellipse(p.x, p.y - 10, 11, 9, 0, 0, 7); ctx.fillStyle = '#5C8F3C'; ctx.fill()
     }
+  }
+  // áreas grandes: un solo piso continuo que tapa las calles de adentro, con banqueta alrededor
+  for (const a of AREAS) {
+    const x0 = a.bx * P + 1; const y0 = a.by * P + 1; const x1 = (a.bx + a.w) * P; const y1 = (a.by + a.h) * P
+    rect(x0 - 0.02, y0 - 0.02, x1 + 0.02, y1 + 0.02, '#B9B2A4'); rect(x0, y0, x1, y1, '#DCD5C6')
+    const fill = a.ground === 'plaza' ? '#D9CCB4' : '#7DB35A'
+    rect(x0 + 0.28, y0 + 0.28, x1 - 0.28, y1 - 0.28, fill, a.ground === 'plaza' ? '#BFAE90' : '#5E9440')
+    if (a.ground === 'plaza') for (let i = x0 + 1; i < x1 - 0.5; i += 1) line([i, y0 + 0.3], [i, y1 - 0.3], 'rgba(150,130,100,.35)', 1)
+    if (a.id === 'chapultepec') { const c = toScreen(x0 + 4.5, y0 + 7); ctx.fillStyle = '#4FB3C8'; ctx.beginPath(); ctx.ellipse(c.x, c.y, TW * 1.6, TH * 1.2, 0, 0, 7); ctx.fill(); ctx.strokeStyle = '#E9E2D2'; ctx.lineWidth = 5; ctx.stroke() }
+    if (a.id === 'parque_mexico') { const c = toScreen(x0 + 1.5, y0 + 1.5); ctx.strokeStyle = '#D9CCB4'; ctx.lineWidth = 10; ctx.beginPath(); ctx.ellipse(c.x, c.y, TW * 1.05, TH * 1.05, 0, 0, 7); ctx.stroke(); ctx.fillStyle = '#4FB3C8'; ctx.beginPath(); ctx.ellipse(c.x, c.y, TW * 0.4, TH * 0.4, 0, 0, 7); ctx.fill() }
+    if (a.ground === 'water') for (let k = 0; k < 3; k++) { rect(x0 + 0.4, y0 + 1.1 + k * 2.6, x1 - 0.4, y0 + 1.6 + k * 2.6, '#4FB3C8'); rect(x0 + 1.1 + k * 2.6, y0 + 0.4, x0 + 1.6 + k * 2.6, y1 - 0.4, '#4FB3C8') }
   }
   if (night) { // noche: tinte índigo multiplicado (oscurece sin lavar los colores)
     ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(118,128,182)'; ctx.fillRect(0, 0, W, H); ctx.restore()

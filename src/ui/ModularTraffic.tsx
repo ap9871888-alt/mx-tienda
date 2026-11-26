@@ -2,7 +2,7 @@
 // y la gente camina por las banquetas. Cada coche usa la vista correcta según su dirección.
 import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
-import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, POTHOLES, alongPeriferico, DECK } from './modular'
+import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, POTHOLES, alongPeriferico, DECK, blocked } from './modular'
 
 const SKINS = ['px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
 // láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
@@ -35,8 +35,10 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
     const car = (): Car => {
       const axis = rnd() < 0.5 ? 'x' : 'y'; const line = (axis === 'x' ? xs : ys)[Math.floor(rnd() * (axis === 'x' ? xs : ys).length)]
       const max = axis === 'x' ? NX : NY
-      return { axis, line, pos: rnd() * max, dir: rnd() < 0.5 ? 1 : -1, v: 1.6 + rnd() * 1.2, skin: SKINS[Math.floor(rnd() * SKINS.length)] }
+      const c: Car = { axis, line, pos: rnd() * max, dir: rnd() < 0.5 ? 1 : -1, v: 1.6 + rnd() * 1.2, skin: SKINS[Math.floor(rnd() * SKINS.length)] }
+      return inside(c.axis, c.line, c.pos) ? car() : c
     }
+    const inside = (axis: 'x' | 'y', line: number, pos: number) => axis === 'x' ? blocked(pos, line + 0.5) : blocked(line + 0.5, pos)
     const cars: Car[] = Array.from({ length: Math.round(45 * density) }, car)
     for (let i = 0; i < riders; i++) { const c = car(); c.skin = 'px:moto_repartidor'; c.v = 3; cars.push(c) }
     // Metrobús: corre sobre Insurgentes en los dos sentidos
@@ -82,6 +84,9 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
         c.cur = (c.cur ?? want) + (want - (c.cur ?? want)) * Math.min(1, dt * 3)
         const before = c.pos
         c.pos += c.dir * c.cur * dt
+        // no entra a plazas ni parques grandes: da la vuelta en U
+        const ahead = c.pos + c.dir * 0.6
+        if (c.axis === 'x' ? blocked(ahead, c.line + 0.5) : blocked(c.line + 0.5, ahead)) { c.dir = (c.dir > 0 ? -1 : 1); c.pos = before }
         // al cruzar el centro de una esquina puede dar vuelta (el Metrobús sigue derecho por su carril)
         const mid = Math.floor((Math.max(before, c.pos) - 0.5) / P) * P + 0.5
         if (c.skin !== 'px:metrobus_rojo' && (before - mid) * (c.pos - mid) <= 0 && Math.abs(before - c.pos) < 1 && (c.turned ?? 0) < now - 1500 && Math.random() < 0.3) {
@@ -97,6 +102,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
       }
       for (const w of walkers) {
         w.pos += w.dir * w.v * dt
+        if (inside(w.axis, w.line, w.pos + w.dir * 0.3)) w.dir = (w.dir > 0 ? -1 : 1)
         const max = w.axis === 'x' ? NX : NY
         if (w.pos > max) w.pos = 0; if (w.pos < 0) w.pos = max
         const p = w.axis === 'x' ? toScreen(w.pos, w.line + w.side) : toScreen(w.line + w.side, w.pos)
@@ -116,7 +122,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
       const g = greenAxis(now / 1000)
       for (const i of ys) for (const j of xs) {
         const a = toScreen(i + 1.12, j - 0.12); const b = toScreen(i - 0.12, j + 1.12)
-        if (!seen(a.x, a.y)) continue
+        if (!seen(a.x, a.y) || blocked(i + 0.5, j + 0.5)) continue
         list.push({ y: a.y, draw: () => drawPole(ctx, `semaforo_${g === 'x' ? 'verde' : 'rojo'}_frente`, a.x, a.y, 0.5) })
         list.push({ y: b.y, draw: () => drawPole(ctx, `semaforo_${g === 'y' ? 'verde' : 'rojo'}_izq`, b.x, b.y, 0.5) })
         const f = toScreen(i + 1.12, j + 1.12)
@@ -129,6 +135,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
         ctx.save(); ctx.globalCompositeOperation = 'lighter'
         const halo = (x: number, y: number, r: number, c: string) => { if (seen(x, y)) ctx.drawImage(glow(c), x - r, y - r, r * 2, r * 2) }
         for (const i of ys) for (const j of xs) {
+          if (blocked(i + 0.5, j + 0.5)) continue
           const f = toScreen(i + 1.12, j + 1.12); halo(f.x, f.y - TW * 0.48, 30, 'rgba(255,210,120,.9)'); halo(f.x, f.y, 60, 'rgba(255,190,100,.35)')
           const a = toScreen(i + 1.12, j - 0.12); halo(a.x, a.y - TW * 0.4, 12, g === 'x' ? 'rgba(80,255,140,.6)' : 'rgba(255,60,50,.6)')
           const b = toScreen(i - 0.12, j + 1.12); halo(b.x, b.y - TW * 0.4, 12, g === 'y' ? 'rgba(80,255,140,.6)' : 'rgba(255,60,50,.6)')
