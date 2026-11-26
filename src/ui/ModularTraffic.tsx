@@ -19,7 +19,12 @@ const CYCLE = 7
 export const greenAxis = (t: number): 'x' | 'y' => Math.floor(t / CYCLE) % 2 ? 'y' : 'x'
 // columna de la lámina que mira hacia abajo-izquierda (de frente) y hacia arriba-derecha (de espaldas)
 const VIEWS: Record<string, { sw: number; ne: number; swIsSE?: boolean }> = { taxi: { sw: 1, ne: 2 }, vocho: { sw: 0, ne: 2 }, 'sedan-azul': { sw: 0, ne: 2 }, 'sedan-rojo': { sw: 0, ne: 2, swIsSE: true }, pickup: { sw: 0, ne: 2 }, metrobus: { sw: 0, ne: 2 }, moto: { sw: 0, ne: 2 }, camioneta: { sw: 0, ne: 2 } }
-const PEOPLE = ['peaton_ejecutivo', 'peaton_compradora', 'peaton_paseador_perros', 'peaton_corredor']
+const PEOPLE = ['peaton_ejecutivo', 'peaton_compradora', 'peaton_paseador_perros', 'peaton_corredor',
+  'vida:senora_mandado', 'vida:ninos_uniforme', 'vida:mariachi', 'vida:perro_callejero', 'vida:vendedor_globos', 'vida:senora_mandado']
+// personajes animados (4 cuadros): hacia dónde mira el dibujo original
+const FACES_LEFT = new Set(['senora_mandado', 'mariachi'])
+// gente que se queda en su lugar: tránsito en las esquinas, organillero, franelero, obra y el gato en la barda
+const STILL = ['policia_transito', 'organillero', 'franelero', 'trabajador_obra', 'gato_barda']
 type Car = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; skin: string; cur?: number; wait?: number; turned?: number }
 type Walker = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; who: string; side: number }
 
@@ -48,6 +53,14 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
       return { axis, line, pos: rnd() * (axis === 'x' ? NX : NY), dir: rnd() < 0.5 ? 1 : -1, v: 0.3 + rnd() * 0.25, who: PEOPLE[Math.floor(rnd() * PEOPLE.length)], side: rnd() < 0.5 ? -0.13 : 1.13 }
     })
     const peri = Array.from({ length: Math.round(16 * density) }, (_, i) => ({ t: i / (16 * density), dir: i % 2 ? 1 : -1, v: 0.9 + rnd() * 0.5, skin: ['taxi_rosa', 'vocho_verde', 'camion_reparto', 'patrulla', 'taxi_rosa'][i % 5] }))
+    // personajes fijos repartidos en banquetas y esquinas (siempre los mismos lugares)
+    const still = Array.from({ length: Math.round(26 * density) }, (_, i) => {
+      const ax = (i * 7) % 2 === 0; const line = ((i * 5) % Math.floor((ax ? NY : NX) / P)) * P
+      const pos = 1.5 + ((i * 37) % ((ax ? NX : NY) - 3))
+      const who = STILL[i % STILL.length]
+      const p = ax ? toScreen(pos, line + (who === 'policia_transito' ? 0.5 : -0.15)) : toScreen(line + (who === 'policia_transito' ? 0.5 : -0.15), pos)
+      return { who, x: p.x, y: p.y, ok: !(ax ? blocked(pos, line + 0.5) : blocked(line + 0.5, pos)), ph: i }
+    }).filter(s => s.ok)
     let raf = 0; let last = performance.now()
     // optimización: 30 cuadros por segundo, se pausa si el mapa no está a la vista,
     // y solo se borra y se dibuja la parte de la ciudad que cabe en la pantalla
@@ -118,6 +131,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
         const fc = vy >= 0 ? (vx >= 0 ? 'SE' : 'SW') : (vx >= 0 ? 'NE' : 'NW')
         if (seen(p.x, p.y)) list.push({ y: p.y + 9999, draw: () => drawPx(ctx, f.skin, fc as Face, p.x + ox, p.y + oy - DECK) })
       }
+      for (const s of still) if (seen(s.x, s.y)) list.push({ y: s.y, draw: () => drawVida(ctx, s.who, Math.floor(now / 260 + s.ph) % 4, s.x, s.y, false) })
       // semáforos y farolas en las esquinas de las banquetas
       const g = greenAxis(now / 1000)
       for (const i of ys) for (const j of xs) {
@@ -194,7 +208,17 @@ function drawCar (ctx: CanvasRenderingContext2D, c: Car, x: number, y: number, n
   ctx.drawImage(im, -w / 2, -h * 0.72, w, h); ctx.restore()
   if (night) { ctx.fillStyle = 'rgba(255,240,170,.5)'; ctx.beginPath(); ctx.arc(x, y - h * 0.2, 4, 0, 7); ctx.fill() }
 }
+function drawVida (ctx: CanvasRenderingContext2D, who: string, f: number, x: number, y: number, mirror: boolean) {
+  const im = sprite(`kit/vida/${who}_${f}.webp`); if (!im) return
+  const h = TW * (who === 'perro_callejero' || who === 'gato_barda' ? 0.2 : who === 'vendedor_globos' ? 0.38 : 0.28); const wd = h * im.width / im.height
+  ctx.save(); ctx.translate(x, y); if (mirror) ctx.scale(-1, 1); ctx.drawImage(im, -wd / 2, -h, wd, h); ctx.restore()
+}
 function drawWalker (ctx: CanvasRenderingContext2D, w: Walker, x: number, y: number) {
+  if (w.who.startsWith('vida:')) {
+    const who = w.who.slice(5); const right = (w.axis === 'x' && w.dir > 0) || (w.axis === 'y' && w.dir < 0)
+    drawVida(ctx, who, Math.floor(performance.now() / 160 + w.pos * 3) % 4, x, y, FACES_LEFT.has(who) ? right : !right)
+    return
+  }
   const im = sprite(`kit/polanco/${w.who}.webp`)
   if (!im) return
   const h = TW * 0.26; const wd = h * im.width / im.height

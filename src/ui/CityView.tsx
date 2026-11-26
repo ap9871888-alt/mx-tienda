@@ -232,6 +232,8 @@ const HEIGHTS: [RegExp, number][] = [
   [/torre_mayor|19_torre_reforma/, 470], [/torre_latino/, 410], [/helipuerto|torre_corporativa|colonia_polanco_torre|hotel_torre|ed-torre/, 330],
   [/monumento_angel|estela/, 270], [/catedral|bellas_artes|basilica|revolucion|senado|palacio|ed-banco/, 240],
   [/hotel_|edificio_5|narvarte_5p|edificio_mixto|deptos|condesa|porfiriano|hospital|auditorio|soumaya|antropologia|ed-oficinas|ed-depas/, 220],
+  [/6_pisos|unidad_habitacional/, 215], [/4_pisos|estacionamiento/, 180], [/gasolinera/, 95],
+  [/papeleria|tortilleria|lavanderia|ferreteria|cocina_economica|estetica|carniceria|cerrajeria|vulcanizadora|consultorio|gimnasio|local_comercial|oficina_gobierno|zaguan|3_pisos_tinaco/, 135],
   [/manzana_/, 230], [/tienda-(bodega|hardDiscount|supermercado|darkStore|hiper)/, 165],
   [/art_deco|vecindad|residencia|boutique|casona|casa|colonial|block|iztapalapa|bloque_3|tezontle|mercado|iglesia|escuela|garibaldi|hemiciclo|artesanias|arena|toros|frida|raza|ed-mercado|ed-plaza|ed-central|ed-aeropuerto/, 150],
   [/tienda-|tiendita|farmacia|panaderia|taqueria|cafe|metro|kiosco/, 115], [/puesto|mob_/, 80],
