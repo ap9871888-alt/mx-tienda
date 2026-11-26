@@ -183,7 +183,7 @@ export function CityView () {
           <div className='absolute inset-0 isolate'>
             <ModularGround kit={kit} night={night} />
             <ModularTraffic active={useApp.getState().tab === 'calle'} density={prefs.traffic} night={night} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
-            {prefs.labels && modItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/80 text-white text-[15px] font-bold rounded-full px-3 py-0.5 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
+            {prefs.labels && modItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/80 text-white text-[15px] font-bold rounded-full px-3 py-0.5 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name} · {E.usedSpace(game, l.id)}/{city.colonies.find(c => c.id === l.id)?.slots} locales</span>)}
             {modItems.items.map((l, j) => near(l) && <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} night={night} />)}
           </div>
         )}
@@ -229,8 +229,8 @@ export function CityView () {
 // Cada tipo de construcción tiene su altura en pantalla (px del mundo); el ancho sale de la proporción real
 // de su dibujo, sin pasarse del lote. Así una casa nunca es más alta que la Torre Latino.
 const HEIGHTS: [RegExp, number][] = [
-  [/torre_mayor|19_torre_reforma/, 470], [/torre_latino/, 410], [/helipuerto|torre_corporativa|colonia_polanco_torre|hotel_torre|ed-torre/, 330],
-  [/monumento_angel|estela/, 270], [/catedral|bellas_artes|basilica|revolucion|senado|palacio|ed-banco/, 240],
+  [/torre_mayor|torre_reforma|torre_wtc/, 450], [/torre_latino/, 410], [/helipuerto|torre_corporativa|colonia_polanco_torre|hotel_torre|ed-torre/, 330],
+  [/monumento_angel|angel_indep|estela/, 270], [/diana|casa_azulejos|cablebus|aeropuerto_aicm/, 150], [/catedral|bellas_artes|basilica|revolucion|senado|palacio|ed-banco/, 240],
   [/hotel_|edificio_5|narvarte_5p|edificio_mixto|deptos|condesa|porfiriano|hospital|auditorio|soumaya|antropologia|ed-oficinas|ed-depas/, 220],
   [/6_pisos|unidad_habitacional/, 215], [/4_pisos|estacionamiento/, 180], [/gasolinera/, 95],
   [/papeleria|tortilleria|lavanderia|ferreteria|cocina_economica|estetica|carniceria|cerrajeria|vulcanizadora|consultorio|gimnasio|local_comercial|oficina_gobierno|zaguan|3_pisos_tinaco/, 135],
@@ -257,7 +257,7 @@ const NIGHT: Record<string, string> = {
   '11_casa_block_iztapalapa': '10_casa_block', '12_tiendita_esquina': '11_tiendita_esquina', '13_farmacia_cruz_verde': '12_farmacia_luz_verde',
   '14_panaderia': '13_panaderia', '15_taqueria_trompo': '14_taqueria_foco', '16_mercado_techado': '15_mercado_techado',
   '17_iglesia_barrio': '16_iglesia_iluminada', hotel_clasico_reforma: '17_hotel_lujo', '18_hospital_grande': '18_hospital',
-  '19_entrada_metro': '19_entrada_metro', monumento_angel: '20_angel_independencia'
+  '19_entrada_metro': '19_entrada_metro', monumento_angel: '20_angel_independencia', angel_independencia_dia: '20_angel_independencia'
 }
 const nightOf = (ed?: string) => { const k = ed?.split('/').pop()?.replace('.webp', ''); return k && NIGHT[k] ? `kit/noche/${NIGHT[k]}.webp` : null }
 // ventanas encendidas de noche: puntitos cálidos fijos por edificio (sin imágenes extra)
@@ -368,7 +368,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
     estilo: civic.find(c => c.icon === 'ic-premium'), logistica: civic.find(c => c.icon === 'ic-logistica'), corporativo: civic.find(c => c.icon === 'ic-ventas'),
     aeropuerto: civic.find(c => c.icon === 'ic-viajar'), central: civic.find(c => c.label === 'Viajar en autobús')
   }
-  const kitEd: Record<string, string> = { central: 'kit/px/terminal_tapo_cupula.webp', bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
+  const kitEd: Record<string, string> = { aeropuerto: 'kit/mx/aeropuerto_aicm.webp', central: 'kit/px/terminal_tapo_cupula.webp', bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
   // tamaño de cada sprite respecto a la cuadra: árboles y puestos más chicos que los edificios
   const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => placeIn(r, ed)
   const items: Lot[] = []
@@ -421,7 +421,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
         const qs = quarters(bx, by)
         qs.forEach((q, n) => {
           const build = v % 2 ? (n === 0 || n === 3) : (n === 1 || n === 2)
-          if (build) { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...placeIn(q, ed), ed }) } else if ((bx + by + n) % 3) { const ed = n % 2 ? 'kit/cdmx/deco_jacaranda.webp' : 'kit/cdmx2/veg_jardinera_bugambilias.webp'; items.push({ ...placeIn(q, ed), ed }) }
+          if (build) { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...placeIn(q, ed), ed }) } else { const ed = n % 2 ? 'kit/mx/jacaranda.webp' : (bx + n) % 3 ? 'kit/mx/ahuehuete.webp' : 'kit/cdmx2/veg_jardinera_bugambilias.webp'; items.push({ ...placeIn(q, ed), ed }) }
         })
       }
     })

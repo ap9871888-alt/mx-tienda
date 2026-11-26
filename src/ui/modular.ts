@@ -31,7 +31,7 @@ export interface CityKit {
   decor: Record<string, string[]> // sprites de relleno por colonia
 }
 
-const X = (s: string) => `kit/px/${s}.webp`; const C = (s: string) => `kit/comun/${s}.webp`; const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
+const MX = (s: string) => `kit/mx/${s}.webp`; const X = (s: string) => `kit/px/${s}.webp`; const C = (s: string) => `kit/comun/${s}.webp`; const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
 // Plano de la CDMX con geografía real (11 × 15 manzanas). En pantalla el norte queda arriba,
 // el oriente a la derecha. Cada lugar se colocó a partir de su posición real en km desde el Zócalo
 // y luego se ajustó a la retícula: Reforma corre sobre tx=16 de Chapultepec (abajo-izquierda)
@@ -42,17 +42,18 @@ const OFF = 1
 const shift = <T, >(o: Record<string, T>) => Object.fromEntries(Object.entries(o).map(([k, v]) => { const [x, y] = k.split(',').map(Number); return [`${x + OFF},${y + OFF}`, v] })) as Record<string, T>
 const MON: Record<string, string> = shift({
   // norte
-  '4,0': K('monumento_basilica'), '2,1': X('10_monumento_raza'),
+  '4,0': MX('basilica_guadalupe'), '2,1': X('10_monumento_raza'),
   // Centro Histórico (al oriente de la Alameda; el Zócalo es un área grande aparte)
-  '5,1': X('14_arco_garibaldi'), '6,1': K('monumento_catedral'), '8,2': K('monumento_palacio_nacional'),
-  '5,3': K('monumento_torre_latino'), '4,3': K('monumento_bellas_artes'), '3,5': X('13_hemiciclo_juarez'),
+  '5,1': X('14_arco_garibaldi'), '6,1': MX('catedral_metropolitana'), '8,2': MX('palacio_nacional'),
+  '5,3': MX('torre_latinoamericana'), '4,3': MX('palacio_bellas_artes'), '3,5': X('13_hemiciclo_juarez'),
   '5,5': X('15_mercado_artesanias'), '6,6': X('20_arena_lucha_libre'),
   // Reforma, de la Alameda a Chapultepec
-  '2,5': K('monumento_revolucion'), '4,5': X('12_senado_moderno'), '4,6': K('monumento_angel'),
-  '3,7': X('19_torre_reforma'), '3,8': X('11_torre_mayor'), '4,8': K('monumento_estela_luz'),
+  '2,5': MX('monumento_revolucion'), '4,5': X('12_senado_moderno'), '4,6': MX('angel_independencia_dia'),
+  '3,7': MX('torre_reforma'), '3,8': X('11_torre_mayor'), '4,8': K('monumento_estela_luz'),
   // Polanco y museos junto al bosque
-  '2,8': X('02_museo_antropologia'), '1,8': X('17_auditorio_nacional'), '0,6': X('01_museo_soumaya'), '1,6': KP('polanco_estanque_lincoln'),
+  '2,8': MX('museo_antropologia_paraguas'), '1,8': X('17_auditorio_nacional'), '0,6': MX('museo_soumaya'), '1,6': KP('polanco_estanque_lincoln'),
   // sur
+  '5,7': MX('diana_cazadora'), '5,2': MX('casa_azulejos'), '3,2': MX('kiosco_morisco'), '5,11': MX('torre_wtc'), '10,8': MX('cablebus_estacion'),
   '7,8': X('18_hospital_grande'), '6,11': X('16_plaza_toros'), '8,12': X('03_casa_azul_frida')
 })
 const CIVIC: Record<string, string> = shift({
@@ -61,16 +62,16 @@ const CIVIC: Record<string, string> = shift({
 // Lugares grandes: ocupan varias manzanas juntas, sin calles por dentro (los coches las rodean).
 // Cada uno tiene su piso y sus piezas acomodadas en mosaicos relativos a su esquina.
 export interface Area { id: string; bx: number; by: number; w: number; h: number; ground: 'plaza' | 'park' | 'water'; items: [string, number, number, number][] }
-const TREE = K2('veg_ahuehuete_chapultepec'); const JAC = K('deco_jacaranda'); const BUG = K2('veg_jardinera_bugambilias')
+const TREE = MX('ahuehuete'); const JAC = MX('jacaranda'); const BUG = K2('veg_jardinera_bugambilias')
 const ring = (w: number, h: number, sp: string, n = 2) => { const out: [string, number, number, number][] = []; const L = w * P - 1; const Hh = h * P - 1; for (let i = 0.6; i < L; i += n) { out.push([sp, i, 0.6, 0.55]); out.push([sp, i, Hh - 0.4, 0.55]) } for (let j = 2.6; j < Hh - 1; j += n) { out.push([sp, 0.6, j, 0.55]); out.push([sp, L - 0.4, j, 0.55]) } return out }
 const AREAS0: Area[] = [
   { id: 'zocalo', bx: 6, by: 2, w: 2, h: 2, ground: 'plaza', items: [[K('monumento_zocalo'), 4.8, 4.8, 4.2], ...ring(2, 2, BUG, 2.4)] },
   { id: 'alameda', bx: 3, by: 3, w: 1, h: 2, ground: 'park', items: [[K('deco_kiosco_jardin'), 1.6, 3.6, 0.9], ...[[0.7, 0.8], [2.4, 1.2], [0.8, 2.6], [2.3, 5.6], [0.7, 6.2], [2.4, 3.4], [1.5, 1.8], [1.4, 5.0]].map(([x, y]) => [JAC, x, y, 0.75] as [string, number, number, number])] },
-  { id: 'chapultepec', bx: 1, by: 9, w: 3, h: 3, ground: 'park', items: [[K('monumento_chapultepec'), 8.6, 2.8, 2.4], ...Array.from({ length: 22 }, (_, i) => [TREE, 0.8 + (i * 4.7) % 9.6, 0.8 + (i * 2.9 + Math.floor(i / 4) * 1.3) % 10, 0.62] as [string, number, number, number]).filter(([, x, y]) => !(x > 6.5 && y < 5) && !((x - 4.5) ** 2 + (y - 7) ** 2 < 4))] },
+  { id: 'chapultepec', bx: 1, by: 9, w: 3, h: 3, ground: 'park', items: [[MX('castillo_chapultepec'), 8.6, 2.8, 2.6], ...Array.from({ length: 22 }, (_, i) => [TREE, 0.8 + (i * 4.7) % 9.6, 0.8 + (i * 2.9 + Math.floor(i / 4) * 1.3) % 10, 0.62] as [string, number, number, number]).filter(([, x, y]) => !(x > 6.5 && y < 5) && !((x - 4.5) ** 2 + (y - 7) ** 2 < 4))] },
   { id: 'parque_mexico', bx: 5, by: 9, w: 1, h: 1, ground: 'park', items: ring(1, 1, JAC, 1.2) },
   { id: 'xochimilco', bx: 9, by: 10, w: 2, h: 2, ground: 'water', items: [[X('07_embarcadero_xochimilco'), 2.4, 2.6, 2.2], [X('09_chinampa_cultivos'), 5.6, 2.2, 1.6], [X('09_chinampa_cultivos'), 2.3, 5.8, 1.6], [X('09_chinampa_cultivos'), 5.8, 5.8, 1.6], [X('08_trajinera_navegando'), 4.0, 4.2, 0.9], [X('08_trajinera_navegando'), 4.1, 1.2, 0.9]] },
-  { id: 'azteca', bx: 9, by: 12, w: 2, h: 2, ground: 'plaza', items: [[X('06_estadio_azteca'), 4.8, 4.8, 5.2], ...ring(2, 2, TREE, 2.6)] },
-  { id: 'cu', bx: 6, by: 13, w: 2, h: 2, ground: 'park', items: [[X('04_rectoria_cu'), 2.6, 2.6, 2.4], [X('05_biblioteca_central_cu'), 5.8, 5.6, 2.2], ...[[5.6, 1.4], [1.4, 5.6], [3.6, 6.4], [6.4, 3.4]].map(([x, y]) => [TREE, x, y, 0.62] as [string, number, number, number])] }
+  { id: 'azteca', bx: 9, by: 12, w: 2, h: 2, ground: 'plaza', items: [[MX('estadio_azteca'), 4.8, 4.8, 5.4], ...ring(2, 2, TREE, 2.6)] },
+  { id: 'cu', bx: 6, by: 13, w: 2, h: 2, ground: 'park', items: [[X('04_rectoria_cu'), 2.6, 2.6, 2.4], [MX('biblioteca_central_cu'), 5.8, 5.6, 2.2], ...[[5.6, 1.4], [1.4, 5.6], [3.6, 6.4], [6.4, 3.4]].map(([x, y]) => [TREE, x, y, 0.62] as [string, number, number, number])] }
 ]
 export const AREAS: Area[] = [
   ...AREAS0.map(a => ({ ...a, bx: a.bx + OFF, by: a.by + OFF })),
@@ -210,7 +211,7 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
   // la ciudad sigue más allá del borde: calles y casitas sencillas hasta el horizonte (sin pasto vacío)
   const EXT = 8
   rect(-EXT, -EXT, NX + EXT, NY + EXT, '#4A4D55')
-  const roofs = ['#C9694A', '#D9A066', '#B9B2A4', '#E3C9A0', '#9DA7B3', '#C98B6B']
+  const roofs = ['#B9563A', '#C9694A', '#A84A32', '#D98A5A', '#6E9A4E', '#C98B6B']
   for (let i = -EXT; i < NX + EXT; i += P) for (let j = -EXT; j < NY + EXT; j += P) {
     if (i >= 0 && i < NX - 1 && j >= 0 && j < NY - 1) continue
     rect(i + 1, j + 1, i + 4, j + 4, '#CFC8B9')
