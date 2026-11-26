@@ -214,6 +214,16 @@ function fullLayout (g: GameState, colonies: Colony[], map: MapData, civic: Civi
     for (const l of rest) { let b = 0; let bd = Infinity; centers.forEach((c, i) => { const d = (c.x - l.x) ** 2 + ((c.y - l.y) * 1.8) ** 2; if (d < bd) { bd = d; b = i } }); groups[b].push(l) }
     centers = centers.map((c, i) => groups[i].length ? { x: groups[i].reduce((a, l) => a + l.x, 0) / groups[i].length, y: groups[i].reduce((a, l) => a + l.y, 0) / groups[i].length } : c)
   }
+  // cada colonia con tiendas tuyas necesita al menos esos lotes (+1 para crecer): se los quita al grupo más grande
+  colonies.forEach((col, i) => {
+    const need = g.stores.filter(s => s.colonyId === col.id).length + 1
+    while (groups[i].length < need) {
+      const big = groups.reduce((bi, gr, k) => (gr.length > groups[bi].length && k !== i ? k : bi), i === 0 ? 1 : 0)
+      if (groups[big].length <= 1) break
+      const c = centers[i]; groups[big].sort((a, b) => ((a.x - c.x) ** 2 + (a.y - c.y) ** 2) - ((b.x - c.x) ** 2 + (b.y - c.y) ** 2))
+      groups[i].push(groups[big].shift()!)
+    }
+  })
   const items: Lot[] = civicLots.map((l, i) => ({ ...l, ...civ[i] }))
   const labels: { id: string; name: string; x: number; y: number; mine: number }[] = []
   colonies.forEach((col, i) => {
@@ -224,7 +234,8 @@ function fullLayout (g: GameState, colonies: Colony[], map: MapData, civic: Civi
     const sub = lotsFor(g, col, kind, [], tod).filter(x => x.go || x.ed)
     // reordena: lo interactivo primero (tiendas, rivales, renta) en los lotes de esa colonia
     const inter = sub.filter(x => x.go); const deco = sub.filter(x => !x.go)
-    groups[i].forEach((l, j) => items.push({ ...l, ...(inter[j] ?? deco[j % Math.max(1, deco.length)] ?? {}) }))
+    // el contenido va al lote del mapa completo (sus coordenadas mandan)
+    groups[i].forEach((l, j) => items.push({ ...(inter[j] ?? deco[j % Math.max(1, deco.length)] ?? {}), x: l.x, y: l.y, w: l.w, bottom: l.bottom }))
   })
   return { items: items.sort((a, b) => a.y - b.y), labels }
 }
