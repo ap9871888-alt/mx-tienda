@@ -84,7 +84,12 @@ export function CityView () {
   const box = useRef<HTMLDivElement>(null); const world = useRef<HTMLDivElement>(null)
   const cam = useRef({ x: 0, y: 0, s: 1, init: '' })
   const [, force] = useState(0)
-  const apply = () => { const c = cam.current; if (world.current) world.current.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.s})` }
+  const refresh = useRef<ReturnType<typeof setTimeout>>()
+  const apply = () => {
+    const c = cam.current; if (world.current) world.current.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.s})`
+    // al mover la cámara, se vuelve a calcular qué edificios se ven (con un respiro para no recalcular en cada dedo)
+    clearTimeout(refresh.current); refresh.current = setTimeout(() => force(n => n + 1), 120)
+  }
   const clamp = () => {
     const el = box.current; if (!el) return
     const c = cam.current; const vw = el.clientWidth; const vh = el.clientHeight
@@ -151,15 +156,20 @@ export function CityView () {
   const zoom = (f: number) => { const el = box.current!; const c = cam.current; const ns = c.s * f; const mx = el.clientWidth / 2; const my = el.clientHeight / 2; c.x = mx - (mx - c.x) * ns / c.s; c.y = my - (my - c.y) * ns / c.s; c.s = ns; clamp(); apply() }
 
   const myColor = game.profile?.color ?? '#D63B2F'; const myIcon = game.profile?.icon ?? 'carrito'
+  // solo se montan los edificios cerca de la pantalla: el iPhone no aguanta cientos de imágenes grandes a la vez
+  const vw0 = box.current?.clientWidth ?? innerWidth; const vh0 = box.current?.clientHeight ?? innerHeight; const cc = cam.current
+  const vx0 = (-cc.x / cc.s) / W * 100; const vx1 = ((vw0 - cc.x) / cc.s) / W * 100; const vy0 = (-cc.y / cc.s) / H * 100; const vy1 = ((vh0 - cc.y) / cc.s) / H * 100
+  const mg = prefs.lite ? 0.12 : 0.3; const mx = (vx1 - vx0) * mg; const my = (vy1 - vy0) * mg
+  const near = (l: Lot) => l.x > vx0 - mx - (l.w ?? 10) && l.x < vx1 + mx + (l.w ?? 10) && (l.bottom ?? l.y) > vy0 - my && (l.bottom ?? l.y) < vy1 + my + 30
   return (
     <div ref={box} className={`relative flex-1 overflow-hidden ${kit ? 'bg-[#6E8F50]' : 'bg-[#8FA3B5]'} touch-none select-none`} style={{ overscrollBehavior: 'none' }}>
-      <div ref={world} className='absolute left-0 top-0 origin-top-left will-change-transform' style={{ width: W, height: H }}>
+      <div ref={world} className={`absolute left-0 top-0 origin-top-left ${kit ? '' : 'will-change-transform'}`} style={{ width: W, height: H }}>
         {kit && modItems && (
           <div className='absolute inset-0 isolate'>
             <ModularGround kit={kit} night={night} />
             <ModularTraffic active={useApp.getState().tab === 'calle'} density={prefs.traffic} night={night} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
             {prefs.labels && modItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/80 text-white text-[15px] font-bold rounded-full px-3 py-0.5 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
-            {modItems.items.map((l, j) => <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} night={night} />)}
+            {modItems.items.map((l, j) => near(l) && <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} night={night} />)}
           </div>
         )}
         {full && fullItems && (
@@ -224,11 +234,11 @@ function LotButtonRaw ({ l, width, big, myColor, myIcon, dy, ps, night }: { l: L
   const badge = l.mine || l.icon || l.color
   return (
     <button onClick={l.go} disabled={!l.go} aria-label={l.label} title={l.label} className='absolute' style={{ left: `${l.x}%`, top, width: w, transform: 'translate(-50%, -100%)', zIndex: Math.round((l.bottom ?? l.y) * 10) }}>
-      {l.ed ? <img src={assetUrl(night && nightOf(l.ed) ? nightOf(l.ed)! : l.ed)} alt='' decoding='async' loading='lazy' className='w-full drop-shadow transition-[filter] duration-1000' style={night && !nightOf(l.ed) ? { filter: 'brightness(.72) saturate(.85) hue-rotate(-6deg)' } : undefined} draggable={false} /> : <div className='w-full aspect-[2/1]' />}
+      {l.ed ? <img src={assetUrl(night && nightOf(l.ed) ? nightOf(l.ed)! : l.ed)} alt='' decoding='async' loading='lazy' className={`w-full ${l.w ? '' : 'drop-shadow'}`} style={night && !nightOf(l.ed) ? { filter: 'brightness(.72) saturate(.85) hue-rotate(-6deg)' } : undefined} draggable={false} /> : <div className='w-full aspect-[2/1]' />}
       {night && lit(l.ed) && !nightOf(l.ed) && !/v3\//.test(l.ed ?? '') && WINDOWS.filter((_, i) => (Math.round((l.x ?? 0) * 13) + i) % 3).map((p, i) => (
-        <span key={i} className='absolute rounded-full pointer-events-none' style={{ left: `${p.x}%`, top: `${p.y}%`, width: '10%', aspectRatio: '1', background: 'radial-gradient(circle, rgba(255,226,140,1), rgba(255,190,80,.5) 35%, rgba(255,170,60,0) 70%)', mixBlendMode: 'screen' }} />))}
+        <span key={i} className='absolute rounded-full pointer-events-none' style={{ left: `${p.x}%`, top: `${p.y}%`, width: '10%', aspectRatio: '1', background: 'radial-gradient(circle, rgba(255,226,140,1), rgba(255,190,80,.5) 35%, rgba(255,170,60,0) 70%)' }} />))}
       {badge && <span className='absolute left-1/2 bottom-[78%] pointer-events-none' style={{ transform: `translateX(-50%) scale(${ps})`, transformOrigin: 'bottom center' }}>
-        <span className='relative flex flex-col items-center animate-[bounce_2.6s_ease-in-out_infinite]'>
+        <span className={`relative flex flex-col items-center ${l.mine || l.alert || l.icon === 'renta' ? 'animate-[bounce_2.6s_ease-in-out_infinite]' : ''}`}>
           {l.icon === 'renta'
             ? <span className='w-9 h-9 rounded-full bg-rojo border-2 border-white shadow-lg grid place-items-center text-white text-lg font-black'>+</span>
             : l.icon

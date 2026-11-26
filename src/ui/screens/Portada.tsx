@@ -348,6 +348,10 @@ export function Ajustes ({ onClose }: { onClose: () => void }) {
         <span className='text-[11px] text-tenue'>Menos tráfico = el juego va más fluido en teléfonos viejos.</span>
       </div>
       <label className='flex items-center justify-between bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
+        <span><b className='block'>Modo ligero</b><span className='text-[11px] text-tenue'>Para teléfonos con poca memoria (se activa solo si el juego se cerró)</span></span>
+        <input type='checkbox' checked={!!pr.lite} onChange={e => setPrefs({ lite: e.target.checked, ...(e.target.checked ? { traffic: 0.5, petals: false } : {}) })} className='w-6 h-6 accent-rojo' />
+      </label>
+      <label className='flex items-center justify-between bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
         <span className='font-semibold'>Pétalos y nubes en la portada</span>
         <input type='checkbox' checked={pr.petals} onChange={e => setPrefs({ petals: e.target.checked })} className='w-6 h-6 accent-rojo' />
       </label>

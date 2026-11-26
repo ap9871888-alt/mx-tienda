@@ -1,6 +1,7 @@
 // Mapa modular: el piso (calles, banquetas, parques) se genera con código sobre una cuadrícula isométrica 2:1
 // y encima van sprites individuales. Los coches siguen los nodos exactos de la cuadrícula.
 import type { Colony } from '../data/cities'
+import { isLite } from './settings'
 
 export const TW = 96; export const TH = 48 // tamaño de un mosaico
 export const P = 4 // cada cuadra son 3×3 mosaicos + 1 de calle
@@ -11,7 +12,7 @@ export const M = 220 // margen alrededor: ahí sigue la ciudad lejana
 export const OX = NY * TW / 2 + M // origen x para que todo quede en positivo
 export const W = (NX + NY) * TW / 2 + 2 * M; export const H = (NX + NY) * TH / 2 + TOP + M
 // los teléfonos limitan el tamaño de un lienzo (~16 M de píxeles): el piso y el tráfico se pintan a esta resolución
-export const RES = Math.min(1, Math.sqrt(4.5e6 / (((NX + NY) * TW / 2 + 2 * M) * ((NX + NY) * TH / 2 + TOP + M))))
+export const RES = Math.min(1, Math.sqrt((isLite() ? 2.2e6 : 4.5e6) / (((NX + NY) * TW / 2 + 2 * M) * ((NX + NY) * TH / 2 + TOP + M))))
 export const toScreen = (tx: number, ty: number) => ({ x: OX + (tx - ty) * TW / 2, y: TOP + (tx + ty) * TH / 2 })
 
 // calles: cada 4 mosaicos. En pantalla el norte queda arriba y el oriente a la derecha.
