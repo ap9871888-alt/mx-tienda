@@ -11,7 +11,7 @@ export const M = 220 // margen alrededor: ahí sigue la ciudad lejana
 export const OX = NY * TW / 2 + M // origen x para que todo quede en positivo
 export const W = (NX + NY) * TW / 2 + 2 * M; export const H = (NX + NY) * TH / 2 + TOP + M
 // los teléfonos limitan el tamaño de un lienzo (~16 M de píxeles): el piso y el tráfico se pintan a esta resolución
-export const RES = Math.min(1, Math.sqrt(10e6 / (((NX + NY) * TW / 2 + 2 * M) * ((NX + NY) * TH / 2 + TOP + M))))
+export const RES = Math.min(1, Math.sqrt(4.5e6 / (((NX + NY) * TW / 2 + 2 * M) * ((NX + NY) * TH / 2 + TOP + M))))
 export const toScreen = (tx: number, ty: number) => ({ x: OX + (tx - ty) * TW / 2, y: TOP + (tx + ty) * TH / 2 })
 
 // calles: cada 4 mosaicos. En pantalla el norte queda arriba y el oriente a la derecha.

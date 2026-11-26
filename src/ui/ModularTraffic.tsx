@@ -28,7 +28,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
   const activeRef = useRef(active); activeRef.current = active
   useEffect(() => {
     const cv = ref.current!; const ctx = cv.getContext('2d')!
-    cv.width = Math.round(W * RES); cv.height = Math.round(H * RES); ctx.setTransform(RES, 0, 0, RES, 0, 0)
+    void RES
     const rnd = Math.random
     const lines = (n: number) => Array.from({ length: Math.floor((n - 1) / P) + 1 }, (_, i) => i * P)
     const xs = lines(NY); const ys = lines(NX)
@@ -49,16 +49,20 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
     let raf = 0; let last = performance.now()
     // optimización: 30 cuadros por segundo, se pausa si el mapa no está a la vista,
     // y solo se borra y se dibuja la parte de la ciudad que cabe en la pantalla
-    let prev = { x0: 0, y0: 0, x1: W, y1: H }
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
       if (now - last < 32 || document.hidden || !activeRef.current) return
       const dt = Math.min(0.1, (now - last) / 1000); last = now
-      const r = cv.getBoundingClientRect(); const sc = r.width / W || 1
-      const view = { x0: -r.left / sc - 120, y0: -r.top / sc - 160, x1: (innerWidth - r.left) / sc + 120, y1: (innerHeight - r.top) / sc + 160 }
-      const ux0 = Math.max(0, Math.min(prev.x0, view.x0)); const uy0 = Math.max(0, Math.min(prev.y0, view.y0))
-      ctx.clearRect(ux0, uy0, Math.min(W, Math.max(prev.x1, view.x1)) - ux0, Math.min(H, Math.max(prev.y1, view.y1)) - uy0)
-      prev = view
+      // el lienzo mide solo lo que se ve en pantalla (no la ciudad entera): así el teléfono no se queda sin memoria.
+      // Se coloca dentro del mundo sobre la zona visible y se le da la resolución justa para verse nítido.
+      const r = cv.parentElement!.getBoundingClientRect(); const sc = r.width / W || 1
+      const view = { x0: Math.max(0, -r.left / sc - 60), y0: Math.max(0, -r.top / sc - 80), x1: Math.min(W, (innerWidth - r.left) / sc + 60), y1: Math.min(H, (innerHeight - r.top) / sc + 80) }
+      const k = Math.min(2, devicePixelRatio || 1) * sc
+      const pw = Math.max(1, Math.round((view.x1 - view.x0) * k)); const ph = Math.max(1, Math.round((view.y1 - view.y0) * k))
+      if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph }
+      cv.style.left = `${view.x0 / W * 100}%`; cv.style.top = `${view.y0 / H * 100}%`; cv.style.width = `${(view.x1 - view.x0) / W * 100}%`; cv.style.height = `${(view.y1 - view.y0) / H * 100}%`
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, pw, ph)
+      ctx.setTransform(k, 0, 0, k, -view.x0 * k, -view.y0 * k)
       const seen = (x: number, y: number) => x > view.x0 && x < view.x1 && y > view.y0 && y < view.y1
       const list: { y: number; draw: () => void }[] = []
       // carriles: cada coche solo mira a los de su mismo carril (en vez de revisar todos contra todos)
@@ -140,7 +144,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
   }, [night, density, riders])
-  return <canvas ref={ref} className='absolute inset-0 w-full h-full pointer-events-none' aria-hidden />
+  return <canvas ref={ref} className='absolute pointer-events-none' style={{ left: 0, top: 0, width: 0, height: 0 }} aria-hidden />
 }
 
 // halos de luz pre-dibujados una sola vez (crear degradados en cada cuadro es caro)
