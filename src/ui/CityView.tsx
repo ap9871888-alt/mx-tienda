@@ -106,7 +106,7 @@ export function CityView () {
       const c = cam.current
       clamp() // fija primero la escala permitida para centrar bien
       const lb = modItems?.labels ?? fullItems?.labels
-      const fl = kit && !st ? blockRect(5, 5) : lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
+      const fl = kit && !st ? blockRect(4, 6) : lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
       if (fl) { c.x = -(fl.x / 100 * W) * c.s + vw / 2; c.y = -(fl.y / 100 * H) * c.s + el.clientHeight / 2 }
       else { c.x = -((k % cols) * TW + TW / 2) * c.s + vw / 2; c.y = -(Math.floor(k / cols) * TH + TH * 0.4) * c.s + el.clientHeight / 2 }
       clamp(); apply(); force(n => n + 1)
@@ -197,6 +197,19 @@ export function CityView () {
   )
 }
 
+// manzana compuesta que le toca a cada colonia
+const COMPOSITE: Record<string, string> = { polanco: 'manzana_polanco_lujo', santafe: 'manzana_polanco_lujo', centro: 'manzana_centro_historico', roma: 'manzana_roma_condesa', coyoacan: 'manzana_coyoacan_colonial', iztapalapa: 'manzana_iztapalapa_densa' }
+// de noche, los edificios que tienen su versión nocturna dibujada la usan (ventanas reales encendidas)
+const NIGHT: Record<string, string> = {
+  '01_rascacielos_reforma': '01_rascacielos_cristal', '02_torre_helipuerto': '02_torre_helipuerto', '03_edificio_porfiriano': '03_edificio_porfiriano',
+  '05_vecindad_patio': '04_vecindad', '06_deptos_condesa': '05_departamentos_condesa', '07_casa_art_deco_roma': '06_casa_art_deco',
+  '08_edificio_narvarte_5p': '07_edificio_5_pisos', '09_casa_del_valle_2p': '08_casa_dos_pisos', '10_casona_coyoacan': '09_casona_colonial',
+  '11_casa_block_iztapalapa': '10_casa_block', '12_tiendita_esquina': '11_tiendita_esquina', '13_farmacia_cruz_verde': '12_farmacia_luz_verde',
+  '14_panaderia': '13_panaderia', '15_taqueria_trompo': '14_taqueria_foco', '16_mercado_techado': '15_mercado_techado',
+  '17_iglesia_barrio': '16_iglesia_iluminada', hotel_clasico_reforma: '17_hotel_lujo', '18_hospital_grande': '18_hospital',
+  '19_entrada_metro': '19_entrada_metro', monumento_angel: '20_angel_independencia'
+}
+const nightOf = (ed?: string) => { const k = ed?.split('/').pop()?.replace('.webp', ''); return k && NIGHT[k] ? `kit/noche/${NIGHT[k]}.webp` : null }
 // ventanas encendidas de noche: puntitos cálidos fijos por edificio (sin imágenes extra)
 const WINDOWS = Array.from({ length: 7 }, (_, i) => ({ x: 22 + ((i * 37) % 56), y: 28 + ((i * 23) % 44) }))
 const lit = (ed?: string) => !!ed && !/jacaranda|veg_|deco_|estanque|chinampa|embarcadero|zocalo|chapultepec|angel|estela|puesto|mob_|kiosco/.test(ed)
@@ -207,8 +220,8 @@ function LotButton ({ l, width, big, myColor, myIcon, dy, ps, night }: { l: Lot;
   const badge = l.mine || l.icon || l.color
   return (
     <button onClick={l.go} disabled={!l.go} aria-label={l.label} title={l.label} className='absolute' style={{ left: `${l.x}%`, top, width: w, transform: 'translate(-50%, -100%)', zIndex: Math.round((l.bottom ?? l.y) * 10) }}>
-      {l.ed ? <img src={assetUrl(l.ed)} alt='' className='w-full drop-shadow transition-[filter] duration-1000' style={night ? { filter: 'brightness(.72) saturate(.85) hue-rotate(-6deg)' } : undefined} draggable={false} /> : <div className='w-full aspect-[2/1]' />}
-      {night && lit(l.ed) && WINDOWS.filter((_, i) => (Math.round((l.x ?? 0) * 13) + i) % 3).map((p, i) => (
+      {l.ed ? <img src={assetUrl(night && nightOf(l.ed) ? nightOf(l.ed)! : l.ed)} alt='' className='w-full drop-shadow transition-[filter] duration-1000' style={night && !nightOf(l.ed) ? { filter: 'brightness(.72) saturate(.85) hue-rotate(-6deg)' } : undefined} draggable={false} /> : <div className='w-full aspect-[2/1]' />}
+      {night && lit(l.ed) && !nightOf(l.ed) && !/v3\//.test(l.ed ?? '') && WINDOWS.filter((_, i) => (Math.round((l.x ?? 0) * 13) + i) % 3).map((p, i) => (
         <span key={i} className='absolute rounded-full pointer-events-none' style={{ left: `${p.x}%`, top: `${p.y}%`, width: '10%', aspectRatio: '1', background: 'radial-gradient(circle, rgba(255,226,140,1), rgba(255,190,80,.5) 35%, rgba(255,170,60,0) 70%)', mixBlendMode: 'screen' }} />))}
       {badge && <span className='absolute left-1/2 bottom-[78%] pointer-events-none' style={{ transform: `translateX(-50%) scale(${ps})`, transformOrigin: 'bottom center' }}>
         <span className='relative flex flex-col items-center animate-[bounce_2.6s_ease-in-out_infinite]'>
@@ -306,7 +319,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
   }
   const kitEd: Record<string, string> = { central: 'kit/px/terminal_tapo_cupula.webp', bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
   // tamaño de cada sprite respecto a la cuadra: árboles y puestos más chicos que los edificios
-  const scale = (ed?: string) => !ed ? 0.7 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento|estadio|rectoria|antropologia|auditorio|chinampa|embarcadero|plaza_toros|soumaya/.test(ed) ? 0.88 : 0.7
+  const scale = (ed?: string) => !ed ? 0.7 : /kit\/v3\//.test(ed) ? 1.0 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento|estadio|rectoria|antropologia|auditorio|chinampa|embarcadero|plaza_toros|soumaya/.test(ed) ? 0.88 : 0.7
   // el edificio se encoge y su base queda dentro de la plaza, con banqueta alrededor
   const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => { const k = scale(ed) * 0.95; return { ...r, w: r.w * scale(ed), bottom: r.y + (r.bottom - r.y) * Math.min(1, k + 0.05) } }
   const items: Lot[] = []
@@ -341,8 +354,11 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
       } else {
         // cuadra de relleno: cuatro construcciones distintas, como una manzana real
         const bx = (r as { bx?: number }).bx!; const by = (r as { by?: number }).by!
-        // manzana con aire: dos construcciones en diagonal y árboles en los otros dos cuartos
-        const qs = quarters(bx, by); const v = (bx * 7 + by * 3) % 4
+        // la mayoría de las manzanas son una manzana compuesta de su colonia (varios edificios ya acomodados);
+        // las demás, dos construcciones en diagonal y árboles en los otros cuartos
+        const comp = COMPOSITE[col.id]; const v = (bx * 7 + by * 3) % 4
+        if (comp && (bx * 5 + by * 3) % 5 < 2) { const ed = `kit/v3/${comp}${(bx + by) % 2 ? '_variante_b' : ''}.webp`; items.push({ ...sized(r, ed), ed }); return }
+        const qs = quarters(bx, by)
         qs.forEach((q, n) => {
           const build = v % 2 ? (n === 0 || n === 3) : (n === 1 || n === 2)
           if (build) { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...q, w: q.w * (/mob_|veg_/.test(ed ?? '') ? 0.6 : 1), ed }) } else if ((bx + by + n) % 3) items.push({ ...q, w: q.w * 0.5, ed: n % 2 ? 'kit/cdmx/deco_jacaranda.webp' : 'kit/cdmx2/veg_jardinera_bugambilias.webp' })

@@ -2,7 +2,7 @@
 // y la gente camina por las banquetas. Cada coche usa la vista correcta según su dirección.
 import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
-import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY } from './modular'
+import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, POTHOLES } from './modular'
 
 const SKINS = ['px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
 // láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
@@ -20,7 +20,7 @@ export const greenAxis = (t: number): 'x' | 'y' => Math.floor(t / CYCLE) % 2 ? '
 // columna de la lámina que mira hacia abajo-izquierda (de frente) y hacia arriba-derecha (de espaldas)
 const VIEWS: Record<string, { sw: number; ne: number; swIsSE?: boolean }> = { taxi: { sw: 1, ne: 2 }, vocho: { sw: 0, ne: 2 }, 'sedan-azul': { sw: 0, ne: 2 }, 'sedan-rojo': { sw: 0, ne: 2, swIsSE: true }, pickup: { sw: 0, ne: 2 }, metrobus: { sw: 0, ne: 2 }, moto: { sw: 0, ne: 2 }, camioneta: { sw: 0, ne: 2 } }
 const PEOPLE = ['peaton_ejecutivo', 'peaton_compradora', 'peaton_paseador_perros', 'peaton_corredor']
-type Car = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; skin: string }
+type Car = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; skin: string; cur?: number; wait?: number; turned?: number }
 type Walker = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; who: string; side: number }
 
 export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boolean; density?: number; riders?: number }) {
@@ -54,7 +54,21 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
         const next = c.dir > 0 ? Math.ceil((c.pos + 0.05) / P) * P - 0.35 : Math.floor((c.pos - 0.05) / P) * P + 1.35
         const gap = (next - c.pos) * c.dir
         const red = greenAxis(now / 1000) !== c.axis
-        if (!(red && gap > 0 && gap < 0.5)) c.pos += c.dir * c.v * dt
+        // velocidad deseada: frena en baches, respeta al de adelante y a veces el taxi se para a subir pasaje
+        let want = c.v * (0.85 + 0.15 * Math.sin(now / 1500 + c.pos))
+        if (POTHOLES.some(h => h.axis === c.axis && h.line === c.line && (h.pos - c.pos) * c.dir > -0.2 && (h.pos - c.pos) * c.dir < 0.5)) want *= 0.3
+        for (const o of cars) if (o !== c && o.axis === c.axis && o.line === c.line && o.dir === c.dir) { const d = (o.pos - c.pos) * c.dir; if (d > 0 && d < 0.75) want = Math.min(want, (o.cur ?? 0) * (d < 0.5 ? 0.5 : 1)) }
+        if (c.wait && c.wait > 0) { c.wait -= dt; want = 0 } else if (c.skin === 'px:taxi_rosa' && Math.random() < dt * 0.02) c.wait = 2 + Math.random() * 3
+        if (red && gap > 0 && gap < 0.5) want = 0
+        c.cur = (c.cur ?? want) + (want - (c.cur ?? want)) * Math.min(1, dt * 3)
+        const before = c.pos
+        c.pos += c.dir * c.cur * dt
+        // al cruzar el centro de una esquina puede dar vuelta (el Metrobús sigue derecho por su carril)
+        const mid = Math.floor((Math.max(before, c.pos) - 0.5) / P) * P + 0.5
+        if (c.skin !== 'px:metrobus_rojo' && (before - mid) * (c.pos - mid) <= 0 && Math.abs(before - c.pos) < 1 && (c.turned ?? 0) < now - 1500 && Math.random() < 0.3) {
+          const k = mid - 0.5; const newAxis = c.axis === 'x' ? 'y' : 'x'; const maxL = newAxis === 'x' ? NY : NX
+          if (k >= 0 && k <= (c.axis === 'x' ? NX : NY) - 1 && c.line < maxL) { c.pos = c.line + 0.5; c.line = k; c.axis = newAxis; c.dir = Math.random() < 0.5 ? 1 : -1; c.turned = now }
+        }
         const max = c.axis === 'x' ? NX : NY
         if (c.pos > max + 1) c.pos = -1; if (c.pos < -1) c.pos = max + 1
         // carril derecho: un poco desplazado según el sentido
