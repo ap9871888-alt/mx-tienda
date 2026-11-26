@@ -102,7 +102,7 @@ function Colonia ({ onStreet }: { onStreet: () => void }) {
   const tod = night ? 'noche' : 'dia'
   const mine = game.stores.filter(s => s.colonyId === colony.id)
   const rivals = game.market?.rivals.flatMap(r => Array.from({ length: r.stores[colony.id] || 0 }, () => r)) ?? []
-  const free = Math.max(0, colony.slots - mine.length)
+  const free = Math.max(0, colony.slots - E.usedSpace(game, colony.id))
   // reparte los lotes: banco, tus tiendas, rivales, locales en renta y el resto, edificios
   type Lot = { x: number; y: number; ed?: string; pin?: string; label?: string; go?: () => void; color?: string; tag?: string; mine?: boolean }
   const items: Lot[] = lots.map(([x, y]) => ({ x, y }))

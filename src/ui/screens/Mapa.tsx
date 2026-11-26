@@ -37,7 +37,7 @@ export function Mapa () {
   const here = game.here ?? 'cdmx'
   const [confirm, setConfirm] = useState<FormatId | null>(null)
   const col = CITY.colonies.find(c => c.id === sel) ?? CITY.colonies[0]
-  const used = E.ownIn(game, col.id)
+  const used = E.usedSpace(game, col.id)
   const day = E.dayOf(game.minute)
   const estimates = useMemo(() => Object.fromEntries(FORMATS.filter(f => f.available).map(f => [f.id, E.estimateStore(CITY.id, col.id, f.id, game)])) as Record<FormatId, E.Estimate>,
     // se recalcula al cambiar de colonia, de día o de número de tiendas
@@ -104,10 +104,9 @@ export function Mapa () {
       </div> : (
         <div className='grid grid-cols-2 gap-2'>
           {CITY.colonies.map(c => {
-            const mine = E.ownIn(game, c.id)
             return <button key={c.id} onClick={() => setSel(c.id)} className={`text-left rounded-xl border p-2.5 min-h-[60px] ${c.id === col.id ? 'border-corp bg-corp/10' : 'border-borde bg-white'}`}>
               <b className='block text-sm'>{c.name}</b>
-              <span className='text-[11.5px] text-tenue'>{Math.round(E.effectiveTraffic(game, CITY.id, c.id))} peat/h · {mine}/{c.slots} tuyas · {E.rivalStoresIn(game, c.id)} rivales</span>
+              <span className='text-[11.5px] text-tenue'>{Math.round(E.effectiveTraffic(game, CITY.id, c.id))} peat/h · {E.usedSpace(game, c.id)}/{c.slots} locales · {E.rivalStoresIn(game, c.id)} rivales</span>
             </button>
           })}
         </div>)}
@@ -140,14 +139,14 @@ export function Mapa () {
       <Card title='Formatos de tienda'>
         {[...FORMATS].sort((a, b) => (a.id === 'ambulante' ? (game.founder?.street ? -1 : 1) : 0) - (b.id === 'ambulante' ? (game.founder?.street ? -1 : 1) : 0)).map(f => {
           const e = f.available ? estimates[f.id] : null
-          const full = used >= col.slots
+          const full = used + E.spaceOf(f.id) > col.slots
           const here = game.stores.filter(s => s.colonyId === col.id && s.formatId === f.id).length
           return (
             <div key={f.id} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
               <Icon name={f.id} size={40} className={f.available ? '' : 'grayscale opacity-50'} />
               <div className='flex-1 min-w-0'>
                 <b className='block'>{f.name}</b>
-                <span className='text-xs text-tenue'>CAPEX {fmtK(f.capex)} · renta base {fmtK(f.rent)}/mes · margen {Math.round(f.grossMargin * 100)} %{f.available ? '' : ` · ${f.unlockNote}`}</span>
+                <span className='text-xs text-tenue'>Ocupa {E.spaceOf(f.id)} local{E.spaceOf(f.id) > 1 ? 'es' : ''} · CAPEX {fmtK(f.capex)} · renta base {fmtK(f.rent)}/mes · margen {Math.round(f.grossMargin * 100)} %{f.available ? '' : ` · ${f.unlockNote}`}</span>
                 {e && <span className={`block text-xs font-semibold ${e.profitMonth > 0 ? 'text-ahorro' : 'text-rojo'}`}>≈ {e.customersDay} clientes/día · utilidad ≈ {fmtK(e.profitMonth)}/mes · retorno {e.paybackMonths ?? '—'} meses</span>}
               </div>
               {f.available ? <Btn small disabled={full} onClick={() => setConfirm(f.id)}>{full ? 'Lleno' : here ? `Otra (${here})` : 'Abrir'}</Btn> : <Pill>{f.unlockNote}</Pill>}

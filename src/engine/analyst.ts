@@ -1,3 +1,4 @@
+import { usedSpace, spaceOf } from './game'
 // Analista de mercado: revisa la partida y propone acciones concretas con números.
 import { CITIES, colonyOf, colonyById } from '../data/cities'
 import { FORMATS } from '../data/formats'
@@ -45,7 +46,7 @@ export function analyzeMarket (g: GameState): Insight[] {
   // 1) dónde abrir
   const options: { col: string; fmt: string; months: number; profit: number; cost: number }[] = []
   for (const city of CITIES.filter(x => g.cities.includes(x.id))) for (const c of city.colonies) for (const f of FORMATS.filter(x => x.available && (x.id !== 'hardDiscount' || g.startYear >= 2004 || g.minute > (2004 - g.startYear) * 525600))) {
-    if (g.stores.filter(s => s.colonyId === c.id).length >= c.slots) continue
+    if (usedSpace(g, c.id) + spaceOf(f.id) > c.slots) continue
     const e = estimateStore(city.id, c.id, f.id, g)
     if (e.paybackMonths) options.push({ col: c.id, fmt: f.name, months: e.paybackMonths, profit: e.profitMonth, cost: e.openingCost })
   }

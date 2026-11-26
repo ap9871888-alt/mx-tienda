@@ -28,9 +28,9 @@ export interface City {
 }
 
 const pos = (id: string) => (mask.info as Record<string, { x: number; y: number }>)[id]
-const col = (c: Omit<Colony, 'x' | 'y' | 'slots'> & { slots?: number }): Colony => ({ slots: 8, ...c, ...(pos(c.id) ?? { x: 0, y: 0 }) })
+const col = (c: Omit<Colony, 'x' | 'y' | 'slots'> & { slots?: number }): Colony => ({ slots: 12, ...c, ...(pos(c.id) ?? { x: 0, y: 0 }) })
 const zone = (id: string, name: string, traffic: number, rentMult: number, wealth: number, competition: number, blurb: string): Colony =>
-  ({ id, name, traffic, rentMult, wealth, competition, blurb, x: 0, y: 0, slots: 6 })
+  ({ id, name, traffic, rentMult, wealth, competition, blurb, x: 0, y: 0, slots: 9 })
 // posición de cada ciudad en el mapa por estados (%)
 const CITY_POS: Record<string, { x: number; y: number }> = { cdmx: { x: 58.2, y: 73.6 }, pue: { x: 60.4, y: 75.2 }, gdl: { x: 42.6, y: 66.5 }, mty: { x: 53.6, y: 41.5 }, tij: { x: 6.2, y: 6.5 }, mer: { x: 87.2, y: 62.5 }, oax: { x: 63.2, y: 84.5 }, aca: { x: 52.8, y: 87.5 }, pach: { x: 57.4, y: 68.8 }, qro: { x: 53.2, y: 66.6 }, ver: { x: 65.5, y: 74.5 }, nau: { x: 56.8, y: 72.2 } }
 const npos = (id: string) => CITY_POS[id]

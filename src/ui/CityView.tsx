@@ -41,7 +41,7 @@ function lotsFor (g: GameState, colony: Colony | null, kind: Kind, civic: Civic[
     }
     const rivals = g.market?.rivals.flatMap(r => Array.from({ length: r.stores[colony.id] || 0 }, () => r)) ?? []
     for (const r of rivals.slice(0, Math.max(0, items.length - i - 2))) put({ ed: `city/ed-plaza-${tod}.webp`, pin: 'rival', color: r.color, tag: r.name.split(' ')[0], label: r.name, go: () => useApp.getState().say(`${r.name}: ${r.style === 'precio' ? 'baja precios donde tú ganas' : r.style === 'premium' ? 'busca clientes con dinero' : r.style === 'barrio' ? 'llena las colonias de tienditas' : 'abre por todos lados'}`) })
-    const free = Math.max(0, colony.slots - g.stores.filter(x => x.colonyId === colony.id).length)
+    const free = Math.max(0, colony.slots - E.usedSpace(g, colony.id))
     for (let k = 0; k < Math.min(2, free) && i < items.length; k++) put({ pin: 'renta', icon: 'renta', label: `Abrir en ${colony.name}`, go: () => useApp.getState().focusColony(colony.id) })
   }
   let d = 0

@@ -75,6 +75,10 @@ export function formatAvailable (s: GameState, formatId: FormatId): Result {
   return ok()
 }
 export const ownIn = (s: GameState, colonyId: string) => s.stores.filter(x => x.colonyId === colonyId).length
+// espacio que ocupa cada formato en la colonia (en locales): los grandes ocupan una manzana entera
+export const SPACE: Record<string, number> = { ambulante: 1, paleteria: 1, taqueria: 1, tiendita: 1, conveniencia: 2, hardDiscount: 4, bodega: 4, darkStore: 3 }
+export const spaceOf = (formatId: string) => SPACE[formatId] ?? 1
+export const usedSpace = (s: GameState, colonyId: string) => s.stores.filter(x => x.colonyId === colonyId).reduce((a, x) => a + spaceOf(x.formatId), 0)
 
 // ---------- ciudades ----------
 // productos propios y equipo: cada uno empuja las ventas de su línea
@@ -135,7 +139,7 @@ export function runDirectors (s: GameState, events: GameEvent[]) {
   // Director General: abre una tienda nueva cuando hay dinero de sobra (si lo autorizaste)
   if (d.dg && s.dgBudget && s.cash > 3_000_000 && nextRandom(s) < 0.2) {
     const here = s.here ?? 'cdmx'
-    const opts = cityOf(here).colonies.filter(c => ownIn(s, c.id) < c.slots)
+    const opts = cityOf(here).colonies.filter(c => usedSpace(s, c.id) < c.slots)
       .map(c => ({ c, score: effectiveTraffic(s, here, c.id) * effectiveWealth(s, here, c.id) / (1 + effectiveCompetition(s, here, c.id)) }))
       .sort((a, b) => b.score - a.score)
     const pick = opts[0]
@@ -255,7 +259,8 @@ export function canOpen (s: GameState, cityId: string, colonyId: string, formatI
   const fa = formatAvailable(s, formatId)
   if (!fa.ok) return fa
   if (!s.cities.includes(cityId)) return fail(`Primero desbloquea ${cityOf(cityId).name} en el mapa nacional`)
-  if (ownIn(s, colonyId) >= colonyOf(cityId, colonyId).slots) return fail('Ya no hay locales disponibles en esta colonia')
+  { const free = colonyOf(cityId, colonyId).slots - usedSpace(s, colonyId); const need = spaceOf(formatId)
+    if (free < need) return fail(free <= 0 ? 'Ya no hay locales disponibles en esta colonia' : `Este formato ocupa ${need} locales y solo quedan ${free} libres`) }
   if ((s.here ?? 'cdmx') !== cityId) return fail(`Estás en ${cityOf(s.here ?? 'cdmx').name}: viaja a ${cityOf(cityId).name} para abrir ahí`)
   const cost = openingCost(cityId, colonyId, formatId)
   if (s.cash < cost) return fail('No alcanza el efectivo')
