@@ -7,6 +7,7 @@ import { Btn, Modal } from '../components/kit'
 import { sfx, soundOn, setSound, sfxVolume, setSfxVolume } from '../sound'
 import { Avatar, SKINS } from '../Avatar'
 import { musicVolume, setMusicVolume } from '../music'
+import { usePrefs, setPrefs, getPrefs } from '../settings'
 import type { CompanyProfile, Difficulty, GameState } from '../../engine/types'
 
 export const ICONS = ['marca-carrito', 'marca-tienda', 'marca-nopal', 'marca-sol', 'marca-chile', 'marca-maiz', 'marca-taco', 'marca-estrella', 'carrito', 'tienda']
@@ -93,7 +94,7 @@ export function Portada () {
         <img src={assetUrl('ui/portada.webp')} alt='' className='kenburns absolute inset-0 w-full h-full object-cover' draggable={false} />
         <div className='absolute inset-0' style={{ background: tint.c, mixBlendMode: tint.mode }} />
       </div>
-      <Petals night={tint.night} />
+      {getPrefs().petals && <Petals night={tint.night} />}
       <div className={`relative min-h-[100dvh] flex flex-col justify-between px-5 pt-[calc(20px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))] transition-all duration-500 ${leaving ? 'opacity-0' : ''}`}>
         <div className='flex items-center justify-between gap-2 rise-in'>
           <span className='bg-urbano/75 text-white text-xs font-semibold rounded-full px-3 py-1.5 backdrop-blur'>{news}</span>
@@ -107,6 +108,7 @@ export function Portada () {
               Tienda <span className='text-rojo'>MX</span> <span className='relative inline-block overflow-hidden text-oferta shine'>Inc.</span>
             </h1>
             <span className='inline-block mt-2 text-[11px] font-bold tracking-wider uppercase bg-urbano text-white rounded-full px-3 py-0.5 shadow'>Imperio retail en México</span>
+            <span className='block mt-1.5 text-[10px] font-bold tracking-[.2em] uppercase text-white' style={{ textShadow: '0 1px 3px rgba(0,0,0,.8)' }}>Hecho por API Games</span>
           </div>
         </div>
         <div className='flex-1' />
@@ -297,7 +299,8 @@ function Logros ({ onClose }: { onClose: () => void }) {
     </Modal>
   )
 }
-function Ajustes ({ onClose }: { onClose: () => void }) {
+export function Ajustes ({ onClose }: { onClose: () => void }) {
+  const pr = usePrefs()
   const [s, setS] = useState(sfxVolume())
   const [vol, setVol] = useState(musicVolume())
   return (
@@ -309,6 +312,19 @@ function Ajustes ({ onClose }: { onClose: () => void }) {
       <label className='flex items-center gap-3 bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
         <span className='font-semibold'>Música</span>
         <input type='range' min={0} max={1} step={0.05} value={vol} onChange={e => { setMusicVolume(+e.target.value); setVol(+e.target.value) }} className='flex-1' aria-label='Volumen de la música' />
+      </label>
+      <label className='flex items-center justify-between bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
+        <span className='font-semibold'>Nombres de colonias en el mapa</span>
+        <input type='checkbox' checked={pr.labels} onChange={e => setPrefs({ labels: e.target.checked })} className='w-6 h-6 accent-rojo' />
+      </label>
+      <div className='bg-white border border-borde rounded-xl px-3 py-2 flex flex-col gap-1.5'>
+        <span className='font-semibold'>Tráfico en las calles</span>
+        <div className='grid grid-cols-3 gap-2'>{([[0.5, 'Ligero'], [1, 'Normal'], [1.6, 'Hora pico']] as const).map(([v, l]) => <button key={l} onClick={() => setPrefs({ traffic: v })} className={`rounded-lg py-2 text-sm font-semibold ${pr.traffic === v ? 'bg-rojo text-white' : 'bg-arena'}`}>{l}</button>)}</div>
+        <span className='text-[11px] text-tenue'>Menos tráfico = el juego va más fluido en teléfonos viejos.</span>
+      </div>
+      <label className='flex items-center justify-between bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
+        <span className='font-semibold'>Pétalos y nubes en la portada</span>
+        <input type='checkbox' checked={pr.petals} onChange={e => setPrefs({ petals: e.target.checked })} className='w-6 h-6 accent-rojo' />
       </label>
       <Btn kind='ghost' onClick={() => { useApp.getState().run(g => { g.tutorial = 0; return { ok: true, msg: 'La guía empieza de nuevo' } }) }}>Reiniciar guía</Btn>
       <p className='text-xs text-tenue'>Espacio = pausa · los datos se guardan en este dispositivo.</p>

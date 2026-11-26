@@ -9,7 +9,8 @@ import { cityOf } from '../data/cities'
 import LOTS from '../data/cityLots.json'
 import { ColonyTraffic } from './ColonyTraffic'
 import { ModularTraffic } from './ModularTraffic'
-import { KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
+import { usePrefs } from './settings'
+import { RES, KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
 import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
@@ -58,6 +59,7 @@ export function CityView () {
   // cuadrícula de zonas: 2 columnas, como un teléfono en vertical
   const cols = 2; const rows = Math.ceil(city.colonies.length / cols) + (city.colonies.length % 2 ? 0 : 0)
   const tiles = Array.from({ length: cols * rows }, (_, k) => city.colonies[k] ?? null)
+  const prefs = usePrefs()
   const kit = KITS[city.id]
   const full = kit ? undefined : MAPS[`${city.id}-full`]
   const W = kit ? MW : full ? full.w! : cols * TW; const H = kit ? MH : full ? full.h! : rows * TH
@@ -105,7 +107,7 @@ export function CityView () {
       const c = cam.current
       clamp() // fija primero la escala permitida para centrar bien
       const lb = modItems?.labels ?? fullItems?.labels
-      const fl = kit && !st ? blockRect(3, 3) : lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
+      const fl = kit && !st ? blockRect(5, 5) : lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
       if (fl) { c.x = -(fl.x / 100 * W) * c.s + vw / 2; c.y = -(fl.y / 100 * H) * c.s + el.clientHeight / 2 }
       else { c.x = -((k % cols) * TW + TW / 2) * c.s + vw / 2; c.y = -(Math.floor(k / cols) * TH + TH * 0.4) * c.s + el.clientHeight / 2 }
       clamp(); apply(); force(n => n + 1)
@@ -153,8 +155,8 @@ export function CityView () {
         {kit && modItems && (
           <div className='absolute inset-0 isolate'>
             <ModularGround kit={kit} night={night} />
-            <ModularTraffic night={night} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
-            {modItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/80 text-white text-[15px] font-bold rounded-full px-3 py-0.5 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
+            <ModularTraffic density={prefs.traffic} night={night} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
+            {prefs.labels && modItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/80 text-white text-[15px] font-bold rounded-full px-3 py-0.5 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
             {modItems.items.map((l, j) => <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} />)}
           </div>
         )}
@@ -282,7 +284,7 @@ function AdvisorButton () {
   const urgent = todos.some(t => t.prio >= 75)
   return (
     <>
-      <button onClick={() => setOpen(true)} aria-label='¿Qué hago ahora?' className={`relative w-11 h-11 rounded-full shadow-lg grid place-items-center text-xl ${urgent ? 'bg-oferta animate-pulse' : 'bg-white'}`}>💡
+      <button onClick={() => setOpen(true)} aria-label='¿Qué hago ahora?' className={`relative w-12 h-12 rounded-full shadow-lg overflow-hidden border-2 ${urgent ? 'border-oferta animate-pulse' : 'border-white'} bg-urbano`}><img src={assetUrl('ui/chema-senala.webp')} alt='' className='w-full h-full object-cover object-top scale-125 translate-y-1' />
         {todos.length > 0 && <span className='absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rojo text-white text-[11px] font-black grid place-items-center'>{todos.length}</span>}
       </button>
       {open && createPortal(
@@ -307,8 +309,8 @@ function AdvisorButton () {
 function ModularGround ({ kit, night }: { kit: CityKit; night: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
-    const cv = ref.current!; cv.width = MW; cv.height = MH
-    const ctx = cv.getContext('2d')!
+    const cv = ref.current!; cv.width = Math.round(MW * RES); cv.height = Math.round(MH * RES)
+    const ctx = cv.getContext('2d')!; ctx.setTransform(RES, 0, 0, RES, 0, 0)
     const paths = ['kit/polanco/tile_calle_recta.webp', 'kit/polanco/tile_cruce_cebra.webp', 'kit/polanco/tile_avenida_masaryk.webp', 'kit/polanco/tile_glorieta_lujo.webp', 'sprites/piso-banqueta.webp', 'sprites/piso-pasto.webp']
     let tries = 0; let t: ReturnType<typeof setTimeout>
     const draw = () => {
@@ -352,7 +354,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
     const lots = byColony[col.id] ?? []
     const c = centers.find(x => x.id === col.id)
     const mine = g.stores.filter(s => s.colonyId === col.id).length
-    if (c) labels.push({ ...c, mine })
+    if (c && !labels.some(l => l.name === c.name)) labels.push({ ...c, mine })
     const go = lotsFor(g, col, 'media', [], tod).filter(x => x.go)
     const inter = [...go.filter(x => x.mine), ...go.filter(x => x.pin === 'renta').slice(0, 1), ...go.filter(x => !x.mine && x.pin !== 'renta')]
     const decor = kit.decor[col.id] ?? []
@@ -365,7 +367,12 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
       } else {
         // cuadra de relleno: cuatro construcciones distintas, como una manzana real
         const bx = (r as { bx?: number }).bx!; const by = (r as { by?: number }).by!
-        quarters(bx, by).forEach((q, n) => { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...q, w: q.w * (/mob_|veg_/.test(ed ?? '') ? 0.6 : 1), ed }) })
+        // manzana con aire: dos construcciones en diagonal y árboles en los otros dos cuartos
+        const qs = quarters(bx, by); const v = (bx * 7 + by * 3) % 4
+        qs.forEach((q, n) => {
+          const build = v % 2 ? (n === 0 || n === 3) : (n === 1 || n === 2)
+          if (build) { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...q, w: q.w * (/mob_|veg_/.test(ed ?? '') ? 0.6 : 1), ed }) } else if ((bx + by + n) % 3) items.push({ ...q, w: q.w * 0.5, ed: n % 2 ? 'kit/cdmx/deco_jacaranda.webp' : 'kit/cdmx2/veg_jardinera_bugambilias.webp' })
+        })
       }
     })
   }

@@ -2,7 +2,7 @@
 // y la gente camina por las banquetas. Cada coche usa la vista correcta según su dirección.
 import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
-import { W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY } from './modular'
+import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY } from './modular'
 
 const SKINS = ['px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
 // láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
@@ -27,7 +27,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const cv = ref.current!; const ctx = cv.getContext('2d')!
-    cv.width = W; cv.height = H
+    cv.width = Math.round(W * RES); cv.height = Math.round(H * RES); ctx.setTransform(RES, 0, 0, RES, 0, 0)
     const rnd = Math.random
     const lines = (n: number) => Array.from({ length: Math.floor((n - 1) / P) + 1 }, (_, i) => i * P)
     const xs = lines(NY); const ys = lines(NX)

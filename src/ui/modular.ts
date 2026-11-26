@@ -4,18 +4,20 @@ import type { Colony } from '../data/cities'
 
 export const TW = 96; export const TH = 48 // tamaño de un mosaico
 export const P = 4 // cada cuadra son 3×3 mosaicos + 1 de calle
-export const NBX = 7; export const NBY = 10 // cuadras en cada eje
+export const NBX = 11; export const NBY = 15 // cuadras en cada eje (ciudad amplia, con aire entre lugares)
 export const NX = NBX * P + 1; export const NY = NBY * P + 1
 export const TOP = 380 // margen para lo alto de los edificios de arriba
-export const M = 120 // margen alrededor para los cerros del borde
+export const M = 220 // margen alrededor: ahí sigue la ciudad lejana
 export const OX = NY * TW / 2 + M // origen x para que todo quede en positivo
 export const W = (NX + NY) * TW / 2 + 2 * M; export const H = (NX + NY) * TH / 2 + TOP + M
+// los teléfonos limitan el tamaño de un lienzo (~16 M de píxeles): el piso y el tráfico se pintan a esta resolución
+export const RES = Math.min(1, Math.sqrt(10e6 / (((NX + NY) * TW / 2 + 2 * M) * ((NX + NY) * TH / 2 + TOP + M))))
 export const toScreen = (tx: number, ty: number) => ({ x: OX + (tx - ty) * TW / 2, y: TOP + (tx + ty) * TH / 2 })
 
 // calles: cada 4 mosaicos. En pantalla el norte queda arriba y el oriente a la derecha.
 // Paseo de la Reforma corre en diagonal del Centro (arriba a la derecha) a Chapultepec (abajo a la izquierda),
 // sobre tx=12; Insurgentes la cruza sobre ty=16 en la glorieta del Ángel.
-export const REFORMA_TX = 12; export const INSURGENTES_TY = 16
+export const REFORMA_TX = 20; export const INSURGENTES_TY = 24
 export const REFORMA = INSURGENTES_TY; export const INSURGENTES = REFORMA_TX // nombres viejos usados en el dibujo
 export const isRoad = (tx: number, ty: number) => tx % P === 0 || ty % P === 0
 export const isAvenue = (tx: number, ty: number) => tx === REFORMA_TX || ty === INSURGENTES_TY
@@ -30,7 +32,7 @@ export interface CityKit {
 const X = (s: string) => `kit/px/${s}.webp`; const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
 // manzanas: (bx, by). Arriba = norte (Gustavo A. Madero), derecha = oriente (Iztapalapa, aeropuerto),
 // izquierda = poniente (Polanco, Santa Fe), abajo = sur (Coyoacán)
-const MON: Record<string, string> = {
+const MON0: Record<string, string> = {
   '1,0': K('monumento_basilica'), // La Villa, al norte
   '3,0': K('monumento_bellas_artes'), // fin de Reforma: Alameda y Bellas Artes
   '4,0': K('monumento_torre_latino'), // Madero
@@ -64,10 +66,10 @@ const MON: Record<string, string> = {
   '6,9': X('07_embarcadero_xochimilco'),
   '5,9': X('09_chinampa_cultivos')
 }
-const CIVIC: Record<string, string> = {
+const CIVIC0: Record<string, string> = {
   '4,1': 'banco', '3,2': 'bolsa', '2,3': 'inversion', '1,3': 'estilo', '6,3': 'logistica', '0,6': 'corporativo', '6,2': 'aeropuerto', '2,0': 'central'
 }
-const PARKS = new Set(['1,6', '1,7', '2,7', '2,9']) // bosque de Chapultepec
+const PARKS0 = new Set(['1,6', '1,7', '2,7', '2,9']) // bosque de Chapultepec
 // colonias por manzana (filas = by, columnas = bx)
 const GRID = [
   'CCCCCCC',
@@ -82,7 +84,24 @@ const GRID = [
   'SSYYYYY'
 ]
 const CODE: Record<string, string> = { C: 'centro', P: 'polanco', S: 'santafe', I: 'iztapalapa', R: 'roma', N: 'narvarte', D: 'delvalle', Y: 'coyoacan' }
-const colonyOf = (bx: number, by: number) => CODE[GRID[by]?.[bx] ?? 'C']
+// el plano de arriba es el boceto compacto; aquí se extiende a una ciudad más grande:
+// cada lugar conserva su posición relativa y entre ellos quedan manzanas de colonia
+const FX = [1, 2, 4, 5, 7, 8, 9]; const FY = [1, 2, 3, 5, 6, 7, 9, 10, 12, 13]
+const spread = <T, >(o: Record<string, T>) => Object.fromEntries(Object.entries(o).map(([k, v]) => { const [x, y] = k.split(',').map(Number); return [`${FX[x]},${FY[y]}`, v] })) as Record<string, T>
+const MON = spread(MON0); const CIVIC = spread(CIVIC0)
+const nearest = (bx: number, by: number) => {
+  let best = [0, 0]; let bd = Infinity
+  FX.forEach((x, i) => FY.forEach((y, j) => { const d = (x - bx) ** 2 + (y - by) ** 2; if (d < bd) { bd = d; best = [i, j] } }))
+  return best
+}
+const PARKS = new Set<string>()
+for (let bx = 0; bx < NBX; bx++) for (let by = 0; by < NBY; by++) {
+  const k = `${bx},${by}`; if (MON[k] || CIVIC[k]) continue
+  const [i, j] = nearest(bx, by); const old = `${i},${j}`
+  // el bosque de Chapultepec y Xochimilco crecen hacia las manzanas vecinas
+  if (PARKS0.has(old) || /chapultepec|antropologia|chinampa|embarcadero/.test(MON0[old] ?? '')) PARKS.add(k)
+}
+const colonyOf = (bx: number, by: number) => { const [i, j] = nearest(bx, by); return CODE[GRID[j]?.[i] ?? 'C'] }
 export const CDMX_KIT: CityKit = {
   id: 'cdmx',
   blocks: (bx, by) => {
@@ -147,7 +166,22 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
   const line = (a: [number, number], b: [number, number], color: string, w: number, dash: number[] = []) => {
     const p = toScreen(...a); const q = toScreen(...b); ctx.beginPath(); ctx.setLineDash(dash); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke(); ctx.setLineDash([])
   }
-  // asfalto de toda la ciudad
+  // la ciudad sigue más allá del borde: calles y casitas sencillas hasta el horizonte (sin pasto vacío)
+  const EXT = 26
+  rect(-EXT, -EXT, NX + EXT, NY + EXT, '#4A4D55')
+  const roofs = ['#C9694A', '#D9A066', '#B9B2A4', '#E3C9A0', '#9DA7B3', '#C98B6B']
+  for (let i = -EXT; i < NX + EXT; i += P) for (let j = -EXT; j < NY + EXT; j += P) {
+    if (i >= 0 && i < NX - 1 && j >= 0 && j < NY - 1) continue
+    rect(i + 1, j + 1, i + 4, j + 4, '#CFC8B9')
+    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) { // casitas de 1 mosaico: muro y azotea
+      const x0 = i + 1.12 + a; const y0 = j + 1.12 + b; const hgt = 10 + ((i * 7 + j * 3 + a * 5 + b) % 4) * 7
+      const p1 = toScreen(x0, y0 + 0.76); const p2 = toScreen(x0 + 0.76, y0 + 0.76); const p3 = toScreen(x0 + 0.76, y0)
+      ctx.fillStyle = '#8F8676'; ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p2.x, p2.y - hgt); ctx.lineTo(p1.x, p1.y - hgt); ctx.fill()
+      ctx.fillStyle = '#A79D8B'; ctx.beginPath(); ctx.moveTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x, p3.y - hgt); ctx.lineTo(p2.x, p2.y - hgt); ctx.fill()
+      ctx.save(); ctx.translate(0, -hgt); rect(x0, y0, x0 + 0.76, y0 + 0.76, roofs[(i + j * 3 + a + b * 2 + 60) % roofs.length]); ctx.restore()
+    }
+  }
+  ctx.fillStyle = 'rgba(233,226,210,.18)'; ctx.fillRect(0, 0, W, H) // bruma ligera: lo lejano se ve más tenue
   rect(0, 0, NX, NY, '#4A4D55')
   // camellones de las avenidas
   rect(INSURGENTES + 0.44, 0, INSURGENTES + 0.56, NY, '#6FA04A')

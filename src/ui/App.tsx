@@ -2,9 +2,9 @@ import { setMood, unlockMusic, duckMusic } from './music'
 import { cityAmbience, sfx } from './sound'
 import { assetUrl } from '../renderer/assets'
 import { SEASON_ICON } from '../data/empire'
-import { Portada } from './screens/Portada'
+import { Portada, Ajustes } from './screens/Portada'
 import { GuiaButton } from './Guia'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Pause, Play, FastForward, ChevronsRight } from 'lucide-react'
 import { useApp, startLoop, fmt, type Tab, type Speed, setPriceLevel } from '../state/store'
 import * as E from '../engine'
@@ -112,6 +112,8 @@ export function App () {
 
 // menú "Más": todas las demás secciones en una cuadrícula grande, fácil de encontrar
 function MasMenu ({ onClose }: { onClose: () => void }) {
+  const [aj, setAj] = useState(false)
+  if (aj) return <Ajustes onClose={() => { setAj(false); onClose() }} />
   const go = (t: Tab) => { useApp.getState().setTab(t); window.scrollTo(0, 0); onClose() }
   const items: [string, string, string, () => void][] = [
     ['ic-interior', 'Laboratorio', 'Inventa productos y tecnología', () => go('laboratorio')],
@@ -129,7 +131,8 @@ function MasMenu ({ onClose }: { onClose: () => void }) {
     ['ic-premium', 'Estilo de vida', 'Compras de estatus', () => go('estilo')],
     ['ic-viajar', 'Viajar', 'Otros estados', () => useApp.getState().openStates()],
     ['ic-logros', 'Logros', 'Tus medallas', () => { useApp.getState().setTitle(true); onClose() }],
-    ['ic-ajustes', 'Menú principal', 'Partidas y ajustes', () => { useApp.getState().setTitle(true); onClose() }]
+    ['ic-ajustes', 'Ajustes', 'Sonido, tráfico y vista del mapa', () => setAj(true)],
+    ['ic-tiendas', 'Menú principal', 'Partidas y nueva empresa', () => { useApp.getState().setTitle(true); onClose() }]
   ]
   return (
     <div className='fixed inset-0 z-50' onClick={onClose}>
