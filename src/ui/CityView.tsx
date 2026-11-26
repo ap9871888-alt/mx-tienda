@@ -3,6 +3,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import * as E from '../engine'
 import { useApp, type Tab } from '../state/store'
+import { createPortal } from 'react-dom'
+import { pickColony } from './screens/Mapa'
 import { assetUrl } from '../renderer/assets'
 import { cityOf } from '../data/cities'
 import LOTS from '../data/cityLots.json'
@@ -60,6 +62,7 @@ export function CityView () {
   const cols = 2; const rows = Math.ceil(city.colonies.length / cols) + (city.colonies.length % 2 ? 0 : 0)
   const tiles = Array.from({ length: cols * rows }, (_, k) => city.colonies[k] ?? null)
   const prefs = usePrefs()
+  const [sheet, setSheet] = useState<string | null>(null)
   const kit = KITS[city.id]
   const full = kit ? undefined : MAPS[`${city.id}-full`]
   const W = kit ? MW : full ? full.w! : cols * TW; const H = kit ? MH : full ? full.h! : rows * TH
@@ -178,12 +181,13 @@ export function CityView () {
   const near = (l: Lot) => l.x > vx0 - mx - (l.w ?? 10) && l.x < vx1 + mx + (l.w ?? 10) && (l.bottom ?? l.y) > vy0 - my && (l.bottom ?? l.y) < vy1 + my + 30
   return (
     <div ref={box} className={`relative flex-1 overflow-hidden ${kit ? 'bg-[#6E8F50]' : 'bg-[#8FA3B5]'} touch-none select-none`} style={{ overscrollBehavior: 'none' }}>
+      {sheet && <ColonySheet cityId={city.id} colonyId={sheet} onClose={() => setSheet(null)} />}
       <div ref={world} className={`absolute left-0 top-0 origin-top-left ${kit ? '' : 'will-change-transform'}`} style={{ width: W, height: H }}>
         {kit && modItems && (
           <div className='absolute inset-0 isolate'>
             <ModularGround kit={kit} night={night} />
             <ModularTraffic active={useApp.getState().tab === 'calle'} density={prefs.traffic} night={night} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
-            {prefs.labels && modItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/80 text-white text-[15px] font-bold rounded-full px-3 py-0.5 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name} · {E.usedSpace(game, l.id)}/{city.colonies.find(c => c.id === l.id)?.slots} locales</span>)}
+            {prefs.labels && modItems.labels.map(l => <button key={l.id} onClick={() => setSheet(l.id)} className='absolute z-[2000] -translate-x-1/2 bg-urbano/85 text-white text-[15px] font-bold rounded-full px-3 py-1 shadow-lg whitespace-nowrap active:scale-95' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name} · {E.usedSpace(game, l.id)}/{city.colonies.find(c => c.id === l.id)?.slots} ⓘ</button>)}
             {modItems.items.map((l, j) => near(l) && <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} night={night} />)}
           </div>
         )}
@@ -430,4 +434,40 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
   for (const a of AREAS) for (const [ed, dx, dy, w] of a.items) items.push({ ...at(a.bx * 4 + 1 + dx, a.by * 4 + 1 + dy, w), ed })
   for (const s of scenery()) items.push({ ...s.r, ed: s.ed })
   return { items: items.sort((a, b) => (a.bottom ?? a.y) - (b.bottom ?? b.y)), labels }
+}
+
+// ficha de colonia: todo lo que necesitas para decidir si abrir ahí
+function ColonySheet ({ cityId, colonyId, onClose }: { cityId: string; colonyId: string; onClose: () => void }) {
+  const game = useApp(s => s.game)!
+  const col = cityOf(cityId).colonies.find(c => c.id === colonyId)!
+  const mine = game.stores.filter(s => s.colonyId === colonyId)
+  const used = E.usedSpace(game, colonyId); const free = col.slots - used
+  const traffic = Math.round(E.effectiveTraffic(game, cityId, colonyId)); const wealth = E.effectiveWealth(game, cityId, colonyId); const comp = E.effectiveCompetition(game, cityId, colonyId)
+  const who = wealth > 1.3 ? 'Clientes con dinero: aceptan precios altos y compran premium' : wealth < 0.85 ? 'Clientes que cuidan cada peso: gana el precio bajo' : 'Clientes de clase media: buscan buen precio y cercanía'
+  const fits = ['tiendita', 'conveniencia', 'bodega'].filter(f => E.spaceOf(f) <= free)
+  return createPortal(
+    <div className='fixed inset-0 z-50 bg-black/40 grid place-items-end' onClick={onClose}>
+      <div className='w-full max-w-[620px] mx-auto bg-arena rounded-t-3xl p-4 pb-[calc(20px+env(safe-area-inset-bottom))] flex flex-col gap-3 max-h-[85dvh] overflow-y-auto' onClick={e => e.stopPropagation()}>
+        <div className='flex items-center gap-3'>
+          <img src={assetUrl('ui/ret-vendedora_mercado.webp')} alt='' className='w-14 h-14 object-contain' />
+          <div className='flex-1'><b className='font-display text-2xl uppercase leading-none block'>{col.name}</b><span className='text-xs text-tenue'>{col.blurb}</span></div>
+          <button onClick={onClose} aria-label='Cerrar' className='w-10 h-10 rounded-full bg-white border border-borde'>✕</button>
+        </div>
+        <div className='grid grid-cols-4 gap-2 text-center'>
+          {([['Peatones/h', traffic.toLocaleString('es-MX')], ['Poder adq.', `×${wealth.toFixed(2)}`], ['Competencia', `${Math.round(comp * 100)} %`], ['Renta', `×${col.rentMult.toFixed(2)}`]] as const).map(([k, v]) => (
+            <div key={k} className='bg-white rounded-xl border border-borde py-2'><b className='block num'>{v}</b><span className='text-[10px] text-tenue'>{k}</span></div>))}
+        </div>
+        <p className='text-sm bg-white rounded-xl border border-borde p-2.5'>👥 {who}.</p>
+        <div className='bg-white rounded-xl border border-borde p-2.5'>
+          <div className='flex justify-between text-sm font-semibold'><span>Locales usados</span><span className='num'>{used} / {col.slots}</span></div>
+          <div className='h-2.5 bg-borde rounded-full mt-1 overflow-hidden'><div className={`h-full ${free <= 0 ? 'bg-rojo' : 'bg-ahorro'}`} style={{ width: `${Math.min(100, used / col.slots * 100)}%` }} /></div>
+          <span className='text-[11px] text-tenue'>{free <= 0 ? 'Colonia llena.' : `Caben: ${fits.map(f => f === 'tiendita' ? 'tiendita (1)' : f === 'conveniencia' ? 'conveniencia (2)' : 'bodega (4)').join(', ') || 'solo formatos chicos'}.`} Rivales aquí: {E.rivalStoresIn(game, colonyId)}.</span>
+        </div>
+        {mine.length > 0 && <div className='bg-white rounded-xl border border-borde p-2.5 flex flex-col gap-1'>
+          <b className='text-sm'>Tus tiendas aquí</b>
+          {mine.map(s => <button key={s.id} onClick={() => { useApp.getState().selectStore(s.id); useApp.getState().setTab('tienda'); onClose() }} className='flex justify-between text-sm py-1 border-t border-borde first:border-t-0'><span>{E.storeShort(s)}</span><span className='num text-tenue'>hoy {Math.round(s.today.sales).toLocaleString('es-MX')} ›</span></button>)}
+        </div>}
+        <button disabled={free <= 0} onClick={() => { pickColony(cityId, colonyId); useApp.getState().setTab('mapa'); onClose() }} className='bg-rojo text-white rounded-2xl min-h-[52px] font-bold disabled:opacity-40'>{free <= 0 ? 'Sin locales libres' : 'Abrir tienda aquí →'}</button>
+      </div>
+    </div>, document.body)
 }

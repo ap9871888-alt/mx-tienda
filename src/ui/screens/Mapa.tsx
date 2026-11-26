@@ -17,6 +17,10 @@ function colonyAt (CITY: City, px: number, py: number) {
   return v ? ids[v - 1] : null
 }
 
+// colonia elegida desde el mapa de la ciudad (ficha de colonia → «Abrir tienda aquí»)
+export let pendingColony: { city: string; colony: string } | null = null
+export const pickColony = (city: string, colony: string) => { pendingColony = { city, colony } }
+
 export function Mapa () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
@@ -24,7 +28,7 @@ export function Mapa () {
   const [national, setNational] = useState(useApp.getState().mapMode === 'nacional')
   const [unlock, setUnlock] = useState<string | null>(null)
   const CITY = cityOf(cityId)
-  const [selBy, setSelBy] = useState<Record<string, string>>({ cdmx: 'roma' })
+  const [selBy, setSelBy] = useState<Record<string, string>>(() => { const p = pendingColony; pendingColony = null; return p ? { [p.city]: p.colony, cdmx: p.city === 'cdmx' ? p.colony : 'roma' } : { cdmx: 'roma' } })
   const sel = selBy[cityId] ?? CITY.colonies[0].id
   const setSel = (id: string) => setSelBy(m => ({ ...m, [cityId]: id }))
   // al llegar desde un letrero de SE RENTA, abre directo esa colonia
