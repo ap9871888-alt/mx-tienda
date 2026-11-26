@@ -67,7 +67,7 @@ const ring = (w: number, h: number, sp: string, n = 2) => { const out: [string, 
 const AREAS0: Area[] = [
   { id: 'zocalo', bx: 6, by: 2, w: 2, h: 2, ground: 'plaza', items: [[K('monumento_zocalo'), 4.8, 4.8, 4.2], ...ring(2, 2, BUG, 2.4)] },
   { id: 'alameda', bx: 3, by: 3, w: 1, h: 2, ground: 'park', items: [[K('deco_kiosco_jardin'), 1.6, 3.6, 0.9], ...[[0.7, 0.8], [2.4, 1.2], [0.8, 2.6], [2.3, 5.6], [0.7, 6.2], [2.4, 3.4], [1.5, 1.8], [1.4, 5.0]].map(([x, y]) => [JAC, x, y, 0.75] as [string, number, number, number])] },
-  { id: 'chapultepec', bx: 1, by: 9, w: 3, h: 3, ground: 'park', items: [[MX('castillo_chapultepec'), 8.6, 2.8, 2.6], ...Array.from({ length: 22 }, (_, i) => [TREE, 0.8 + (i * 4.7) % 9.6, 0.8 + (i * 2.9 + Math.floor(i / 4) * 1.3) % 10, 0.62] as [string, number, number, number]).filter(([, x, y]) => !(x > 6.5 && y < 5) && !((x - 4.5) ** 2 + (y - 7) ** 2 < 4))] },
+  { id: 'chapultepec', bx: 1, by: 9, w: 3, h: 3, ground: 'park', items: [[MX('castillo_chapultepec'), 8.6, 2.8, 2.6], ...Array.from({ length: 48 }, (_, i) => [i % 5 ? TREE : JAC, 0.7 + (i * 4.7) % 10, 0.7 + (i * 2.3 + Math.floor(i / 5) * 1.1) % 10.4, 0.58] as [string, number, number, number]).filter(([, x, y]) => !(x > 6.5 && y < 5) && !((x - 4.5) ** 2 + (y - 7) ** 2 < 4))] },
   { id: 'parque_mexico', bx: 5, by: 9, w: 1, h: 1, ground: 'park', items: ring(1, 1, JAC, 1.2) },
   { id: 'xochimilco', bx: 9, by: 10, w: 2, h: 2, ground: 'water', items: [[X('07_embarcadero_xochimilco'), 2.4, 2.6, 2.2], [X('09_chinampa_cultivos'), 5.6, 2.2, 1.6], [X('09_chinampa_cultivos'), 2.3, 5.8, 1.6], [X('09_chinampa_cultivos'), 5.8, 5.8, 1.6], [X('08_trajinera_navegando'), 4.0, 4.2, 0.9], [X('08_trajinera_navegando'), 4.1, 1.2, 0.9]] },
   { id: 'azteca', bx: 9, by: 12, w: 2, h: 2, ground: 'plaza', items: [[MX('estadio_azteca'), 4.8, 4.8, 5.4], ...ring(2, 2, TREE, 2.6)] },
@@ -81,7 +81,10 @@ export const AREAS: Area[] = [
 ]
 const AREA_AT = new Map<string, Area>(); for (const a of AREAS) for (let i = 0; i < a.w; i++) for (let j = 0; j < a.h; j++) AREA_AT.set(`${a.bx + i},${a.by + j}`, a)
 // ¿esta calle (mosaico) quedó dentro de un área grande? Los coches no entran ahí
-export const blocked = (tx: number, ty: number) => AREAS.some(a => tx >= a.bx * P + 1 && tx < (a.bx + a.w) * P && ty >= a.by * P + 1 && ty < (a.by + a.h) * P)
+// Canal Nacional: canal con andador verde que corre por el sur-oriente sobre una calle (los coches no pasan)
+export const CANAL_TX = 10 * P; export const CANAL_TY0 = 9 * P
+const inCanal = (tx: number, ty: number) => tx >= CANAL_TX && tx < CANAL_TX + 1 && ty >= CANAL_TY0 && ty < NY - P
+export const blocked = (tx: number, ty: number) => inCanal(tx, ty) || AREAS.some(a => tx >= a.bx * P + 1 && tx < (a.bx + a.w) * P && ty >= a.by * P + 1 && ty < (a.by + a.h) * P)
 const PARKS = new Set<string>()
 export const WATER: Record<string, 'lago' | 'canal'> = {}
 // centro de cada colonia en la retícula; cada manzana libre pertenece a la colonia más cercana
@@ -161,7 +164,14 @@ export const quarters = (bx: number, by: number) => [[0, 0], [1, 0], [0, 1], [1,
 // adornos de la ciudad: palmeras en los camellones y cerros alrededor del valle
 export function scenery () {
   const out: { r: ReturnType<typeof at>; ed: string }[] = []
-  for (let j = 1; j < NY; j++) if (j % P !== 0 && j % 2 === 0) out.push({ r: at(REFORMA_TX + 0.55, j + 0.5, 0.5), ed: K2('veg_palmera_reforma') })
+  for (let j = 1; j < NY; j++) {
+    if (j % P === 0 || blocked(REFORMA_TX + 0.5, j + 0.5)) continue
+    if (j % 2 === 0) out.push({ r: at(REFORMA_TX + 0.55, j + 0.5, 0.5), ed: K2('veg_palmera_reforma') })
+    // Reforma morada: jacarandas en las dos banquetas
+    out.push({ r: at(REFORMA_TX - 0.12, j + 0.5, 0.55), ed: MX('jacaranda') }); out.push({ r: at(REFORMA_TX + 1.12, j + 0.5, 0.55), ed: MX('jacaranda') })
+  }
+  // árboles a lo largo del Canal Nacional
+  for (let j = CANAL_TY0 + 1; j < NY - P; j += 2) out.push({ r: at(CANAL_TX + 0.5, j + 0.5, 0.5), ed: MX(j % 4 ? 'ahuehuete' : 'jacaranda') })
   return out
 }
 
@@ -308,6 +318,8 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
   path(DECK - 6); ctx.strokeStyle = '#8D877C'; ctx.lineWidth = 50; ctx.stroke() // canto del puente
   path(DECK); ctx.strokeStyle = '#53565D'; ctx.lineWidth = 46; ctx.stroke()
   path(DECK); ctx.strokeStyle = '#EDEDED'; ctx.lineWidth = 2; ctx.setLineDash([14, 12]); ctx.stroke(); ctx.setLineDash([])
+  // Canal Nacional: agua con orillas verdes encima de la calle
+  rect(CANAL_TX - 0.05, CANAL_TY0, CANAL_TX + 1.05, NY - P, '#7DB35A'); rect(CANAL_TX + 0.22, CANAL_TY0, CANAL_TX + 0.78, NY - P, '#4FB3C8')
   if (night) { // noche: tinte índigo multiplicado (oscurece sin lavar los colores)
     ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(118,128,182)'; ctx.fillRect(0, 0, W, H); ctx.restore()
   }
