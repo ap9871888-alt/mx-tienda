@@ -23,6 +23,27 @@ export function Inversion () {
 }
 
 // inversión ángel: proyectos que inventa la IA del mundo
+// evaluación del proyecto (0–1 en 5 ejes); sale del riesgo y de su nombre para que sea estable
+const dealScores = (d: E.AngelDeal) => {
+  const h = [...d.id + d.name].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)
+  const r = (k: number) => ((h * (k + 3)) % 100) / 100
+  const base = 1 - d.risk
+  return [0.25 + base * 0.5 + r(1) * 0.25, 0.15 + d.stage * 0.18, 0.3 + r(2) * 0.6, 0.2 + r(3) * 0.6, 0.2 + base * 0.6 + r(4) * 0.2].map(v => Math.min(1, v))
+}
+// gráfica de pentágono (radar)
+export function Radar ({ values, labels }: { values: number[]; labels: string[] }) {
+  const n = values.length; const R = 70; const c = 110
+  const pt = (i: number, v: number) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [c + Math.cos(a) * R * v, c + Math.sin(a) * R * v] }
+  const poly = (v: (i: number) => number) => values.map((_, i) => pt(i, v(i)).join(',')).join(' ')
+  return (
+    <svg viewBox='0 0 220 220' className='w-full max-w-[260px] mx-auto' role='img' aria-label='Evaluación del proyecto'>
+      {[0.25, 0.5, 0.75, 1].map(k => <polygon key={k} points={poly(() => k)} fill='none' stroke='#D9D2C4' strokeDasharray='3 3' />)}
+      {values.map((_, i) => { const [x, y] = pt(i, 1); return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke='#D9D2C4' /> })}
+      <polygon points={poly(i => values[i])} fill='rgba(0,180,190,.25)' stroke='#00A7B5' strokeWidth='2.5' />
+      {labels.map((l, i) => { const [x, y] = pt(i, 1.32); return <text key={l} x={x} y={y} textAnchor='middle' dominantBaseline='middle' fontSize='11' fontWeight='600' fill='#2B2D33'>{l}</text> })}
+    </svg>
+  )
+}
 function Proyectos () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
@@ -37,16 +58,24 @@ function Proyectos () {
         <div className='flex items-center gap-3'><img src={assetUrl('ui/ic-dinero.webp')} alt='' className='w-14 h-14 object-contain' />
           <p className='text-sm'>Emprendedores te buscan para financiar sus ideas. Algunos multiplican tu dinero varias veces; otros lo pierden todo. Cada semana aparecen nuevas.</p></div>
       </Card>
-      {open.map(d => (
-        <Card key={d.id}>
-          <div className='flex items-start gap-3'>
-            <span className='w-12 h-12 rounded-2xl bg-corp text-white grid place-items-center text-xl font-black shrink-0'>{d.name[0]}</span>
-            <div className='flex-1 min-w-0'><b className='block'>{d.name}</b><span className='text-sm'>{d.founder} quiere crear {d.idea}.</span>
-              <span className='block text-xs text-tenue mt-0.5'>Pide {fmtK(d.ask)} por el {d.pct} % · riesgo {d.risk < 0.45 ? 'bajo' : d.risk < 0.65 ? 'medio' : 'alto'} · quedan {Math.max(0, d.expires - day)} días</span></div>
-          </div>
-          <Btn small disabled={game.cash < d.ask} onClick={() => run(g => E.investDeal(g, d.id))}>Invertir {fmtK(d.ask)}</Btn>
-        </Card>
-      ))}
+      {open.map(d => {
+        const sc = dealScores(d); const pre = Math.round(d.ask / (d.pct / 100) - d.ask)
+        return (
+          <Card key={d.id}>
+            <div className='flex items-start gap-3'>
+              <img src={assetUrl('ui/pi-cohete_startup.webp')} alt='' className='w-12 h-12 object-contain shrink-0' />
+              <div className='flex-1 min-w-0'><b className='block text-lg leading-tight'>{d.name}</b><span className='text-sm'>{d.founder} quiere crear {d.idea}.</span></div>
+              <img src={assetUrl(`ui/ret-${/a$/.test(d.founder.split(' ')[0]) ? 'directora_startup' : 'inversionista_angel'}.webp`)} alt='' className='w-14 h-14 object-contain shrink-0' />
+            </div>
+            <div className='grid grid-cols-2 gap-2'>
+              <Kpi label='Valoración pre-dinero' value={fmtK(pre)} />
+              <Kpi label={`Piden por el ${d.pct} %`} value={fmtK(d.ask)} />
+            </div>
+            <Radar values={sc} labels={['Gestión', 'Madurez', 'Mercado', 'Competencia', 'Finanzas']} />
+            <span className='text-xs text-tenue text-center'>Riesgo {d.risk < 0.45 ? 'bajo' : d.risk < 0.65 ? 'medio' : 'alto'} · etapa {E.DEAL_STAGES[d.stage]} · quedan {Math.max(0, d.expires - day)} días</span>
+            <Btn small disabled={game.cash < d.ask} onClick={() => run(g => E.investDeal(g, d.id))}>Invertir {fmtK(d.ask)}</Btn>
+          </Card>)
+      })}
       {!open.length && <Card><p className='text-sm text-tenue'>No hay propuestas nuevas por ahora. Vuelve en unos días.</p></Card>}
       {mine.length > 0 && (
         <Card title='Tus inversiones'>
@@ -298,35 +327,50 @@ export function Calendario () {
 }
 
 // ---------- reporte semanal ----------
+// reporte semanal con forma de periódico: secciones que se deslizan, como un diario de negocios
 export function WeeklyModal () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)
+  const [sec, setSec] = useState(0)
   const r = game?.weekly
-  if (!r || game?.dilemma) return null
-  const close = () => useApp.getState().run(g => { g.weekly = null; return { ok: true, msg: '' } })
+  if (!game || !r || game.dilemma) return null
+  const close = () => { setSec(0); useApp.getState().run(g => { g.weekly = null; return { ok: true, msg: '' } }) }
   const ch = r.prevProfit != null && r.prevProfit !== 0 ? (r.profit - r.prevProfit) / Math.abs(r.prevProfit) : null
+  const day = E.dayOf(game.minute)
+  const news = (game.world?.news ?? []).filter(n => n.day > day - 8)
+  const politics = news.filter(n => /elecci|impuest|gobierno|salario|candidat|obra/i.test(n.text))
+  const market = news.filter(n => !politics.includes(n))
+  const SECS = ['Portada', 'Negocio', 'Mercado', 'Política']
+  const Story = ({ icon, title, text, tone }: { icon: string; title: string; text: string; tone?: 'good' | 'bad' }) => (
+    <article className='py-3 border-b border-[#2B2D33]/20 flex gap-3'>
+      <img src={assetUrl(`ui/${icon}.webp`)} alt='' className='w-12 h-12 object-contain shrink-0' />
+      <div><h3 className={`font-bold text-[17px] leading-tight font-serif ${tone === 'bad' ? 'text-rojo' : ''}`}>{title}</h3><p className='text-[13px] leading-snug mt-0.5 font-serif'>{text}</p></div>
+    </article>)
   return (
-    <div className='fixed inset-0 z-50 bg-black/50 grid place-items-center p-4'>
-      <div className='w-full max-w-[420px] max-h-[90dvh] overflow-y-auto rounded-3xl bg-arena shadow-2xl'>
-        <div className='bg-corp text-white px-4 py-3 rounded-t-3xl flex items-center gap-3'>
-          <img src={assetUrl('ui/reporte.webp')} alt='' className='w-14 h-16 object-contain' />
-          <div><span className='text-[11px] font-black tracking-wider opacity-80'>REPORTE SEMANAL</span><h2 className='font-display text-2xl uppercase leading-tight'>Semana {r.week}</h2></div>
+    <div className='fixed inset-0 z-50 bg-black/60 grid place-items-center p-3'>
+      <div className='w-full max-w-[440px] max-h-[92dvh] flex flex-col rounded-lg bg-[#EFEBE2] shadow-2xl text-[#1E1F22]'>
+        <header className='px-4 pt-4 text-center'>
+          <h2 className='font-serif font-black text-[30px] leading-none tracking-tight uppercase' style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>El Diario del Tendero</h2>
+          <div className='flex justify-between text-[11px] font-serif mt-1 border-y-2 border-[#1E1F22] py-0.5'><span>Semana {r.week}</span><span>{E.dateLabel(day).date}</span><span>$5.00</span></div>
+          <nav className='flex gap-4 text-[15px] font-serif py-2 overflow-x-auto border-b border-[#1E1F22]'>{SECS.map((s, k) => <button key={s} onClick={() => setSec(k)} className={k === sec ? 'font-black underline underline-offset-4' : 'opacity-70'}>{s}</button>)}</nav>
+        </header>
+        <div className='flex-1 overflow-y-auto px-4 font-serif' style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
+          {sec === 0 && <>
+            <Story icon='pi-periodico_doblado' title={`${game.company} ${r.profit >= 0 ? 'gana' : 'pierde'} ${fmtK(Math.abs(r.profit))} en la semana`} text={`Vendió ${fmtK(r.sales)} a ${r.tickets.toLocaleString('es-MX')} clientes${r.abandoned ? `; ${r.abandoned} se fueron sin comprar` : ''}.${ch != null ? ` La utilidad ${ch >= 0 ? 'sube' : 'baja'} ${Math.abs(Math.round(ch * 100))} % contra la semana anterior.` : ''}`} tone={r.profit < 0 ? 'bad' : undefined} />
+            {r.best && <Story icon='pi-trofeo_dorado' title={`La estrella: ${r.best.name}`} text={`Fue la tienda más rentable con ${fmt(r.best.profit)}.`} />}
+            {r.worst && <Story icon='pi-lupa' title={`En la mira: ${r.worst.name}`} text={`Dejó ${fmt(r.worst.profit)}. Revisa precios, personal y surtido.`} tone={r.worst.profit < 0 ? 'bad' : undefined} />}
+            <div className='grid grid-cols-2 gap-2 py-3'><Kpi label='Efectivo' value={fmtK(r.cash)} /><Kpi label='Patrimonio' value={fmtK(r.worth)} /></div>
+          </>}
+          {sec === 1 && (r.tips.length ? r.tips.map((t, k) => <Story key={k} icon='pi-libreta_tareas' title='Don Chema opina' text={t} />) : <p className='py-4 text-sm'>Semana tranquila para el negocio.</p>)}
+          {sec === 2 && (market.length ? market.map((n, k) => <Story key={k} icon={n.kind === 'bad' ? 'pi-campana_notificacion' : 'pi-certificado_acciones'} title={n.text.split(/[.:]/)[0]} text={n.text} tone={n.kind === 'bad' ? 'bad' : undefined} />) : <p className='py-4 text-sm'>Sin movimientos importantes en el mercado.</p>)}
+          {sec === 3 && <>
+            {game.world?.election && <Story icon='pi-urna_votacion' title={`Elecciones en ${game.world.election.day - day} días`} text={game.world.election.candidates.map(c => `${c.name} ${Math.round(c.poll)} %`).join(' · ')} />}
+            {politics.map((n, k) => <Story key={k} icon='pi-urna_votacion' title={n.text.split(/[.:]/)[0]} text={n.text} tone={n.kind === 'bad' ? 'bad' : undefined} />)}
+            {!politics.length && !game.world?.election && <p className='py-4 text-sm'>El gobierno no movió nada esta semana.</p>}
+          </>}
         </div>
-        <div className='p-4 flex flex-col gap-3'>
-          <div className='grid grid-cols-2 gap-2'>
-            <Kpi label='Ventas' value={fmtK(r.sales)} />
-            <Kpi label='Utilidad' value={fmtK(r.profit)} tone={r.profit >= 0 ? 'good' : 'bad'} />
-            <Kpi label='Clientes' value={r.tickets.toLocaleString('es-MX')} />
-            <Kpi label='Se fueron' value={r.abandoned} tone={r.abandoned > r.tickets * 0.08 ? 'bad' : undefined} />
-          </div>
-          {ch != null && <p className={`text-sm font-bold text-center ${ch >= 0 ? 'text-ahorro' : 'text-rojo'}`}>{ch >= 0 ? '▲' : '▼'} {Math.abs(Math.round(ch * 100))} % de utilidad contra la semana pasada</p>}
-          {r.best && <div className='bg-white rounded-xl border border-borde p-2.5 text-sm'>🏆 Mejor tienda: <b>{r.best.name}</b> · {fmt(r.best.profit)}</div>}
-          {r.worst && <div className='bg-white rounded-xl border border-borde p-2.5 text-sm'>⚠️ Más floja: <b>{r.worst.name}</b> · {fmt(r.worst.profit)}</div>}
-          <div className='bg-white rounded-xl border border-borde p-3 flex flex-col gap-1.5'>
-            <b className='text-sm'>Don Chema recomienda</b>
-            {r.tips.map((t, i) => <p key={i} className='text-sm'>• {t}</p>)}
-          </div>
-          <div className='grid grid-cols-2 gap-2'><Kpi label='Efectivo' value={fmtK(r.cash)} /><Kpi label='Patrimonio' value={fmtK(r.worth)} /></div>
+        <div className='p-3 flex gap-2'>
+          {sec < SECS.length - 1 && <Btn kind='ghost' onClick={() => setSec(sec + 1)}>Siguiente sección</Btn>}
           <Btn onClick={close}>Seguir jugando →</Btn>
         </div>
       </div>
@@ -408,6 +452,37 @@ export function Directivos () {
 }
 
 // ---------- noticias, gobierno y obras ----------
+// ficha de candidato: retrato, posturas políticas en barras y botón para donar
+const posture = (c: E.PoliticalCandidate) => {
+  const h = [...c.name].reduce((a, ch) => a + ch.charCodeAt(0), 0)
+  const clamp = (v: number) => Math.max(0.08, Math.min(0.92, v))
+  return [
+    ['Socialismo', 'Capitalismo', clamp(0.55 - c.tax * 12)],
+    ['Gobierno grande', 'Gobierno pequeño', clamp(1 - (c.wage - 1) * 5 - c.tax * 6)],
+    ['Ambientalismo', 'Libertad económica', clamp(0.5 - c.tax * 8 + ((h % 7) - 3) * 0.04)],
+    ['Igualdad', 'Tradición', clamp(0.3 + (h % 11) / 20)]
+  ] as const
+}
+function Candidate ({ c, i, donated, canPay, onDonate }: { c: E.PoliticalCandidate; i: number; donated: number | null; canPay: boolean; onDonate: () => void }) {
+  const female = /^(Dra\.|Lic\. [A-Z][a-z]+a |Mtra\.)|a$/.test(c.name.split(' ').slice(0, 2).join(' ')) || /Patricia|María|Ana|Laura|Sofía|Teresa/.test(c.name)
+  return (
+    <div className='py-3 border-t border-borde first:border-t-0 flex flex-col gap-2'>
+      <div className='flex items-center gap-3'>
+        <img src={assetUrl(`ui/ret-${female ? 'candidata_politica' : 'candidato_politico'}.webp`)} alt='' className='w-16 h-16 object-contain rounded-2xl shrink-0' style={{ background: `${c.color}22` }} />
+        <div className='flex-1 min-w-0'><b className='block leading-tight'>{c.name}</b><span className='text-xs font-semibold' style={{ color: c.color }}>{c.party}</span>
+          <div className='flex items-center gap-2 mt-1'><div className='flex-1'><Bar value={c.poll / 60} color={c.color} /></div><span className='text-xs font-bold num'>{Math.round(c.poll)} %</span></div></div>
+      </div>
+      <p className='text-xs text-tenue'>{c.desc}</p>
+      {posture(c).map(([a, b, v]) => (
+        <div key={a} className='grid grid-cols-[1fr_auto] gap-x-2 items-center'>
+          <div className='flex justify-between text-[11px] font-semibold text-tenue'><span>{a}</span><span>{b}</span></div><span />
+          <div className='relative h-2 rounded-full bg-borde'><span className='absolute top-1/2 w-4 h-4 -mt-2 -ml-2 rounded-full border-2 border-white shadow' style={{ left: `${v * 100}%`, background: c.color }} /></div><span />
+        </div>))}
+      <Btn small kind={donated === i ? 'primary' : 'ghost'} disabled={donated != null || !canPay} onClick={onDonate}>{donated === i ? 'Donaste ✓' : 'Donar $500 k a su campaña'}</Btn>
+    </div>
+  )
+}
+
 export function Mundo () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
@@ -424,14 +499,7 @@ export function Mundo () {
       </div>
       {w.election && (
         <Card title={`Elecciones en ${w.election.day - day} días`}>
-          {w.election.candidates.map((c, i) => (
-            <div key={i} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
-              <span className='w-3 h-12 rounded-full shrink-0' style={{ background: c.color }} />
-              <div className='flex-1 min-w-0'><b className='text-sm block'>{c.name} · {c.party}</b><span className='text-xs text-tenue'>{c.desc}</span>
-                <div className='mt-1'><Bar value={c.poll / 60} color={c.color} /></div></div>
-              <Btn small kind='ghost' disabled={w.election!.donated != null || game.cash < 500000} onClick={() => run(g => E.donate(g, i))}>{w.election!.donated === i ? 'Donaste' : 'Donar $500 k'}</Btn>
-            </div>
-          ))}
+          {w.election.candidates.map((c, i) => <Candidate key={i} c={c} i={i} donated={w.election!.donated} canPay={game.cash >= 500000} onDonate={() => run(g => E.donate(g, i))} />)}
           <p className='text-xs text-tenue'>Donar sube al candidato en las encuestas, pero si se descubre es un escándalo para tu marca.</p>
         </Card>
       )}

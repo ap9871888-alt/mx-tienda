@@ -124,6 +124,27 @@ export const POTHOLES: { axis: 'x' | 'y'; line: number; pos: number }[] = Array.
   return { axis, line, pos }
 })
 
+// Periférico con segundo piso: una vía curva que rodea la ciudad por el poniente y el sur
+// (no sigue la cuadrícula). Se describe con curvas y se recorre por distancia.
+const bez = (a: number[], b: number[], c: number[], d: number[], t: number) => { const u = 1 - t; return [0, 1].map(k => u * u * u * a[k] + 3 * u * u * t * b[k] + 3 * u * t * t * c[k] + t * t * t * d[k]) }
+export const PERIFERICO: [number, number][] = (() => {
+  const segs = [
+    [[-2.5, -3], [-3.5, NY * 0.3], [-1.5, NY * 0.55], [-2.5, NY * 0.75]],
+    [[-2.5, NY * 0.75], [-3.5, NY + 1], [NX * 0.15, NY + 3.5], [NX * 0.45, NY + 2.5]],
+    [[NX * 0.45, NY + 2.5], [NX * 0.75, NY + 1.5], [NX + 1, NY + 4], [NX + 4, NY + 2.5]]
+  ]
+  const out: [number, number][] = []
+  for (const [a, b, c, d] of segs) for (let i = 0; i < 40; i++) { const p = bez(a, b, c, d, i / 40); out.push([p[0], p[1]]) }
+  return out
+})()
+export function alongPeriferico (t: number) { // t de 0 a 1 → punto y dirección en pantalla
+  const n = PERIFERICO.length - 1; const f = Math.max(0, Math.min(n - 0.001, t * n)); const i = Math.floor(f); const k = f - i
+  const [x0, y0] = PERIFERICO[i]; const [x1, y1] = PERIFERICO[i + 1]
+  const a = toScreen(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k); const b = toScreen(x1, y1)
+  return { x: a.x, y: a.y, dx: b.x - a.x, dy: b.y - a.y }
+}
+export const DECK = 46 // altura del segundo piso en píxeles
+
 // ---------- dibujo del piso ----------
 // todo se dibuja con formas limpias: asfalto continuo, banquetas alrededor de cada cuadra,
 // líneas de carril, cebras solo en las esquinas y camellón verde en Reforma e Insurgentes
@@ -152,6 +173,15 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
       ctx.save(); ctx.translate(0, -hgt); rect(x0, y0, x0 + 0.76, y0 + 0.76, roofs[(i + j * 3 + a + b * 2 + 60) % roofs.length]); ctx.restore()
     }
   }
+  // Periférico: columnas, calzada de abajo y segundo piso elevado
+  const path = (lift: number) => { ctx.beginPath(); PERIFERICO.forEach(([x, y], i) => { const p = toScreen(x, y); if (i) ctx.lineTo(p.x, p.y - lift); else ctx.moveTo(p.x, p.y - lift) }) }
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  path(0); ctx.strokeStyle = '#3E4148'; ctx.lineWidth = 64; ctx.stroke()
+  path(0); ctx.strokeStyle = '#E8C547'; ctx.lineWidth = 2; ctx.setLineDash([16, 14]); ctx.stroke(); ctx.setLineDash([])
+  PERIFERICO.forEach(([x, y], i) => { if (i % 5) return; const p = toScreen(x, y); ctx.fillStyle = '#9A958B'; ctx.fillRect(p.x - 5, p.y - DECK, 10, DECK); ctx.fillStyle = '#7E796F'; ctx.fillRect(p.x + 1, p.y - DECK, 4, DECK) })
+  path(DECK - 6); ctx.strokeStyle = '#8D877C'; ctx.lineWidth = 50; ctx.stroke() // canto del puente
+  path(DECK); ctx.strokeStyle = '#53565D'; ctx.lineWidth = 46; ctx.stroke()
+  path(DECK); ctx.strokeStyle = '#EDEDED'; ctx.lineWidth = 2; ctx.setLineDash([14, 12]); ctx.stroke(); ctx.setLineDash([])
   ctx.fillStyle = 'rgba(233,226,210,.18)'; ctx.fillRect(0, 0, W, H) // bruma ligera: lo lejano se ve más tenue
   rect(0, 0, NX, NY, '#4A4D55')
   // camellones de las avenidas

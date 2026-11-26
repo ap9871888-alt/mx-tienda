@@ -2,7 +2,7 @@
 // y la gente camina por las banquetas. Cada coche usa la vista correcta según su dirección.
 import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
-import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, POTHOLES } from './modular'
+import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, POTHOLES, alongPeriferico, DECK } from './modular'
 
 const SKINS = ['px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
 // láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
@@ -44,6 +44,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
       const axis = rnd() < 0.5 ? 'x' : 'y'; const line = (axis === 'x' ? xs : ys)[Math.floor(rnd() * (axis === 'x' ? xs : ys).length)]
       return { axis, line, pos: rnd() * (axis === 'x' ? NX : NY), dir: rnd() < 0.5 ? 1 : -1, v: 0.3 + rnd() * 0.25, who: PEOPLE[Math.floor(rnd() * PEOPLE.length)], side: rnd() < 0.5 ? -0.13 : 1.13 }
     })
+    const peri = Array.from({ length: Math.round(16 * density) }, (_, i) => ({ t: i / (16 * density), dir: i % 2 ? 1 : -1, v: 0.9 + rnd() * 0.5, skin: ['taxi_rosa', 'vocho_verde', 'camion_reparto', 'patrulla', 'taxi_rosa'][i % 5] }))
     let raf = 0; let last = performance.now()
     const frame = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000); last = now
@@ -82,6 +83,16 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
         if (w.pos > max) w.pos = 0; if (w.pos < 0) w.pos = max
         const p = w.axis === 'x' ? toScreen(w.pos, w.line + w.side) : toScreen(w.line + w.side, w.pos)
         list.push({ y: p.y, draw: () => drawWalker(ctx, w, p.x, p.y) })
+      }
+      // Periférico: coches en el segundo piso, sin semáforos (van por la curva)
+      for (const f of peri) {
+        f.t = (f.t + f.v * dt / 60 + 1) % 1
+        const p = alongPeriferico(f.dir > 0 ? f.t : 1 - f.t)
+        const sgn = f.dir > 0 ? 1 : -1; const len = Math.hypot(p.dx, p.dy) || 1
+        const ox = -p.dy / len * 9 * sgn; const oy = p.dx / len * 9 * sgn
+        const vx = p.dx * sgn; const vy = p.dy * sgn
+        const fc = vy >= 0 ? (vx >= 0 ? 'SE' : 'SW') : (vx >= 0 ? 'NE' : 'NW')
+        list.push({ y: p.y + 9999, draw: () => drawPx(ctx, f.skin, fc as Face, p.x + ox, p.y + oy - DECK) })
       }
       // semáforos y farolas en las esquinas de las banquetas
       const g = greenAxis(now / 1000)
@@ -122,6 +133,11 @@ function drawPole (ctx: CanvasRenderingContext2D, name: string, x: number, y: nu
   const im = sprite(`kit/px/${name}.webp`); if (!im) return
   const h = TW * hTiles; const w = h * im.width / im.height
   ctx.drawImage(im, x - w / 2, y - h * 0.95, w, h)
+}
+function drawPx (ctx: CanvasRenderingContext2D, name: string, face: Face, x: number, y: number) {
+  const im = sprite(`kit/px/${name}_${PX_VIEW[name][face]}.webp`); if (!im) return
+  const w = (name === 'camion_reparto' ? 0.52 : 0.44) * TW; const h = w * im.height / im.width
+  ctx.drawImage(im, x - w / 2, y - h * 0.75, w, h)
 }
 function drawCar (ctx: CanvasRenderingContext2D, c: Car, x: number, y: number, night: boolean) {
   if (c.skin.startsWith('px:')) {
