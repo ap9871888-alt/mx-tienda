@@ -86,7 +86,8 @@ export function Portada () {
   if (step === 'nueva') return <NuevaEmpresa onBack={() => setStep('menu')} />
   const week = game ? Math.floor(E.dayOf(game.minute) / 7) + 1 : 0
   const play = () => { sfx.good(); setLeaving(true); setTimeout(() => useApp.getState().setTitle(false), 550) }
-  const news = game ? `${tint.label} · ${game.stores.length} tienda${game.stores.length === 1 ? '' : 's'} abiertas` : tint.label
+  const who = (() => { try { return localStorage.getItem(PLAYER_KEY) } catch { return null } })()
+  const news = who ? `Hola, ${who} · ${tint.label}` : game ? `${tint.label} · ${game.stores.length} tienda${game.stores.length === 1 ? '' : 's'} abiertas` : tint.label
   return (
     <div className={`relative min-h-[100dvh] max-w-[620px] mx-auto overflow-hidden bg-[#E9DFC9] ${leaving ? 'leave' : ''}`}
       onPointerMove={e => { const r = e.currentTarget.getBoundingClientRect(); setTilt({ x: (e.clientX - r.left) / r.width * 2 - 1, y: (e.clientY - r.top) / r.height * 2 - 1 }) }}>
@@ -160,6 +161,7 @@ export const PACKS = [
   { id: 'p80', amount: 80_000_000, price: 99, cities: ['pue', 'qro', 'gdl', 'mty', 'mer'], extra: '5 ciudades abiertas, incluidas Monterrey y Mérida.' },
   { id: 'p100', amount: 100_000_000, price: 119, cities: ['pue', 'qro', 'gdl', 'mty', 'mer', 'tij', 'oax', 'aca', 'pach', 'ver'], extra: 'Todo México abierto desde el día 1.' }
 ]
+export const PLAYER_KEY = 'tienda-mx-jugador'
 export const PREMIUM_KEY = 'tienda-mx-premium'
 // por ahora el modo inversionista es gratis para todos (el cobro llegará después)
 export const isPremium = () => true
@@ -181,26 +183,21 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
     sfx.good(); useApp.getState().newGame(name.trim() || 'Tienda MX Inc.', 2027, profile)
   }
   const card = (on: boolean) => `rounded-2xl border-2 bg-white ${on ? 'border-rojo shadow-card' : 'border-borde'}`
-  return (
-    <div className='max-w-[560px] mx-auto px-4 pt-[calc(16px+env(safe-area-inset-top))] pb-10 flex flex-col gap-5'>
-      <div className='flex items-center gap-2'>
-        <button onClick={onBack} aria-label='Volver' className='w-11 h-11 rounded-full bg-white border border-borde grid place-items-center'><ArrowLeft size={22} /></button>
-        <h1 className='font-display text-3xl uppercase flex-1'>Nueva empresa</h1>
-      </div>
-      <Section t='1 · Tu marca'>
-        <input value={name} maxLength={40} onChange={e => setName(e.target.value)} aria-label='Nombre de la empresa' className='bg-white border border-borde rounded-xl px-3 py-3 text-lg min-h-[48px]' />
-        <div className='grid grid-cols-5 gap-2'>
-          {ICONS.map(i => <button key={i} aria-label={`Logo ${i}`} onClick={() => setIcon(i)} className={`${card(icon === i)} p-1.5 aspect-square`}><img src={assetUrl(`ui/logo-${i}.webp`)} alt='' className='w-full h-full object-contain' /></button>)}
-        </div>
-        <div className='flex justify-between'>
-          {COLORS.map(c => <button key={c} aria-label={`Color ${c}`} onClick={() => setColor(c)} className={`w-11 h-11 rounded-full ${color === c ? 'ring-4 ring-offset-2 ring-urbano/40' : ''}`} style={{ background: c }} />)}
-        </div>
-      </Section>
-      <Section t='2 · Tu personaje'>
-        <div className='grid grid-cols-4 gap-2'>
+  // inicio deslizable: cada paso es una página; para agregar un paso basta con sumarlo a esta lista
+  const [player, setPlayer] = useState(() => { try { return localStorage.getItem(PLAYER_KEY) ?? '' } catch { return '' } })
+  const pages: { t: string; body: React.ReactNode }[] = [
+    { t: 'Inicia sesión', body: (
+      <Section t='Bienvenido a Tienda MX Inc.'>
+        <p className='text-sm text-tenue'>Crea tu perfil de jugador para guardar tus partidas y logros en este teléfono.</p>
+        <input value={player} maxLength={24} onChange={e => setPlayer(e.target.value)} placeholder='Tu nombre de jugador' aria-label='Nombre de jugador' className='bg-white border border-borde rounded-xl px-3 py-3 text-lg min-h-[48px]' />
+        <Btn onClick={() => { try { localStorage.setItem(PLAYER_KEY, player.trim()) } catch { /* sin almacenamiento */ } go(1) }} className='min-h-[52px]'>{player.trim() ? `Entrar como ${player.trim()}` : 'Entrar como invitado'} →</Btn>
+        <p className='text-[11px] text-tenue text-center'>Pronto: inicia sesión con Google o Apple para jugar en varios dispositivos.</p>
+      </Section>) },
+    { t: 'Personaje', body: <>      <Section t='¿Quién eres?'>
+        <div className='grid grid-cols-3 gap-2.5'>
           {CHARACTERS.map(c => (
             <button key={c.id} onClick={() => setWho(c.id)} className={`${card(who === c.id)} p-1.5 flex flex-col items-center gap-0.5`}>
-              {c.img ? <img src={assetUrl(c.img)} alt='' className='w-16 h-16 object-contain rounded-full bg-arena' /> : <Avatar skin={c.skin!} age={22} shirt={color} size={64} />}
+              {c.img ? <img src={assetUrl(c.img)} alt='' className='w-20 h-20 object-contain rounded-full bg-arena' /> : <Avatar skin={c.skin!} age={22} shirt={color} size={64} />}
               <b className='text-[11.5px] leading-tight text-center'>{c.name}</b>
             </button>))}
         </div>
@@ -209,7 +206,18 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
             <button key={k} onClick={() => setPerk(k)} className={`${card(perk === k)} p-3 text-left`}><b className='block'>{l}</b><span className='text-xs text-tenue'>{d}</span></button>))}
         </div>
       </Section>
-      <Section t='3 · Capital inicial'>
+</> },
+    { t: 'Marca', body: <>      <Section t='Tu marca'>
+        <input value={name} maxLength={40} onChange={e => setName(e.target.value)} aria-label='Nombre de la empresa' className='bg-white border border-borde rounded-xl px-3 py-3 text-lg min-h-[48px]' />
+        <div className='grid grid-cols-5 gap-2'>
+          {ICONS.map(i => <button key={i} aria-label={`Logo ${i}`} onClick={() => setIcon(i)} className={`${card(icon === i)} p-1.5 aspect-square`}><img src={assetUrl(`ui/logo-${i}.webp`)} alt='' className='w-full h-full object-contain' /></button>)}
+        </div>
+        <div className='flex justify-between'>
+          {COLORS.map(c => <button key={c} aria-label={`Color ${c}`} onClick={() => setColor(c)} className={`w-11 h-11 rounded-full ${color === c ? 'ring-4 ring-offset-2 ring-urbano/40' : ''}`} style={{ background: c }} />)}
+        </div>
+      </Section>
+</> },
+    { t: 'Capital', body: <>      <Section t='Capital inicial'>
         {CAPITALS.map(c => (
           <button key={c.id} onClick={() => setCap(c.id)} className={`${card(cap === c.id)} p-3 flex items-center gap-3 text-left`}>
             <span className='text-3xl'>{c.icon}</span><span className='flex-1'><b className='block'>{c.label} · ${c.amount.toLocaleString('es-MX')}</b><span className='text-xs text-tenue'>{c.desc}</span></span>
@@ -235,13 +243,30 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
         })}
         <p className='text-[11px] text-tenue'>Por ahora los paquetes Pro están abiertos gratis para probar; el cobro se activa al lanzar.</p>
       </Section>
-      <Section t='4 · Dificultad del reto'>
+</> },
+    { t: 'Reto', body: <>      <Section t='Dificultad del reto'>
         <div className='grid grid-cols-3 gap-2'>
           {(Object.keys(E.DIFFICULTY) as Difficulty[]).map(k => (
             <button key={k} onClick={() => setDiff(k)} className={`${card(diff === k)} p-2.5 text-left`}><b className='block text-sm'>{E.DIFFICULTY[k].label}</b><span className='text-[11px] text-tenue leading-tight block'>{E.DIFFICULTY[k].rivalsDesc}</span></button>))}
         </div>
       </Section>
-      <Btn onClick={() => (has ? setConfirm(true) : start())} className='text-xl min-h-[56px]'>Iniciar imperio →</Btn>
+      <Btn onClick={() => (has ? setConfirm(true) : start())} className='text-xl min-h-[56px]'>Iniciar imperio →</Btn></> }
+  ]
+  const track = useRef<HTMLDivElement>(null)
+  const [page, setPage] = useState(0)
+  const go = (n: number) => { const el = track.current; if (!el) return; sfx.click(); el.scrollTo({ left: n * el.clientWidth, behavior: 'smooth' }) }
+  return (
+    <div className='max-w-[560px] mx-auto h-[100dvh] flex flex-col pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(12px+env(safe-area-inset-bottom))]'>
+      <div className='flex items-center gap-2 px-4'>
+        <button onClick={() => (page ? go(page - 1) : onBack())} aria-label='Volver' className='w-11 h-11 rounded-full bg-white border border-borde grid place-items-center'><ArrowLeft size={22} /></button>
+        <h1 className='font-display text-2xl uppercase flex-1'>{pages[page].t}</h1>
+        <span className='text-xs text-tenue font-semibold'>{page + 1} / {pages.length}</span>
+      </div>
+      <div className='flex justify-center gap-1.5 py-2'>{pages.map((p, i) => <button key={p.t} onClick={() => go(i)} aria-label={p.t} className={`h-2 rounded-full transition-all ${i === page ? 'w-6 bg-rojo' : 'w-2 bg-borde'}`} />)}</div>
+      <div ref={track} onScroll={e => { const el = e.currentTarget; setPage(Math.round(el.scrollLeft / el.clientWidth)) }} className='flex-1 flex overflow-x-auto snap-x snap-mandatory [scrollbar-width:none]'>
+        {pages.map(p => <div key={p.t} className='w-full shrink-0 snap-center overflow-y-auto px-4 pb-4 flex flex-col gap-4'>{p.body}</div>)}
+      </div>
+      {page > 0 && page < pages.length - 1 && <div className='px-4'><Btn onClick={() => go(page + 1)} className='w-full min-h-[52px]'>Siguiente →</Btn></div>}
       {confirm && <Modal title='¿Empezar de nuevo?' onClose={() => setConfirm(false)}>
         <p className='text-sm'>Tu partida actual se reemplaza. Si quieres conservarla, expórtala primero en Partidas.</p>
         <Btn onClick={start}>Sí, nueva empresa</Btn>

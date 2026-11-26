@@ -215,5 +215,7 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
       const p = toScreen(x0 + a, y0 + b); ctx.beginPath(); ctx.ellipse(p.x, p.y - 10, 11, 9, 0, 0, 7); ctx.fillStyle = '#5C8F3C'; ctx.fill()
     }
   }
-  if (night) { ctx.fillStyle = 'rgba(14,20,48,.45)'; ctx.fillRect(0, 0, W, H) }
+  if (night) { // noche: tinte índigo multiplicado (oscurece sin lavar los colores)
+    ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(118,128,182)'; ctx.fillRect(0, 0, W, H); ctx.restore()
+  }
 }

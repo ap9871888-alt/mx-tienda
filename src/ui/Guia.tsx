@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { useApp, type Tab } from '../state/store'
 import { assetUrl } from '../renderer/assets'
-import { Modal } from './components/kit'
+import { createPortal } from 'react-dom'
+import { whatToDo } from '../engine'
 import type { GameState } from '../engine/types'
 
 interface Step { text: string; tab?: Tab; done: (g: GameState) => boolean }
@@ -18,45 +19,64 @@ const STEPS: Step[] = [
   { text: 'Muda tu oficina en el Banco: más crédito y mejor tasa.', tab: 'banco', done: g => (g.office ?? 0) >= 1 }
 ]
 const WHERE: [string, Tab, string][] = [
-  ['🏪', 'mapa', 'Abrir tiendas y ver colonias'], ['✈️', 'mapa', 'Viajar a otra ciudad'], ['👥', 'tienda', 'Contratar cajeros'],
-  ['🏷️', 'tienda', 'Cambiar precios'], ['📦', 'tienda', 'Pedir mercancía'], ['🚚', 'logistica', 'CEDIS y camiones'],
-  ['🏷️', 'productos', 'Crear productos de tu marca'], ['🤝', 'inversion', 'Inversionistas'], ['📈', 'bolsa', 'Bolsa MX'], ['🕶️', 'estilo', 'Estilo de vida'], ['🏦', 'banco', 'Préstamos e inversiones'], ['🏢', 'banco', 'Oficinas corporativas'], ['📊', 'corporativo', 'Ganancias y cortes']
+  ['ic-mapa', 'mapa', 'Abrir tiendas y ver colonias'], ['ic-viajar', 'mapa', 'Viajar a otra ciudad'], ['ic-personal', 'tienda', 'Contratar cajeros'],
+  ['ic-precios', 'tienda', 'Cambiar precios'], ['ic-tiendas', 'tienda', 'Pedir mercancía'], ['ic-logistica', 'logistica', 'CEDIS y camiones'],
+  ['ic-precios', 'productos', 'Crear productos de tu marca'], ['ic-trato', 'inversion', 'Inversionistas'], ['ic-bolsa', 'bolsa', 'Bolsa MX'], ['ic-premium', 'estilo', 'Estilo de vida'], ['ic-banco', 'banco', 'Préstamos, inversiones y oficinas'], ['ic-ventas', 'corporativo', 'Ganancias y cortes']
 ]
 export function currentStep (g: GameState) { return STEPS.findIndex(s => !s.done(g)) }
 
+// Don Chema es el único asesor del juego: un solo botón con tres pestañas
+// (qué hacer ahora, la guía paso a paso y dónde está cada cosa). Para agregar consejos nuevos
+// basta con sumar reglas en engine/advisor.ts o pasos en STEPS.
 export function GuiaButton () {
   useApp(s => s.rev)
   const game = useApp(s => s.game)!
   const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState<'ahora' | 'guia' | 'donde'>('ahora')
   const i = currentStep(game)
+  const todos = whatToDo(game)
+  const urgent = todos.some(t => t.prio >= 75)
+  const go = (t: Tab, storeId?: number) => { if (storeId != null) useApp.getState().selectStore(storeId); useApp.getState().setTab(t); setOpen(false) }
+  const face = game.cash < 0 ? 'preocupado' : urgent ? 'senala' : i < 0 ? 'festeja' : 'guino'
   return (
     <>
-      <button onClick={() => setOpen(true)} aria-label='Guía' className='relative w-10 h-10 rounded-full bg-white border-2 border-oferta shrink-0 overflow-hidden'>
-        <img src={assetUrl('ui/chema-guino.webp')} alt='' className='w-full h-full object-cover object-top scale-[1.9] origin-top' />
-        {i >= 0 && <span className='absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-oferta border-2 border-white animate-pulse' />}
+      <button onClick={() => { setTab(i >= 0 && game.stores.length === 0 ? 'guia' : 'ahora'); setOpen(true) }} aria-label='Don Chema, tu asesor' className={`relative w-10 h-10 rounded-full bg-white border-2 shrink-0 ${urgent ? 'border-oferta animate-pulse' : 'border-white'}`}>
+        <span className='block w-full h-full rounded-full overflow-hidden'><img src={assetUrl('ui/chema-guino.webp')} alt='' className='w-full h-full object-cover object-top scale-[1.9] origin-top' /></span>
+        {todos.length > 0 && <span className='absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-oferta text-urbano text-[10px] font-black grid place-items-center border-2 border-white'>{todos.length}</span>}
       </button>
-      {open && (<div className='text-urbano'>
-        <Modal title='Guía · Don Chema' onClose={() => setOpen(false)}>
-          {i >= 0 ? (
-            <div className='rounded-2xl bg-oferta/20 border border-oferta p-3 flex gap-3 items-start'>
-              <img src={assetUrl(`ui/chema-${game.cash < 0 ? 'preocupado' : i === 0 ? 'saluda' : STEPS[i].tab ? 'senala' : 'piensa'}.webp`)} alt='' className='w-20 shrink-0' />
-              <div className='flex-1'><span className='text-[11px] uppercase font-bold text-tenue'>Paso {i + 1} de {STEPS.length}</span>
-                <p className='text-[15px] font-semibold'>{STEPS[i].text}</p>
-                {STEPS[i].tab && <button onClick={() => { useApp.getState().setTab(STEPS[i].tab!); setOpen(false) }} className='mt-2 bg-rojo text-white rounded-xl px-4 min-h-[40px] font-bold'>Llévame ahí →</button>}
-              </div>
+      {open && createPortal(
+        <div className='fixed inset-0 z-50 bg-black/40 grid place-items-end text-urbano' onClick={() => setOpen(false)}>
+          <div className='w-full max-w-[620px] mx-auto bg-arena rounded-t-3xl p-4 pb-[calc(20px+env(safe-area-inset-bottom))] flex flex-col gap-2.5 max-h-[88dvh] overflow-y-auto' onClick={e => e.stopPropagation()}>
+            <div className='flex items-center gap-3'>
+              <img src={assetUrl(`ui/chema-${face}.webp`)} alt='' className='w-16 h-16 object-contain' />
+              <div className='flex-1'><b className='font-display text-xl uppercase block leading-none'>Don Chema</b><span className='text-xs text-tenue'>Tu asesor de negocios</span></div>
+              <button onClick={() => setOpen(false)} aria-label='Cerrar' className='w-10 h-10 rounded-full bg-white border border-borde'>✕</button>
             </div>
-          ) : <div className='flex items-center gap-3'><img src={assetUrl('ui/chema-festeja.webp')} alt='' className='w-20' /><p className='text-sm font-semibold'>¡Ya dominas lo básico! Ahora crece tu imperio a tu manera.</p></div>}
-          <div className='flex gap-1'>{STEPS.map((s, k) => <span key={k} className={`h-1.5 flex-1 rounded-full ${s.done(game) ? 'bg-ahorro' : 'bg-borde'}`} />)}</div>
-          <h3 className='font-bold text-sm mt-1'>¿Dónde está…?</h3>
-          <div className='grid grid-cols-1 gap-1.5'>
-            {WHERE.map(([ic, t, l]) => (
-              <button key={l} onClick={() => { useApp.getState().setTab(t); setOpen(false) }} className='flex items-center gap-3 bg-white border border-borde rounded-xl px-3 min-h-[44px] text-left'>
-                <span className='text-xl'>{ic}</span><span className='flex-1 text-sm font-semibold'>{l}</span><span className='text-tenue'>›</span>
+            <div className='grid grid-cols-3 bg-white rounded-xl p-1 gap-1' role='tablist'>
+              {([['ahora', `Ahora${todos.length ? ` (${todos.length})` : ''}`], ['guia', i >= 0 ? `Guía ${i + 1}/${STEPS.length}` : 'Guía ✓'], ['donde', '¿Dónde está?']] as const).map(([k, l]) => (
+                <button key={k} role='tab' aria-selected={tab === k} onClick={() => setTab(k)} className={`rounded-lg py-2 text-[13px] font-bold ${tab === k ? 'bg-rojo text-white' : ''}`}>{l}</button>))}
+            </div>
+            {tab === 'ahora' && (todos.length ? todos.map((t, n) => (
+              <button key={n} onClick={() => go(t.tab as Tab, t.storeId)} className='bg-white border border-borde rounded-2xl p-3 flex items-center gap-3 text-left active:bg-borde/40'>
+                <img src={assetUrl(`ui/${t.icon}.webp`)} alt='' className='w-10 h-10 object-contain shrink-0' />
+                <span className='flex-1 text-[15px] font-semibold'>{t.text}</span><span className='text-tenue text-xl'>›</span>
+              </button>)) : <p className='text-sm font-semibold bg-white rounded-2xl p-3'>¡Todo en orden, jefe! Sigue creciendo a tu ritmo.</p>)}
+            {tab === 'guia' && <>
+              {i >= 0 ? (
+                <div className='rounded-2xl bg-oferta/20 border border-oferta p-3'>
+                  <span className='text-[11px] uppercase font-bold text-tenue'>Paso {i + 1} de {STEPS.length}</span>
+                  <p className='text-[15px] font-semibold'>{STEPS[i].text}</p>
+                  {STEPS[i].tab && <button onClick={() => go(STEPS[i].tab!)} className='mt-2 bg-rojo text-white rounded-xl px-4 min-h-[40px] font-bold'>Llévame ahí →</button>}
+                </div>
+              ) : <p className='text-sm font-semibold bg-white rounded-2xl p-3'>¡Ya dominas lo básico! Ahora crece tu imperio a tu manera.</p>}
+              <div className='flex gap-1'>{STEPS.map((st, k) => <span key={k} className={`h-1.5 flex-1 rounded-full ${st.done(game) ? 'bg-ahorro' : 'bg-borde'}`} />)}</div>
+            </>}
+            {tab === 'donde' && WHERE.map(([ic, t, l]) => (
+              <button key={l} onClick={() => go(t)} className='flex items-center gap-3 bg-white border border-borde rounded-xl px-3 min-h-[44px] text-left'>
+                <img src={assetUrl(`ui/${ic}.webp`)} alt='' className='w-7 h-7 object-contain' /><span className='flex-1 text-sm font-semibold'>{l}</span><span className='text-tenue'>›</span>
               </button>))}
           </div>
-          <button onClick={() => { useApp.getState().setTitle(true); setOpen(false) }} className='text-sm text-tenue underline'>Ir al menú principal</button>
-        </Modal></div>
-      )}
+        </div>, document.body)}
     </>
   )
 }

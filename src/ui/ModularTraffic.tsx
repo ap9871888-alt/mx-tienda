@@ -80,6 +80,22 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
       }
       list.sort((a, b) => a.y - b.y)
       for (const it of list) it.draw()
+      // de noche: halos de farolas, semáforos y faros encima de todo, sumando luz
+      if (night) {
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'
+        const halo = (x: number, y: number, r: number, c: string) => { const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, r * 2, r * 2) }
+        for (const i of ys) for (const j of xs) {
+          const f = toScreen(i + 1.12, j + 1.12); halo(f.x, f.y - TW * 0.48, 30, 'rgba(255,210,120,.9)'); halo(f.x, f.y, 60, 'rgba(255,190,100,.35)')
+          const a = toScreen(i + 1.12, j - 0.12); halo(a.x, a.y - TW * 0.4, 12, g === 'x' ? 'rgba(80,255,140,.6)' : 'rgba(255,60,50,.6)')
+          const b = toScreen(i - 0.12, j + 1.12); halo(b.x, b.y - TW * 0.4, 12, g === 'y' ? 'rgba(80,255,140,.6)' : 'rgba(255,60,50,.6)')
+        }
+        for (const c of cars) {
+          const off = 0.5 + (c.dir > 0 ? 0.2 : -0.2)
+          const p = c.axis === 'x' ? toScreen(c.pos + c.dir * 0.35, c.line + off) : toScreen(c.line + off, c.pos + c.dir * 0.35)
+          halo(p.x, p.y - 6, 22, 'rgba(255,245,200,.45)')
+        }
+        ctx.restore()
+      }
       raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
@@ -100,7 +116,6 @@ function drawCar (ctx: CanvasRenderingContext2D, c: Car, x: number, y: number, n
     if (!im) return
     const w = (name === 'metrobus_rojo' ? 0.95 : name === 'moto_repartidor' ? 0.26 : name === 'camion_reparto' ? 0.52 : 0.44) * TW; const h = w * im.height / im.width
     ctx.drawImage(im, x - w / 2, y - h * 0.75, w, h)
-    if (night) { ctx.fillStyle = 'rgba(255,240,170,.5)'; ctx.beginPath(); ctx.arc(x, y - h * 0.2, 4, 0, 7); ctx.fill() }
     return
   }
   // +x avanza hacia abajo-derecha (SE), +y hacia abajo-izquierda (SW)

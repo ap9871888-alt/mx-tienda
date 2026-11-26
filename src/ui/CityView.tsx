@@ -1,7 +1,6 @@
 // Vista principal estilo Coffee Inc: toda la pantalla es la ciudad. Se arrastra y se hace zoom con los dedos;
 // cada edificio se toca y abre su módulo (tu tienda, banco, bolsa, inversionistas, plaza, mercado, aeropuerto…).
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import * as E from '../engine'
 import { useApp, type Tab } from '../state/store'
 import { assetUrl } from '../renderer/assets'
@@ -157,7 +156,7 @@ export function CityView () {
             <ModularGround kit={kit} night={night} />
             <ModularTraffic density={prefs.traffic} night={night} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
             {prefs.labels && modItems.labels.map(l => <span key={l.id} className='absolute z-[2000] -translate-x-1/2 bg-urbano/80 text-white text-[15px] font-bold rounded-full px-3 py-0.5 pointer-events-none shadow-lg whitespace-nowrap' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name}{l.mine ? ` · ${l.mine} 🏪` : ''}</span>)}
-            {modItems.items.map((l, j) => <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} />)}
+            {modItems.items.map((l, j) => <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} night={night} />)}
           </div>
         )}
         {full && fullItems && (
@@ -184,7 +183,6 @@ export function CityView () {
       </div>
       {/* controles mínimos, como Coffee Inc */}
       <div className='absolute right-3 top-3 flex flex-col gap-2 z-10'>
-        <AdvisorButton />
         <button onClick={() => zoom(1.25)} aria-label='Acercar' className='w-11 h-11 rounded-full bg-urbano/85 text-white text-2xl font-bold shadow-lg'>+</button>
         <button onClick={() => zoom(0.8)} aria-label='Alejar' className='w-11 h-11 rounded-full bg-urbano/85 text-white text-2xl font-bold shadow-lg'>−</button>
       </div>
@@ -199,14 +197,19 @@ export function CityView () {
   )
 }
 
-function LotButton ({ l, width, big, myColor, myIcon, dy, ps }: { l: Lot; width: string; big: string; myColor: string; myIcon: string; dy: number; ps: number }) {
+// ventanas encendidas de noche: puntitos cálidos fijos por edificio (sin imágenes extra)
+const WINDOWS = Array.from({ length: 7 }, (_, i) => ({ x: 22 + ((i * 37) % 56), y: 28 + ((i * 23) % 44) }))
+const lit = (ed?: string) => !!ed && !/jacaranda|veg_|deco_|estanque|chinampa|embarcadero|zocalo|chapultepec|angel|estela|puesto|mob_|kiosco/.test(ed)
+function LotButton ({ l, width, big, myColor, myIcon, dy, ps, night }: { l: Lot; width: string; big: string; myColor: string; myIcon: string; dy: number; ps: number; night?: boolean }) {
   // con medidas del lote: el edificio ocupa el rombo y su base cae en la punta inferior
   const w = l.w ? `${Math.min(l.w * 1.08, 16)}%` : (l.big ? big : width)
   const top = l.bottom != null ? `${l.bottom + 0.4}%` : `${l.y + dy}%`
   const badge = l.mine || l.icon || l.color
   return (
     <button onClick={l.go} disabled={!l.go} aria-label={l.label} title={l.label} className='absolute' style={{ left: `${l.x}%`, top, width: w, transform: 'translate(-50%, -100%)', zIndex: Math.round((l.bottom ?? l.y) * 10) }}>
-      {l.ed ? <img src={assetUrl(l.ed)} alt='' className='w-full drop-shadow' draggable={false} /> : <div className='w-full aspect-[2/1]' />}
+      {l.ed ? <img src={assetUrl(l.ed)} alt='' className='w-full drop-shadow transition-[filter] duration-1000' style={night ? { filter: 'brightness(.72) saturate(.85) hue-rotate(-6deg)' } : undefined} draggable={false} /> : <div className='w-full aspect-[2/1]' />}
+      {night && lit(l.ed) && WINDOWS.filter((_, i) => (Math.round((l.x ?? 0) * 13) + i) % 3).map((p, i) => (
+        <span key={i} className='absolute rounded-full pointer-events-none' style={{ left: `${p.x}%`, top: `${p.y}%`, width: '10%', aspectRatio: '1', background: 'radial-gradient(circle, rgba(255,226,140,1), rgba(255,190,80,.5) 35%, rgba(255,170,60,0) 70%)', mixBlendMode: 'screen' }} />))}
       {badge && <span className='absolute left-1/2 bottom-[78%] pointer-events-none' style={{ transform: `translateX(-50%) scale(${ps})`, transformOrigin: 'bottom center' }}>
         <span className='relative flex flex-col items-center animate-[bounce_2.6s_ease-in-out_infinite]'>
           {l.icon === 'renta'
@@ -276,35 +279,6 @@ function fullLayout (g: GameState, colonies: Colony[], map: MapData, civic: Civi
 }
 
 // asesor flotante: "¿qué hago ahora?" con las 3 acciones más importantes
-function AdvisorButton () {
-  useApp(s => s.rev)
-  const game = useApp(s => s.game)!
-  const [open, setOpen] = useState(false)
-  const todos = E.whatToDo(game)
-  const urgent = todos.some(t => t.prio >= 75)
-  return (
-    <>
-      <button onClick={() => setOpen(true)} aria-label='¿Qué hago ahora?' className={`relative w-12 h-12 rounded-full shadow-lg overflow-hidden border-2 ${urgent ? 'border-oferta animate-pulse' : 'border-white'} bg-urbano`}><img src={assetUrl('ui/chema-senala.webp')} alt='' className='w-full h-full object-cover object-top scale-125 translate-y-1' />
-        {todos.length > 0 && <span className='absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rojo text-white text-[11px] font-black grid place-items-center'>{todos.length}</span>}
-      </button>
-      {open && createPortal(
-        <div className='fixed inset-0 z-50 bg-black/40 grid place-items-end' onClick={() => setOpen(false)}>
-          <div className='w-full max-w-[620px] mx-auto bg-arena rounded-t-3xl p-4 pb-[calc(20px+env(safe-area-inset-bottom))] flex flex-col gap-2.5' onClick={e => e.stopPropagation()}>
-            <div className='flex items-center gap-3'><img src={assetUrl('ui/chema-senala.webp')} alt='' className='w-14 h-14 object-contain' /><b className='font-display text-xl uppercase flex-1'>¿Qué hago ahora?</b>
-              <button onClick={() => setOpen(false)} aria-label='Cerrar' className='w-10 h-10 rounded-full bg-white border border-borde'>✕</button></div>
-            {todos.length ? todos.map((t, i) => (
-              <button key={i} onClick={() => { if (t.storeId != null) useApp.getState().selectStore(t.storeId); useApp.getState().setTab(t.tab as Tab); setOpen(false) }} className='bg-white border border-borde rounded-2xl p-3 flex items-center gap-3 text-left active:bg-borde/40'>
-                <span className='text-lg font-black text-tenue w-5'>{i + 1}</span>
-                <img src={assetUrl(`ui/${t.icon}.webp`)} alt='' className='w-10 h-10 object-contain shrink-0' />
-                <span className='flex-1 text-[15px] font-semibold'>{t.text}</span><span className='text-tenue text-xl'>›</span>
-              </button>)) : <p className='text-sm font-semibold'>¡Todo en orden, jefe! Sigue creciendo a tu ritmo.</p>}
-          </div>
-        </div>, document.body
-      )}
-    </>
-  )
-}
-
 // piso del mapa modular: se dibuja una vez (y otra cuando terminan de cargar las texturas)
 function ModularGround ({ kit, night }: { kit: CityKit; night: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
