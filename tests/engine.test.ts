@@ -391,6 +391,8 @@ describe('Mundo vivo', () => {
   it('la remodelación es una obra que termina en días', () => {
     const g = E.newGame(62); g.cash = 1e7
     const st = E.openStore(g, 'cdmx', 'roma', 'tiendita').data!
+    E.advance(g, 1440) // primero se inaugura
+    expect(st.works).toBeFalsy()
     expect(E.remodelStore(g, st.id).ok).toBe(true)
     expect(st.works).toBeTruthy()
     for (let d = 0; d < 8; d++) { E.advance(g, 1440); g.dilemma = null; g.weekly = null }

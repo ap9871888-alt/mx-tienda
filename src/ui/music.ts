@@ -50,3 +50,14 @@ export function unlockMusic () {
   unlocked = true
   play(wanted)
 }
+
+// baja la música mientras hay una noticia o celebración en pantalla
+let ducked = false
+export function duckMusic (on: boolean) {
+  if (on === ducked || !current) return
+  ducked = on; fade(current, on ? volume * 0.3 : volume, 400)
+}
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => {
+  if (!current) return
+  if (document.hidden) current.pause(); else if (unlocked && volume > 0) current.play().catch(() => {})
+})

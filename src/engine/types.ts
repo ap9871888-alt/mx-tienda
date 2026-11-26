@@ -115,6 +115,7 @@ export type GameEvent =
   | { type: 'delivery'; storeId: number; via: 'mayorista' | 'cedis' }
   | { type: 'stockout'; storeId: number; cat: CategoryId }
   | { type: 'dayEnd'; report: DayReport }
+  | { type: 'opening'; storeId: number }
   | { type: 'log'; entry: LogEntry }
 
 export interface Result<T = undefined> { ok: boolean; msg: string; data?: T }

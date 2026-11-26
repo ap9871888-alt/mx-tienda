@@ -3,6 +3,11 @@ let ctx: AudioContext | null = null
 const KEY = 'tienda-mx-sonido'
 let on = (() => { try { return localStorage.getItem(KEY) !== '0' } catch { return true } })()
 export const soundOn = () => on
+// volumen de los efectos (0 a 1), aparte de la música
+const VKEY = 'tienda-mx-efectos'
+let sfxVol = (() => { try { const v = localStorage.getItem(VKEY); return v == null ? 0.8 : +v } catch { return 0.8 } })()
+export const sfxVolume = () => sfxVol
+export function setSfxVolume (v: number) { sfxVol = v; on = v > 0; try { localStorage.setItem(VKEY, String(v)) } catch { /* sin almacenamiento */ } }
 export function setSound (v: boolean) { on = v; try { localStorage.setItem(KEY, v ? '1' : '0') } catch { /* sin almacenamiento */ } }
 function ac () {
   if (!ctx) { const C = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext; if (!C) return null; ctx = new C() }
@@ -26,7 +31,7 @@ function file (name: string, vol = 0.7) {
   let list = pool.get(name); if (!list) { list = []; pool.set(name, list) }
   let a = list.find(x => x.paused || x.ended)
   if (!a) { if (list.length >= 4) return true; a = new Audio(src); list.push(a) }
-  a.volume = vol; a.currentTime = 0; a.play().catch(() => {})
+  a.volume = Math.min(1, vol * sfxVol); a.currentTime = 0; a.play().catch(() => {})
   return true
 }
 export const sfx = {
@@ -37,6 +42,9 @@ export const sfx = {
   error: () => on && tone(180, 0.18, 'sawtooth', 0.04, 0, 0.7),
   good: () => { if (!on || file('sfx-logro', 0.6)) return; [523, 659, 784].forEach((f, i) => tone(f, 0.16, 'triangle', 0.05, i * 0.09)) },
   money: () => { if (on) file('sfx-monedas', 0.7) },
+  opening: () => { if (!on) return; file('sfx-monedas', 0.6); setTimeout(() => file('sfx-logro', 0.8), 350) },
+  news: () => { if (!on) return; [880, 660, 990].forEach((f, i) => tone(f, 0.12, 'triangle', 0.05 * sfxVol, i * 0.13)) },
+  milestone: () => { if (!on) return; file('sfx-caja', 0.8); setTimeout(() => file('sfx-monedas', 0.8), 250); setTimeout(() => file('sfx-logro', 0.9), 700) },
   door: () => { if (on) file('sfx-puerta', 0.35) },
   plane: () => { if (on) file('sfx-avion', 0.6) },
   bus: () => { if (on) file('sfx-autobus', 0.6) },
@@ -55,3 +63,18 @@ export function streetAmbience (play: boolean) {
     if (amb.paused) amb.play().catch(() => {})
   } else if (amb && !amb.paused) amb.pause()
 }
+
+// ambiente de ciudad muy bajito en el mapa principal
+let city: HTMLAudioElement | null = null
+export function cityAmbience (play: boolean) {
+  const src = FILES['../assets/sfx/ambiente-calle.mp3']; if (!src) return
+  if (play && on && !document.hidden) {
+    if (!city) { city = new Audio(src); city.loop = true }
+    city.volume = 0.08 * sfxVol
+    if (city.paused) city.play().catch(() => {})
+  } else if (city && !city.paused) city.pause()
+}
+// al salir de la app se calla todo; al volver, sigue
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { amb?.pause(); city?.pause() }
+})

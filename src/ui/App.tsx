@@ -1,4 +1,5 @@
-import { setMood, unlockMusic } from './music'
+import { setMood, unlockMusic, duckMusic } from './music'
+import { cityAmbience, sfx } from './sound'
 import { assetUrl } from '../renderer/assets'
 import { SEASON_ICON } from '../data/empire'
 import { Portada } from './screens/Portada'
@@ -62,6 +63,11 @@ export function App () {
   // música según el momento: menú, bolsa, fiesta, día o noche
   const festive = g ? E.seasonsAt(E.dateOfDay(E.dayOf(g.minute))).some(x => ['navidad', 'guadalupe', 'patrias', 'buenfin', 'mundial', 'reyes'].includes(x.id)) : false
   const night = g ? E.daylight(g.minute) < 0.5 : false
+  const modal = !!(g?.dilemma || g?.weekly || g?.milestone != null)
+  duckMusic(modal)
+  cityAmbience(hasGame && !title && tab === 'calle')
+  useEffect(() => { if (g?.dilemma) sfx.news() }, [g?.dilemma?.id])
+  useEffect(() => { if (g?.milestone != null) sfx.milestone() }, [g?.milestone])
   setMood(!hasGame || title ? 'menu' : ['bolsa', 'inversion', 'banco'].includes(tab) ? 'bolsa' : festive ? 'fiesta' : night ? 'noche' : 'dia')
   useEffect(() => {
     const k = (e: KeyboardEvent) => {

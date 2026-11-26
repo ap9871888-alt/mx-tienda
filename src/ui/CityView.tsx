@@ -1,6 +1,7 @@
 // Vista principal estilo Coffee Inc: toda la pantalla es la ciudad. Se arrastra y se hace zoom con los dedos;
 // cada edificio se toca y abre su módulo (tu tienda, banco, bolsa, inversionistas, plaza, mercado, aeropuerto…).
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as E from '../engine'
 import { useApp, type Tab } from '../state/store'
 import { assetUrl } from '../renderer/assets'
@@ -159,6 +160,7 @@ export function CityView () {
       </div>
       {/* controles mínimos, como Coffee Inc */}
       <div className='absolute right-3 top-3 flex flex-col gap-2 z-10'>
+        <AdvisorButton />
         <button onClick={() => zoom(1.25)} aria-label='Acercar' className='w-11 h-11 rounded-full bg-urbano/85 text-white text-2xl font-bold shadow-lg'>+</button>
         <button onClick={() => zoom(0.8)} aria-label='Alejar' className='w-11 h-11 rounded-full bg-urbano/85 text-white text-2xl font-bold shadow-lg'>−</button>
       </div>
@@ -233,9 +235,40 @@ function fullLayout (g: GameState, colonies: Colony[], map: MapData, civic: Civi
     const kind = 'media'
     const sub = lotsFor(g, col, kind, [], tod).filter(x => x.go || x.ed)
     // reordena: lo interactivo primero (tiendas, rivales, renta) en los lotes de esa colonia
-    const inter = sub.filter(x => x.go); const deco = sub.filter(x => !x.go)
+    const go = sub.filter(x => x.go); const deco = sub.filter(x => !x.go)
+    const inter = [...go.filter(x => x.mine), ...go.filter(x => x.pin === 'renta').slice(0, 1), ...go.filter(x => !x.mine && x.pin !== 'renta')]
     // el contenido va al lote del mapa completo (sus coordenadas mandan)
     groups[i].forEach((l, j) => items.push({ ...(inter[j] ?? deco[j % Math.max(1, deco.length)] ?? {}), x: l.x, y: l.y, w: l.w, bottom: l.bottom }))
   })
   return { items: items.sort((a, b) => a.y - b.y), labels }
+}
+
+// asesor flotante: "¿qué hago ahora?" con las 3 acciones más importantes
+function AdvisorButton () {
+  useApp(s => s.rev)
+  const game = useApp(s => s.game)!
+  const [open, setOpen] = useState(false)
+  const todos = E.whatToDo(game)
+  const urgent = todos.some(t => t.prio >= 75)
+  return (
+    <>
+      <button onClick={() => setOpen(true)} aria-label='¿Qué hago ahora?' className={`relative w-11 h-11 rounded-full shadow-lg grid place-items-center text-xl ${urgent ? 'bg-oferta animate-pulse' : 'bg-white'}`}>💡
+        {todos.length > 0 && <span className='absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rojo text-white text-[11px] font-black grid place-items-center'>{todos.length}</span>}
+      </button>
+      {open && createPortal(
+        <div className='fixed inset-0 z-50 bg-black/40 grid place-items-end' onClick={() => setOpen(false)}>
+          <div className='w-full max-w-[620px] mx-auto bg-arena rounded-t-3xl p-4 pb-[calc(20px+env(safe-area-inset-bottom))] flex flex-col gap-2.5' onClick={e => e.stopPropagation()}>
+            <div className='flex items-center gap-3'><img src={assetUrl('ui/chema-senala.webp')} alt='' className='w-14 h-14 object-contain' /><b className='font-display text-xl uppercase flex-1'>¿Qué hago ahora?</b>
+              <button onClick={() => setOpen(false)} aria-label='Cerrar' className='w-10 h-10 rounded-full bg-white border border-borde'>✕</button></div>
+            {todos.length ? todos.map((t, i) => (
+              <button key={i} onClick={() => { if (t.storeId != null) useApp.getState().selectStore(t.storeId); useApp.getState().setTab(t.tab as Tab); setOpen(false) }} className='bg-white border border-borde rounded-2xl p-3 flex items-center gap-3 text-left active:bg-borde/40'>
+                <span className='text-lg font-black text-tenue w-5'>{i + 1}</span>
+                <img src={assetUrl(`ui/${t.icon}.webp`)} alt='' className='w-10 h-10 object-contain shrink-0' />
+                <span className='flex-1 text-[15px] font-semibold'>{t.text}</span><span className='text-tenue text-xl'>›</span>
+              </button>)) : <p className='text-sm font-semibold'>¡Todo en orden, jefe! Sigue creciendo a tu ritmo.</p>}
+          </div>
+        </div>, document.body
+      )}
+    </>
+  )
 }

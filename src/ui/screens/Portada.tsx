@@ -4,7 +4,7 @@ import * as E from '../../engine'
 import { useApp, fmt } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
 import { Btn, Modal } from '../components/kit'
-import { sfx, soundOn, setSound } from '../sound'
+import { sfx, soundOn, setSound, sfxVolume, setSfxVolume } from '../sound'
 import { Avatar, SKINS } from '../Avatar'
 import { musicVolume, setMusicVolume } from '../music'
 import type { CompanyProfile, Difficulty, GameState } from '../../engine/types'
@@ -202,13 +202,13 @@ function Logros ({ onClose }: { onClose: () => void }) {
   )
 }
 function Ajustes ({ onClose }: { onClose: () => void }) {
-  const [s, setS] = useState(soundOn())
+  const [s, setS] = useState(sfxVolume())
   const [vol, setVol] = useState(musicVolume())
   return (
     <Modal title='Ajustes' onClose={onClose}>
-      <label className='flex items-center justify-between bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
-        <span className='font-semibold'>Efectos de sonido</span>
-        <input type='checkbox' checked={s} onChange={e => { setSound(e.target.checked); setS(e.target.checked); sfx.click() }} className='w-6 h-6 accent-rojo' />
+      <label className='flex items-center gap-3 bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
+        <span className='font-semibold'>Efectos</span>
+        <input type='range' min={0} max={1} step={0.05} value={s} onChange={e => { setSfxVolume(+e.target.value); setS(+e.target.value); sfx.click() }} className='flex-1' aria-label='Volumen de los efectos' />
       </label>
       <label className='flex items-center gap-3 bg-white border border-borde rounded-xl px-3 min-h-[48px]'>
         <span className='font-semibold'>Música</span>

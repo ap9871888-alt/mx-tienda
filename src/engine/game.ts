@@ -278,6 +278,8 @@ export function openStore (s: GameState, cityId: string, colonyId: string, forma
     orders: [], queue: [], serviceCarry: 0, satisfaction: 70, reputation: 3, today: emptyDay(), history: []
   }
   s.stores.push(st)
+  // la tienda abre tras un día de obra: acondicionamiento e inauguración
+  if (!f.ownerSells) { const d0 = dayOf(s.minute); st.works = { to: 0, start: d0, end: d0 + 1 } }
   log(s, `Abriste ${f.name} en ${colonyOf(cityId, colonyId).name}, ${cityOf(cityId).name}`, 'good')
   return ok(f.ownerSells ? '¡Puesto listo! Tú mismo atiendes: a vender' : 'Tienda abierta: contrata cajeros para empezar a vender', st)
 }
@@ -599,7 +601,8 @@ function endOfDay (s: GameState, events: GameEvent[]) {
   const delivery = labDaily(s); company.profit += delivery; company.sales += Math.max(0, delivery) * 5
   for (const st of s.stores) if (st.works && day + 1 >= st.works.end) {
     st.remodel = st.works.to; st.works = null; st.satisfaction = Math.min(100, st.satisfaction + 8)
-    log(s, `✨ ¡Reinauguración! ${storeShort(st)} quedó como nueva`, 'good', events)
+    log(s, st.remodel ? `✨ ¡Reinauguración! ${storeShort(st)} quedó como nueva` : `🎊 ¡Gran inauguración de ${storeShort(st)}! Abre sus puertas`, 'good', events)
+    events.push({ type: 'opening', storeId: st.id })
   }
   runDirectors(s, events)
   checkMilestones(s, netWorth(s))
