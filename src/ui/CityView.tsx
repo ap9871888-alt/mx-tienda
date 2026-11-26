@@ -9,7 +9,7 @@ import { cityOf } from '../data/cities'
 import LOTS from '../data/cityLots.json'
 import { ColonyTraffic } from './ColonyTraffic'
 import { ModularTraffic } from './ModularTraffic'
-import { KITS, W as MW, H as MH, NBX, NBY, blockRect, colonyCenters, drawGround, type CityKit } from './modular'
+import { KITS, W as MW, H as MH, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
 import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
@@ -331,8 +331,12 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
     const r = blockRect(bx, by); const u = kit.blocks(bx, by)
     if (u.kind === 'mon') items.push({ ...sized(r, u.sprite), ed: u.sprite, label: u.sprite.split('/').pop()!.replace('.webp', '').replace(/_/g, ' ') })
     else if (u.kind === 'civic') { const c = civicById[u.id]; if (c) { const ed = kitEd[u.id] ?? c.ed; items.push({ ...c, ...sized(r, ed), ed }) } }
-    else if (u.kind === 'park') for (const [dx, dy] of [[-2.2, -0.6], [2.2, -0.6], [0, 0.9], [0, -1.8]]) { const q = { ...r, x: r.x + dx, y: r.y + dy, bottom: r.y + dy + (r.bottom - r.y) * 0.35 }; items.push({ ...q, w: r.w * 0.36, ed: 'kit/cdmx/deco_jacaranda.webp' }) }
-    else (byColony[u.colony] ??= []).push(r)
+    else if (u.kind === 'park') {
+      const tx = bx * 4 + 1; const ty = by * 4 + 1
+      items.push({ ...at(tx + 1.5, ty + 1.5, 1.6), ed: 'kit/cdmx2/veg_parquecito_denso.webp' })
+      for (const [a, b, ed] of [[0.7, 0.7, 'veg_ahuehuete_chapultepec'], [2.6, 0.9, 'veg_jardin_agaves_nopales'], [0.9, 2.6, 'veg_jardinera_bugambilias'], [2.6, 2.6, 'veg_ahuehuete_chapultepec']] as const) items.push({ ...at(tx + a, ty + b, 0.8), ed: `kit/cdmx2/${ed}.webp` })
+    }
+    else (byColony[u.colony] ??= []).push({ ...r, bx, by } as typeof r)
   }
   const labels: { id: string; name: string; x: number; y: number; mine: number }[] = []
   const centers = colonyCenters(kit, colonies)
@@ -350,8 +354,13 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
         // tus tiendas y las rivales usan su fachada; las rivales con un edificio de la colonia
         const ed = it.mine ? it.ed : it.pin === 'renta' ? undefined : decor[j % Math.max(1, decor.length)]
         items.push({ ...it, ...sized(r, ed), ed })
-      } else { const ed = decor[(j * 7 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...sized(r, ed), ed }) }
+      } else {
+        // cuadra de relleno: cuatro construcciones distintas, como una manzana real
+        const bx = (r as { bx?: number }).bx!; const by = (r as { by?: number }).by!
+        quarters(bx, by).forEach((q, n) => items.push({ ...q, ed: decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)] }))
+      }
     })
   }
+  for (const s of scenery()) items.push({ ...s.r, ed: s.ed })
   return { items: items.sort((a, b) => (a.bottom ?? a.y) - (b.bottom ?? b.y)), labels }
 }

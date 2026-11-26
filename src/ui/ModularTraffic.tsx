@@ -28,7 +28,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
     for (let i = 0; i < riders; i++) { const c = car(); c.skin = 'moto'; c.v = 3; cars.push(c) }
     const walkers: Walker[] = Array.from({ length: Math.round(40 * density) }, () => {
       const axis = rnd() < 0.5 ? 'x' : 'y'; const line = (axis === 'x' ? xs : ys)[Math.floor(rnd() * (axis === 'x' ? xs : ys).length)]
-      return { axis, line, pos: rnd() * (axis === 'x' ? NX : NY), dir: rnd() < 0.5 ? 1 : -1, v: 0.3 + rnd() * 0.25, who: PEOPLE[Math.floor(rnd() * PEOPLE.length)], side: rnd() < 0.5 ? -0.42 : 1.42 }
+      return { axis, line, pos: rnd() * (axis === 'x' ? NX : NY), dir: rnd() < 0.5 ? 1 : -1, v: 0.3 + rnd() * 0.25, who: PEOPLE[Math.floor(rnd() * PEOPLE.length)], side: rnd() < 0.5 ? -0.13 : 1.13 }
     })
     let raf = 0; let last = performance.now()
     const frame = (now: number) => {
@@ -40,7 +40,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
         const max = c.axis === 'x' ? NX : NY
         if (c.pos > max + 1) c.pos = -1; if (c.pos < -1) c.pos = max + 1
         // carril derecho: un poco desplazado según el sentido
-        const off = 0.5 + (c.dir > 0 ? 0.22 : -0.22)
+        const off = 0.5 + (c.dir > 0 ? 0.2 : -0.2)
         const p = c.axis === 'x' ? toScreen(c.pos, c.line + off) : toScreen(c.line + off, c.pos)
         list.push({ y: p.y, draw: () => drawCar(ctx, c, p.x, p.y, night) })
       }
@@ -68,17 +68,17 @@ function drawCar (ctx: CanvasRenderingContext2D, c: Car, x: number, y: number, n
   let mirror = c.axis === 'x'
   if (!back && view.swIsSE) mirror = !mirror
   const im = sprite(`sprites/veh-${c.skin}-${back ? view.ne : view.sw}.webp`)
-  const w = (c.skin === 'moto' ? 0.55 : 0.95) * TW
+  const w = (c.skin === 'moto' ? 0.24 : 0.42) * TW
   if (!im) { ctx.fillStyle = '#C0392B'; ctx.fillRect(x - 8, y - 6, 16, 10); return }
   const h = w * im.height / im.width
   ctx.save(); ctx.translate(x, y); if (mirror) ctx.scale(-1, 1)
   ctx.drawImage(im, -w / 2, -h * 0.72, w, h); ctx.restore()
-  if (night) { ctx.fillStyle = 'rgba(255,240,170,.5)'; ctx.beginPath(); ctx.arc(x, y - h * 0.2, 7, 0, 7); ctx.fill() }
+  if (night) { ctx.fillStyle = 'rgba(255,240,170,.5)'; ctx.beginPath(); ctx.arc(x, y - h * 0.2, 4, 0, 7); ctx.fill() }
 }
 function drawWalker (ctx: CanvasRenderingContext2D, w: Walker, x: number, y: number) {
   const im = sprite(`kit/polanco/${w.who}.webp`)
   if (!im) return
-  const h = TW * 0.42; const wd = h * im.width / im.height
+  const h = TW * 0.26; const wd = h * im.width / im.height
   // el dibujo mira hacia la izquierda: se refleja cuando camina hacia la derecha
   const right = (w.axis === 'x' && w.dir > 0) || (w.axis === 'y' && w.dir < 0)
   ctx.save(); ctx.translate(x, y + Math.sin(performance.now() / 140 + w.pos) * 0.8); if (right) ctx.scale(-1, 1)

@@ -7,8 +7,9 @@ export const P = 4 // cada cuadra son 3×3 mosaicos + 1 de calle
 export const NBX = 7; export const NBY = 8 // cuadras en cada eje
 export const NX = NBX * P + 1; export const NY = NBY * P + 1
 export const TOP = 380 // margen para lo alto de los edificios de arriba
-export const OX = NY * TW / 2 // origen x para que todo quede en positivo
-export const W = (NX + NY) * TW / 2; export const H = (NX + NY) * TH / 2 + TOP
+export const M = 300 // margen alrededor para los cerros del borde
+export const OX = NY * TW / 2 + M // origen x para que todo quede en positivo
+export const W = (NX + NY) * TW / 2 + 2 * M; export const H = (NX + NY) * TH / 2 + TOP + M
 export const toScreen = (tx: number, ty: number) => ({ x: OX + (tx - ty) * TW / 2, y: TOP + (tx + ty) * TH / 2 })
 
 // calles: cada 4 mosaicos. Reforma corre a lo largo de ty=16 e Insurgentes de tx=12
@@ -23,7 +24,7 @@ export interface CityKit {
   decor: Record<string, string[]> // sprites de relleno por colonia
 }
 
-const K = (s: string) => `kit/cdmx/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
+const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
 // geografía real simplificada: norte arriba, poniente a la izquierda, oriente a la derecha
 const MON: Record<string, string> = {
   '3,0': K('monumento_basilica'), // La Villa, al norte
@@ -64,14 +65,14 @@ export const CDMX_KIT: CityKit = {
     return { kind: 'lot', colony: colonyOf(bx, by) }
   },
   decor: {
-    polanco: [KP('polanco_torre_corporativa'), KP('polanco_boutique_lujo'), KP('polanco_residencia_lujo'), KP('polanco_cafe_bistro'), K('colonia_polanco_torre')],
-    centro: [K('comercio_mercado_frutas'), K('colonia_roma_art_deco'), K('comercio_puesto_tacos')],
-    roma: [K('colonia_roma_art_deco'), K('colonia_condesa_deptos'), KP('polanco_cafe_bistro')],
-    narvarte: [K('colonia_condesa_deptos'), K('colonia_roma_art_deco')],
-    delvalle: [K('colonia_condesa_deptos'), KP('polanco_residencia_lujo')],
-    coyoacan: [K('colonia_coyoacan_casona'), K('deco_kiosco_jardin')],
-    iztapalapa: [K('colonia_iztapalapa_casa'), K('comercio_puesto_tacos'), K('comercio_mercado_frutas')],
-    santafe: [K('colonia_polanco_torre'), KP('polanco_torre_corporativa')]
+    polanco: [KP('polanco_torre_corporativa'), KP('polanco_boutique_lujo'), K2('hotel_moderno_cristal'), KP('polanco_residencia_lujo'), KP('polanco_cafe_bistro'), K2('hotel_torre_jardin_alberca'), K('colonia_polanco_torre')],
+    centro: [K2('hotel_boutique_colonial'), K('comercio_mercado_frutas'), K2('casa_vecindad_cdmx'), K2('hotel_clasico_reforma'), K('colonia_roma_art_deco'), K2('edificio_mixto_cuadra')],
+    roma: [K('colonia_roma_art_deco'), K2('hotel_art_deco_condesa'), K('colonia_condesa_deptos'), K2('casa_azul_bugambilia'), KP('polanco_cafe_bistro'), K2('edificio_mixto_cuadra')],
+    narvarte: [K('colonia_condesa_deptos'), K2('edificio_mixto_cuadra'), K2('casa_moderna_concreto_madera'), K('colonia_roma_art_deco'), K2('bloque_3_casitas_adosadas')],
+    delvalle: [K('colonia_condesa_deptos'), K2('casa_moderna_concreto_madera'), KP('polanco_residencia_lujo'), K2('edificio_mixto_cuadra')],
+    coyoacan: [K('colonia_coyoacan_casona'), K2('casa_azul_bugambilia'), K2('veg_jardinera_bugambilias'), K2('bloque_3_casitas_adosadas')],
+    iztapalapa: [K('colonia_iztapalapa_casa'), K2('bloque_3_casitas_adosadas'), K2('casa_vecindad_cdmx'), K('comercio_puesto_tacos'), K('comercio_mercado_frutas')],
+    santafe: [K('colonia_polanco_torre'), K2('hotel_moderno_cristal'), KP('polanco_torre_corporativa'), K2('hotel_torre_jardin_alberca')]
   }
 }
 export const KITS: Record<string, CityKit> = { cdmx: CDMX_KIT }
@@ -89,6 +90,25 @@ export function colonyCenters (kit: CityKit, colonies: Colony[]) {
     if (!bs.length) return null
     return { id: col.id, name: col.name, x: bs.reduce((a, b) => a + b.x, 0) / bs.length, y: Math.min(...bs.map(b => b.y)) - 4 }
   }).filter(Boolean) as { id: string; name: string; x: number; y: number }[]
+}
+
+// sprite parado en un punto del mundo (tx, ty) con un ancho en mosaicos
+export function at (tx: number, ty: number, wTiles: number) {
+  const p = toScreen(tx, ty)
+  return { x: p.x / W * 100, y: (p.y - TH) / H * 100, bottom: p.y / H * 100, w: wTiles * TW / W * 100 }
+}
+// cuatro edificios por cuadra: el centro de cada cuarto, con la base hacia el frente
+export const quarters = (bx: number, by: number) => [[0, 0], [1, 0], [0, 1], [1, 1]].map(([qx, qy]) => at(bx * P + 1 + 0.25 + qx * 1.25 + 1.0, by * P + 1 + 0.25 + qy * 1.25 + 1.0, 1.18))
+// adornos de la ciudad: palmeras en los camellones y cerros alrededor del valle
+export function scenery () {
+  const out: { r: ReturnType<typeof at>; ed: string }[] = []
+  for (let i = 1; i < NX; i++) if (i % P !== 0 && i % 2) out.push({ r: at(i + 0.5, REFORMA + 0.55, 0.55), ed: K2('veg_palmera_reforma') })
+  for (let j = 1; j < NY; j++) if (j % P !== 0 && j % 2 === 0) out.push({ r: at(INSURGENTES + 0.55, j + 0.5, 0.55), ed: K2('veg_palmera_reforma') })
+  const hills = ['borde_cerro_bosque', 'borde_cerro_villas_lomas', 'borde_montana_valle', 'borde_cerro_casas_colores', 'borde_barranca_casas']
+  let k = 0
+  for (let i = -1; i <= NX + 1; i += 3) { out.push({ r: at(i, -1.6, 3.2), ed: K2(hills[k++ % 5]) }) }
+  for (let j = 2; j <= NY - 1; j += 3) { out.push({ r: at(-1.6, j, 3.2), ed: K2(hills[k++ % 5]) }) }
+  return out
 }
 
 // ---------- dibujo del piso ----------
