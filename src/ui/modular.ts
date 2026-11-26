@@ -27,7 +27,7 @@ export interface CityKit {
   decor: Record<string, string[]> // sprites de relleno por colonia
 }
 
-const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
+const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`; const X = (s: string) => `kit/px/${s}.webp`
 // manzanas: (bx, by). Arriba = norte (Gustavo A. Madero), derecha = oriente (Iztapalapa, aeropuerto),
 // izquierda = poniente (Polanco, Santa Fe), abajo = sur (Coyoacán)
 const MON: Record<string, string> = {
@@ -71,14 +71,14 @@ export const CDMX_KIT: CityKit = {
     return { kind: 'lot', colony: colonyOf(bx, by) }
   },
   decor: {
-    polanco: [KP('polanco_torre_corporativa'), KP('polanco_boutique_lujo'), K2('hotel_moderno_cristal'), KP('polanco_residencia_lujo'), KP('polanco_cafe_bistro'), K2('hotel_torre_jardin_alberca'), K('colonia_polanco_torre')],
-    centro: [K2('hotel_boutique_colonial'), K('comercio_mercado_frutas'), K2('casa_vecindad_cdmx'), K2('hotel_clasico_reforma'), K('colonia_roma_art_deco'), K2('edificio_mixto_cuadra')],
-    roma: [K('colonia_roma_art_deco'), K2('hotel_art_deco_condesa'), K('colonia_condesa_deptos'), K2('casa_azul_bugambilia'), KP('polanco_cafe_bistro'), K2('edificio_mixto_cuadra')],
-    narvarte: [K('colonia_condesa_deptos'), K2('edificio_mixto_cuadra'), K2('casa_moderna_concreto_madera'), K('colonia_roma_art_deco'), K2('bloque_3_casitas_adosadas')],
-    delvalle: [K('colonia_condesa_deptos'), K2('casa_moderna_concreto_madera'), KP('polanco_residencia_lujo'), K2('edificio_mixto_cuadra')],
-    coyoacan: [K('colonia_coyoacan_casona'), K2('casa_azul_bugambilia'), K2('veg_jardinera_bugambilias'), K2('bloque_3_casitas_adosadas')],
-    iztapalapa: [K('colonia_iztapalapa_casa'), K2('bloque_3_casitas_adosadas'), K2('casa_vecindad_cdmx'), K('comercio_puesto_tacos'), K('comercio_mercado_frutas')],
-    santafe: [K('colonia_polanco_torre'), K2('hotel_moderno_cristal'), KP('polanco_torre_corporativa'), K2('hotel_torre_jardin_alberca')]
+    polanco: [X('02_torre_helipuerto'), KP('polanco_torre_corporativa'), KP('polanco_boutique_lujo'), K2('hotel_moderno_cristal'), X('01_rascacielos_reforma'), KP('polanco_residencia_lujo'), KP('polanco_cafe_bistro'), K2('hotel_torre_jardin_alberca'), X('mob_puesto_flores')],
+    centro: [X('03_edificio_porfiriano'), X('04_colonial_tezontle'), K2('hotel_boutique_colonial'), X('05_vecindad_patio'), X('17_iglesia_barrio'), K2('hotel_clasico_reforma'), X('16_mercado_techado'), X('mob_puesto_periodicos'), X('19_entrada_metro')],
+    roma: [X('06_deptos_condesa'), X('07_casa_art_deco_roma'), K('colonia_roma_art_deco'), K2('hotel_art_deco_condesa'), X('14_panaderia'), K2('casa_azul_bugambilia'), KP('polanco_cafe_bistro'), X('mob_puesto_flores')],
+    narvarte: [X('08_edificio_narvarte_5p'), X('15_taqueria_trompo'), K('colonia_condesa_deptos'), X('13_farmacia_cruz_verde'), K2('casa_moderna_concreto_madera'), X('12_tiendita_esquina'), X('19_entrada_metro')],
+    delvalle: [X('09_casa_del_valle_2p'), X('08_edificio_narvarte_5p'), K2('casa_moderna_concreto_madera'), X('18_escuela_primaria'), X('14_panaderia'), KP('polanco_residencia_lujo')],
+    coyoacan: [X('10_casona_coyoacan'), K('colonia_coyoacan_casona'), K2('casa_azul_bugambilia'), X('17_iglesia_barrio'), K2('veg_jardinera_bugambilias'), X('mob_triciclo_tamales')],
+    iztapalapa: [X('11_casa_block_iztapalapa'), K('colonia_iztapalapa_casa'), X('12_tiendita_esquina'), K2('bloque_3_casitas_adosadas'), X('15_taqueria_trompo'), X('16_mercado_techado'), X('18_escuela_primaria')],
+    santafe: [X('01_rascacielos_reforma'), X('02_torre_helipuerto'), K2('hotel_moderno_cristal'), KP('polanco_torre_corporativa'), K2('hotel_torre_jardin_alberca')]
   }
 }
 export const KITS: Record<string, CityKit> = { cdmx: CDMX_KIT }

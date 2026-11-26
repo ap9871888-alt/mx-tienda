@@ -327,7 +327,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
     estilo: civic.find(c => c.icon === 'ic-premium'), logistica: civic.find(c => c.icon === 'ic-logistica'), corporativo: civic.find(c => c.icon === 'ic-ventas'),
     aeropuerto: civic.find(c => c.icon === 'ic-viajar'), central: civic.find(c => c.label === 'Viajar en autobús')
   }
-  const kitEd: Record<string, string> = { bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
+  const kitEd: Record<string, string> = { central: 'kit/px/terminal_tapo_cupula.webp', bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
   // tamaño de cada sprite respecto a la cuadra: árboles y puestos más chicos que los edificios
   const scale = (ed?: string) => !ed ? 0.7 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento/.test(ed) ? 0.86 : 0.7
   // el edificio se encoge y su base queda dentro de la plaza, con banqueta alrededor
@@ -364,7 +364,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
       } else {
         // cuadra de relleno: cuatro construcciones distintas, como una manzana real
         const bx = (r as { bx?: number }).bx!; const by = (r as { by?: number }).by!
-        quarters(bx, by).forEach((q, n) => items.push({ ...q, ed: decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)] }))
+        quarters(bx, by).forEach((q, n) => { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...q, w: q.w * (/mob_|veg_/.test(ed ?? '') ? 0.6 : 1), ed }) })
       }
     })
   }

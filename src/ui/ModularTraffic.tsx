@@ -4,7 +4,12 @@ import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
 import { W, H, P, NX, NY, TW, toScreen } from './modular'
 
-const SKINS = ['taxi', 'vocho', 'sedan-rojo', 'sedan-azul', 'pickup', 'taxi', 'sedan-azul']
+const SKINS = ['px:taxi_rosa', 'vocho', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
+// láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
+const PX_VIEW: Record<'SE' | 'SW' | 'NE' | 'NW', string> = { SE: 'se', SW: 'sw', NE: 'nw', NW: 'ne' }
+// semáforos: cada 7 s cambia qué eje tiene verde
+const CYCLE = 7
+export const greenAxis = (t: number): 'x' | 'y' => Math.floor(t / CYCLE) % 2 ? 'y' : 'x'
 // columna de la lámina que mira hacia abajo-izquierda (de frente) y hacia arriba-derecha (de espaldas)
 const VIEWS: Record<string, { sw: number; ne: number; swIsSE?: boolean }> = { taxi: { sw: 1, ne: 2 }, vocho: { sw: 0, ne: 2 }, 'sedan-azul': { sw: 0, ne: 2 }, 'sedan-rojo': { sw: 0, ne: 2, swIsSE: true }, pickup: { sw: 0, ne: 2 }, metrobus: { sw: 0, ne: 2 }, moto: { sw: 0, ne: 2 }, camioneta: { sw: 0, ne: 2 } }
 const PEOPLE = ['peaton_ejecutivo', 'peaton_compradora', 'peaton_paseador_perros', 'peaton_corredor']
@@ -36,7 +41,11 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
       ctx.clearRect(0, 0, W, H)
       const list: { y: number; draw: () => void }[] = []
       for (const c of cars) {
-        c.pos += c.dir * c.v * dt
+        // se detiene antes de la esquina si su semáforo está en rojo
+        const next = c.dir > 0 ? Math.ceil((c.pos + 0.05) / P) * P - 0.35 : Math.floor((c.pos - 0.05) / P) * P + 1.35
+        const gap = (next - c.pos) * c.dir
+        const red = greenAxis(now / 1000) !== c.axis
+        if (!(red && gap > 0 && gap < 0.5)) c.pos += c.dir * c.v * dt
         const max = c.axis === 'x' ? NX : NY
         if (c.pos > max + 1) c.pos = -1; if (c.pos < -1) c.pos = max + 1
         // carril derecho: un poco desplazado según el sentido
@@ -51,6 +60,15 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
         const p = w.axis === 'x' ? toScreen(w.pos, w.line + w.side) : toScreen(w.line + w.side, w.pos)
         list.push({ y: p.y, draw: () => drawWalker(ctx, w, p.x, p.y) })
       }
+      // semáforos y farolas en las esquinas de las banquetas
+      const g = greenAxis(now / 1000)
+      for (const i of ys) for (const j of xs) {
+        const a = toScreen(i + 1.12, j - 0.12); const b = toScreen(i - 0.12, j + 1.12)
+        list.push({ y: a.y, draw: () => drawPole(ctx, `semaforo_${g === 'x' ? 'verde' : 'rojo'}_frente`, a.x, a.y, 0.5) })
+        list.push({ y: b.y, draw: () => drawPole(ctx, `semaforo_${g === 'y' ? 'verde' : 'rojo'}_izq`, b.x, b.y, 0.5) })
+        const f = toScreen(i + 1.12, j + 1.12)
+        list.push({ y: f.y, draw: () => drawPole(ctx, 'farola_frente', f.x, f.y, 0.55) })
+      }
       list.sort((a, b) => a.y - b.y)
       for (const it of list) it.draw()
       raf = requestAnimationFrame(frame)
@@ -61,7 +79,21 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
   return <canvas ref={ref} className='absolute inset-0 w-full h-full pointer-events-none' aria-hidden />
 }
 
+function drawPole (ctx: CanvasRenderingContext2D, name: string, x: number, y: number, hTiles: number) {
+  const im = sprite(`kit/px/${name}.webp`); if (!im) return
+  const h = TW * hTiles; const w = h * im.width / im.height
+  ctx.drawImage(im, x - w / 2, y - h * 0.95, w, h)
+}
 function drawCar (ctx: CanvasRenderingContext2D, c: Car, x: number, y: number, night: boolean) {
+  if (c.skin.startsWith('px:')) {
+    const face = c.axis === 'x' ? (c.dir > 0 ? 'SE' : 'NW') : (c.dir > 0 ? 'SW' : 'NE')
+    const im = sprite(`kit/px/${c.skin.slice(3)}_${PX_VIEW[face]}.webp`)
+    if (!im) return
+    const w = (c.skin.includes('camion') ? 0.52 : 0.44) * TW; const h = w * im.height / im.width
+    ctx.drawImage(im, x - w / 2, y - h * 0.75, w, h)
+    if (night) { ctx.fillStyle = 'rgba(255,240,170,.5)'; ctx.beginPath(); ctx.arc(x, y - h * 0.2, 4, 0, 7); ctx.fill() }
+    return
+  }
   // +x avanza hacia abajo-derecha (SE), +y hacia abajo-izquierda (SW)
   const back = c.dir < 0
   const view = VIEWS[c.skin] ?? { sw: 0, ne: 2 }
