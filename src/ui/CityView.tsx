@@ -9,7 +9,8 @@ import LOTS from '../data/cityLots.json'
 import { ColonyTraffic } from './ColonyTraffic'
 import { ModularTraffic } from './ModularTraffic'
 import { usePrefs } from './settings'
-import { RES, CURVE_SPRITES, WATER, AREAS, KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
+import ASPECT from '../data/sprite-aspect.json'
+import { toTile, TW as MTW, TH as MTH, NX as MNX, NY as MNY, RES, CURVE_SPRITES, WATER, AREAS, KITS, W as MW, H as MH, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
 import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
@@ -95,9 +96,23 @@ export function CityView () {
     const c = cam.current; const vw = el.clientWidth; const vh = el.clientHeight
     if (kit) {
       // mapa modular: no deja alejarse de más ni salirse de la ciudad
-      const minS = Math.max(vw / (MW * 0.55), vh / (MH - MTOP * 0.8 - MM * 0.4)); c.s = Math.min(2.4, Math.max(minS, c.s))
-      const x0 = MM * 1.6; const x1 = MW - MM * 1.6; const y0 = MTOP * 0.8; const y1 = MH - MM * 0.4
-      c.x = Math.min(-x0 * c.s, Math.max(vw - x1 * c.s, c.x)); c.y = Math.min(-y0 * c.s, Math.max(vh - y1 * c.s, c.y))
+      // la pantalla nunca sale del rombo de la ciudad: se revisan sus 4 esquinas en coordenadas de calle
+      const minS = Math.max(vw / (MW * 0.6), vh / (MH * 0.62)); c.s = Math.min(2.4, Math.max(minS, c.s))
+      let wx = (vw / 2 - c.x) / c.s; let wy = (vh / 2 - c.y) / c.s
+      const hw = vw / 2 / c.s; const hh = vh / 2 / c.s
+      for (let it = 0; it < 8; it++) {
+        let moved = false
+        for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+          const { tx, ty } = toTile(wx + sx * hw, wy + sy * hh)
+          // fuera por tx o ty: empujar el centro hacia adentro a lo largo de ese eje
+          if (tx < 0.5) { wx += (0.5 - tx) * MTW / 2; wy += (0.5 - tx) * MTH / 2; moved = true }
+          if (tx > MNX - 0.5) { wx -= (tx - MNX + 0.5) * MTW / 2; wy -= (tx - MNX + 0.5) * MTH / 2; moved = true }
+          if (ty < 0.5) { wx -= (0.5 - ty) * MTW / 2; wy += (0.5 - ty) * MTH / 2; moved = true }
+          if (ty > MNY - 0.5) { wx += (ty - MNY + 0.5) * MTW / 2; wy -= (ty - MNY + 0.5) * MTH / 2; moved = true }
+        }
+        if (!moved) break
+      }
+      c.x = vw / 2 - wx * c.s; c.y = vh / 2 - wy * c.s
       return
     }
     const minS = Math.max(vw / W, vh / H) * 0.98; c.s = Math.min(3.2, Math.max(minS * 0.85, c.s))
@@ -114,7 +129,7 @@ export function CityView () {
       const c = cam.current
       clamp() // fija primero la escala permitida para centrar bien
       const lb = modItems?.labels ?? fullItems?.labels
-      const fl = kit && !st ? blockRect(4, 6) : lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
+      const fl = kit && !st ? blockRect(5, 7) : lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
       if (fl) { c.x = -(fl.x / 100 * W) * c.s + vw / 2; c.y = -(fl.y / 100 * H) * c.s + el.clientHeight / 2 }
       else { c.x = -((k % cols) * TW + TW / 2) * c.s + vw / 2; c.y = -(Math.floor(k / cols) * TH + TH * 0.4) * c.s + el.clientHeight / 2 }
       clamp(); apply(); force(n => n + 1)
@@ -210,6 +225,26 @@ export function CityView () {
   )
 }
 
+// ---------- una sola escala para toda la ciudad ----------
+// Cada tipo de construcción tiene su altura en pantalla (px del mundo); el ancho sale de la proporción real
+// de su dibujo, sin pasarse del lote. Así una casa nunca es más alta que la Torre Latino.
+const HEIGHTS: [RegExp, number][] = [
+  [/torre_mayor|19_torre_reforma/, 470], [/torre_latino/, 410], [/helipuerto|torre_corporativa|colonia_polanco_torre|hotel_torre|ed-torre/, 330],
+  [/monumento_angel|estela/, 270], [/catedral|bellas_artes|basilica|revolucion|senado|palacio|ed-banco/, 240],
+  [/hotel_|edificio_5|narvarte_5p|edificio_mixto|deptos|condesa|porfiriano|hospital|auditorio|soumaya|antropologia|ed-oficinas|ed-depas/, 220],
+  [/manzana_/, 230], [/tienda-(bodega|hardDiscount|supermercado|darkStore|hiper)/, 165],
+  [/art_deco|vecindad|residencia|boutique|casona|casa|colonial|block|iztapalapa|bloque_3|tezontle|mercado|iglesia|escuela|garibaldi|hemiciclo|artesanias|arena|toros|frida|raza|ed-mercado|ed-plaza|ed-central|ed-aeropuerto/, 150],
+  [/tienda-|tiendita|farmacia|panaderia|taqueria|cafe|metro|kiosco/, 115], [/puesto|mob_/, 80],
+  [/jacaranda|veg_|ahuehuete|bugambilia/, 95]
+]
+const SMALL_FORMATS = new Set(['ambulante', 'paleteria', 'conveniencia', 'taqueria', 'tiendita'])
+const aspectOf = (ed: string) => (ASPECT as Record<string, number>)[ed] ?? 0.75
+function placeIn (r: { x: number; y: number; w: number; bottom: number }, ed?: string) {
+  const maxW = r.w * MW / 100 * 0.95
+  const wpx = ed ? Math.min(maxW, (HEIGHTS.find(([re]) => re.test(ed))?.[1] ?? 170) * aspectOf(ed)) : maxW * 0.8
+  const f = Math.max(0.35, wpx / (r.w * MW / 100))
+  return { ...r, w: wpx / MW * 100, bottom: r.y + (r.bottom - r.y) * Math.min(1, f) }
+}
 // manzana compuesta que le toca a cada colonia
 const COMPOSITE: Record<string, string> = { polanco: 'manzana_polanco_lujo', santafe: 'manzana_polanco_lujo', centro: 'manzana_centro_historico', roma: 'manzana_roma_condesa', coyoacan: 'manzana_coyoacan_colonial', iztapalapa: 'manzana_iztapalapa_densa' }
 // de noche, los edificios que tienen su versión nocturna dibujada la usan (ventanas reales encendidas)
@@ -333,9 +368,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
   }
   const kitEd: Record<string, string> = { central: 'kit/px/terminal_tapo_cupula.webp', bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
   // tamaño de cada sprite respecto a la cuadra: árboles y puestos más chicos que los edificios
-  const scale = (ed?: string) => !ed ? 0.7 : /kit\/v3\//.test(ed) ? 1.0 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento|estadio|rectoria|antropologia|auditorio|chinampa|embarcadero|plaza_toros|soumaya/.test(ed) ? 0.78 : 0.68
-  // el edificio se encoge y su base queda dentro de la plaza, con banqueta alrededor
-  const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => { const k = scale(ed) * 0.95; return { ...r, w: r.w * scale(ed), bottom: r.y + (r.bottom - r.y) * Math.min(1, k + 0.05) } }
+  const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => placeIn(r, ed)
   const items: Lot[] = []
   const byColony: Record<string, { x: number; y: number; w: number; bottom: number }[]> = {}
   for (let bx = 0; bx < NBX; bx++) for (let by = 0; by < NBY; by++) {
@@ -365,10 +398,17 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
     const decor = kit.decor[col.id] ?? []
     lots.forEach((r, j) => {
       const it = inter[j]
+      const bx0 = (r as { bx?: number }).bx!; const by0 = (r as { by?: number }).by!
       if (it) {
         // tus tiendas y las rivales usan su fachada; las rivales con un edificio de la colonia
         const ed = it.mine ? it.ed : it.pin === 'renta' ? undefined : decor[j % Math.max(1, decor.length)]
-        items.push({ ...it, ...sized(r, ed), ed })
+        // formatos chicos (ambulante, paletería, conveniencia, local libre) ocupan ¼ de manzana; los grandes, la manzana entera
+        const fmt = it.mine ? /tienda-(\w+)-/.exec(it.ed ?? '')?.[1] ?? '' : ''
+        const small = !it.mine || SMALL_FORMATS.has(fmt)
+        if (!small) { items.push({ ...it, ...sized(r, ed), ed }); return }
+        const qs = quarters(bx0, by0)
+        items.push({ ...it, ...placeIn(qs[3], ed), ed })
+        qs.slice(0, 3).forEach((q, n) => { const e2 = n === 1 ? (n % 2 ? 'kit/cdmx/deco_jacaranda.webp' : undefined) : decor[(j * 5 + n * 3) % Math.max(1, decor.length)]; if (e2) items.push({ ...placeIn(q, e2), ed: e2 }) })
       } else {
         // cuadra de relleno: cuatro construcciones distintas, como una manzana real
         const bx = (r as { bx?: number }).bx!; const by = (r as { by?: number }).by!
@@ -379,7 +419,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
         const qs = quarters(bx, by)
         qs.forEach((q, n) => {
           const build = v % 2 ? (n === 0 || n === 3) : (n === 1 || n === 2)
-          if (build) { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...q, w: q.w * (/mob_|veg_/.test(ed ?? '') ? 0.6 : 1), ed }) } else if ((bx + by + n) % 3) items.push({ ...q, w: q.w * 0.5, ed: n % 2 ? 'kit/cdmx/deco_jacaranda.webp' : 'kit/cdmx2/veg_jardinera_bugambilias.webp' })
+          if (build) { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...placeIn(q, ed), ed }) } else if ((bx + by + n) % 3) { const ed = n % 2 ? 'kit/cdmx/deco_jacaranda.webp' : 'kit/cdmx2/veg_jardinera_bugambilias.webp'; items.push({ ...placeIn(q, ed), ed }) }
         })
       }
     })

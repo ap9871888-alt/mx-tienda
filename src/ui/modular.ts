@@ -5,7 +5,7 @@ import { isLite } from './settings'
 
 export const TW = 96; export const TH = 48 // tamaño de un mosaico
 export const P = 4 // cada cuadra son 3×3 mosaicos + 1 de calle
-export const NBX = 11; export const NBY = 15 // cuadras en cada eje (ciudad amplia, con aire entre lugares)
+export const NBX = 13; export const NBY = 17 // cuadras en cada eje: la ciudad llena todo el mapa hasta el borde
 export const NX = NBX * P + 1; export const NY = NBY * P + 1
 export const TOP = 380 // margen para lo alto de los edificios de arriba
 export const M = 220 // margen alrededor: ahí sigue la ciudad lejana
@@ -14,11 +14,12 @@ export const W = (NX + NY) * TW / 2 + 2 * M; export const H = (NX + NY) * TH / 2
 // los teléfonos limitan el tamaño de un lienzo (~16 M de píxeles): el piso y el tráfico se pintan a esta resolución
 export const RES = Math.min(1, Math.sqrt((isLite() ? 2.2e6 : 4.5e6) / (((NX + NY) * TW / 2 + 2 * M) * ((NX + NY) * TH / 2 + TOP + M))))
 export const toScreen = (tx: number, ty: number) => ({ x: OX + (tx - ty) * TW / 2, y: TOP + (tx + ty) * TH / 2 })
+export const toTile = (x: number, y: number) => { const a = (x - OX) / (TW / 2); const b = (y - TOP) / (TH / 2); return { tx: (a + b) / 2, ty: (b - a) / 2 } }
 
 // calles: cada 4 mosaicos. En pantalla el norte queda arriba y el oriente a la derecha.
 // Paseo de la Reforma corre en diagonal del Centro (arriba a la derecha) a Chapultepec (abajo a la izquierda),
 // sobre tx=12; Insurgentes la cruza sobre ty=16 en la glorieta del Ángel.
-export const REFORMA_TX = 16; export const INSURGENTES_TY = 24
+export const REFORMA_TX = 20; export const INSURGENTES_TY = 28
 export const REFORMA = INSURGENTES_TY; export const INSURGENTES = REFORMA_TX // nombres viejos usados en el dibujo
 export const isRoad = (tx: number, ty: number) => tx % P === 0 || ty % P === 0
 export const isAvenue = (tx: number, ty: number) => tx === REFORMA_TX || ty === INSURGENTES_TY
@@ -36,7 +37,10 @@ const X = (s: string) => `kit/px/${s}.webp`; const K = (s: string) => `kit/cdmx/
 // y luego se ajustó a la retícula: Reforma corre sobre tx=16 de Chapultepec (abajo-izquierda)
 // a la Alameda (arriba-derecha); Insurgentes la cruza en ty=24, en la glorieta del Ángel.
 // La Basílica queda lejos al norte, el aeropuerto al oriente y CU, el Azteca y Xochimilco al sur.
-const MON: Record<string, string> = {
+// el plano se diseñó sobre 11×15; OFF lo recorre una manzana para dejar la orilla al Periférico
+const OFF = 1
+const shift = <T, >(o: Record<string, T>) => Object.fromEntries(Object.entries(o).map(([k, v]) => { const [x, y] = k.split(',').map(Number); return [`${x + OFF},${y + OFF}`, v] })) as Record<string, T>
+const MON: Record<string, string> = shift({
   // norte
   '4,0': K('monumento_basilica'), '2,1': X('10_monumento_raza'),
   // Centro Histórico (al oriente de la Alameda; el Zócalo es un área grande aparte)
@@ -50,16 +54,16 @@ const MON: Record<string, string> = {
   '2,8': X('02_museo_antropologia'), '1,8': X('17_auditorio_nacional'), '0,6': X('01_museo_soumaya'), '1,6': KP('polanco_estanque_lincoln'),
   // sur
   '7,8': X('18_hospital_grande'), '6,11': X('16_plaza_toros'), '8,12': X('03_casa_azul_frida')
-}
-const CIVIC: Record<string, string> = {
+})
+const CIVIC: Record<string, string> = shift({
   '3,6': 'bolsa', '4,7': 'banco', '2,7': 'inversion', '0,7': 'estilo', '10,6': 'logistica', '0,11': 'corporativo', '10,3': 'aeropuerto', '9,2': 'central'
-}
+})
 // Lugares grandes: ocupan varias manzanas juntas, sin calles por dentro (los coches las rodean).
 // Cada uno tiene su piso y sus piezas acomodadas en mosaicos relativos a su esquina.
 export interface Area { id: string; bx: number; by: number; w: number; h: number; ground: 'plaza' | 'park' | 'water'; items: [string, number, number, number][] }
 const TREE = K2('veg_ahuehuete_chapultepec'); const JAC = K('deco_jacaranda'); const BUG = K2('veg_jardinera_bugambilias')
 const ring = (w: number, h: number, sp: string, n = 2) => { const out: [string, number, number, number][] = []; const L = w * P - 1; const Hh = h * P - 1; for (let i = 0.6; i < L; i += n) { out.push([sp, i, 0.6, 0.55]); out.push([sp, i, Hh - 0.4, 0.55]) } for (let j = 2.6; j < Hh - 1; j += n) { out.push([sp, 0.6, j, 0.55]); out.push([sp, L - 0.4, j, 0.55]) } return out }
-export const AREAS: Area[] = [
+const AREAS0: Area[] = [
   { id: 'zocalo', bx: 6, by: 2, w: 2, h: 2, ground: 'plaza', items: [[K('monumento_zocalo'), 4.8, 4.8, 4.2], ...ring(2, 2, BUG, 2.4)] },
   { id: 'alameda', bx: 3, by: 3, w: 1, h: 2, ground: 'park', items: [[K('deco_kiosco_jardin'), 1.6, 3.6, 0.9], ...[[0.7, 0.8], [2.4, 1.2], [0.8, 2.6], [2.3, 5.6], [0.7, 6.2], [2.4, 3.4], [1.5, 1.8], [1.4, 5.0]].map(([x, y]) => [JAC, x, y, 0.75] as [string, number, number, number])] },
   { id: 'chapultepec', bx: 1, by: 9, w: 3, h: 3, ground: 'park', items: [[K('monumento_chapultepec'), 8.6, 2.8, 2.4], ...Array.from({ length: 22 }, (_, i) => [TREE, 0.8 + (i * 4.7) % 9.6, 0.8 + (i * 2.9 + Math.floor(i / 4) * 1.3) % 10, 0.62] as [string, number, number, number]).filter(([, x, y]) => !(x > 6.5 && y < 5) && !((x - 4.5) ** 2 + (y - 7) ** 2 < 4))] },
@@ -68,6 +72,12 @@ export const AREAS: Area[] = [
   { id: 'azteca', bx: 9, by: 12, w: 2, h: 2, ground: 'plaza', items: [[X('06_estadio_azteca'), 4.8, 4.8, 5.2], ...ring(2, 2, TREE, 2.6)] },
   { id: 'cu', bx: 6, by: 13, w: 2, h: 2, ground: 'park', items: [[X('04_rectoria_cu'), 2.6, 2.6, 2.4], [X('05_biblioteca_central_cu'), 5.8, 5.6, 2.2], ...[[5.6, 1.4], [1.4, 5.6], [3.6, 6.4], [6.4, 3.4]].map(([x, y]) => [TREE, x, y, 0.62] as [string, number, number, number])] }
 ]
+export const AREAS: Area[] = [
+  ...AREAS0.map(a => ({ ...a, bx: a.bx + OFF, by: a.by + OFF })),
+  // orilla poniente y sur: corredor verde del Periférico (sin edificios)
+  { id: 'periferico_pte', bx: 0, by: 0, w: 1, h: NBY, ground: 'park', items: [] },
+  { id: 'periferico_sur', bx: 1, by: NBY - 1, w: NBX - 1, h: 1, ground: 'park', items: [] }
+]
 const AREA_AT = new Map<string, Area>(); for (const a of AREAS) for (let i = 0; i < a.w; i++) for (let j = 0; j < a.h; j++) AREA_AT.set(`${a.bx + i},${a.by + j}`, a)
 // ¿esta calle (mosaico) quedó dentro de un área grande? Los coches no entran ahí
 export const blocked = (tx: number, ty: number) => AREAS.some(a => tx >= a.bx * P + 1 && tx < (a.bx + a.w) * P && ty >= a.by * P + 1 && ty < (a.by + a.h) * P)
@@ -75,8 +85,8 @@ const PARKS = new Set<string>()
 export const WATER: Record<string, 'lago' | 'canal'> = {}
 // centro de cada colonia en la retícula; cada manzana libre pertenece a la colonia más cercana
 const COLONY_AT: [string, number, number][] = [
-  ['polanco', 1, 6.5], ['centro', 6, 3.5], ['santafe', 0, 11], ['roma', 5, 8.5], ['narvarte', 7.5, 8],
-  ['delvalle', 7, 10.5], ['coyoacan', 8, 13], ['iztapalapa', 10, 7.5]
+  ['polanco', 2, 7.5], ['centro', 7, 4.5], ['santafe', 1, 12], ['roma', 6, 9.5], ['narvarte', 8.5, 9],
+  ['delvalle', 8, 11.5], ['coyoacan', 9, 14], ['iztapalapa', 11, 8.5]
 ]
 const colonyOf = (bx: number, by: number) => {
   let best = 'centro'; let bd = Infinity
@@ -113,14 +123,14 @@ export const CDMX_KIT: CityKit = {
     return { kind: 'lot', colony: col }
   },
   decor: {
-    polanco: [X('02_torre_helipuerto'), KP('polanco_torre_corporativa'), KP('polanco_boutique_lujo'), K2('hotel_moderno_cristal'), X('01_rascacielos_reforma'), KP('polanco_residencia_lujo'), KP('polanco_cafe_bistro'), K2('hotel_torre_jardin_alberca'), X('mob_puesto_flores')],
+    polanco: [X('02_torre_helipuerto'), KP('polanco_torre_corporativa'), KP('polanco_boutique_lujo'), KP('polanco_residencia_lujo'), KP('polanco_cafe_bistro'), K2('hotel_torre_jardin_alberca'), X('mob_puesto_flores')],
     centro: [X('03_edificio_porfiriano'), X('04_colonial_tezontle'), K2('hotel_boutique_colonial'), X('05_vecindad_patio'), X('17_iglesia_barrio'), K2('hotel_clasico_reforma'), X('16_mercado_techado'), X('mob_puesto_periodicos'), X('19_entrada_metro')],
     roma: [X('06_deptos_condesa'), X('07_casa_art_deco_roma'), K('colonia_roma_art_deco'), K2('hotel_art_deco_condesa'), X('14_panaderia'), K2('casa_azul_bugambilia'), KP('polanco_cafe_bistro'), X('mob_puesto_flores')],
     narvarte: [X('08_edificio_narvarte_5p'), X('15_taqueria_trompo'), K('colonia_condesa_deptos'), X('13_farmacia_cruz_verde'), K2('casa_moderna_concreto_madera'), X('12_tiendita_esquina'), X('19_entrada_metro')],
     delvalle: [X('09_casa_del_valle_2p'), X('08_edificio_narvarte_5p'), K2('casa_moderna_concreto_madera'), X('18_escuela_primaria'), X('14_panaderia'), KP('polanco_residencia_lujo')],
     coyoacan: [X('10_casona_coyoacan'), K('colonia_coyoacan_casona'), K2('casa_azul_bugambilia'), X('17_iglesia_barrio'), K2('veg_jardinera_bugambilias'), X('mob_triciclo_tamales')],
     iztapalapa: [X('11_casa_block_iztapalapa'), K('colonia_iztapalapa_casa'), X('12_tiendita_esquina'), K2('bloque_3_casitas_adosadas'), X('15_taqueria_trompo'), X('16_mercado_techado'), X('18_escuela_primaria')],
-    santafe: [X('01_rascacielos_reforma'), X('02_torre_helipuerto'), K2('hotel_moderno_cristal'), KP('polanco_torre_corporativa'), K2('hotel_torre_jardin_alberca')]
+    santafe: [X('02_torre_helipuerto'), K2('hotel_moderno_cristal'), KP('polanco_torre_corporativa'), K2('hotel_torre_jardin_alberca')]
   }
 }
 export const KITS: Record<string, CityKit> = { cdmx: CDMX_KIT }
@@ -168,9 +178,9 @@ export const POTHOLES: { axis: 'x' | 'y'; line: number; pos: number }[] = Array.
 const bez = (a: number[], b: number[], c: number[], d: number[], t: number) => { const u = 1 - t; return [0, 1].map(k => u * u * u * a[k] + 3 * u * u * t * b[k] + 3 * u * t * t * c[k] + t * t * t * d[k]) }
 export const PERIFERICO: [number, number][] = (() => {
   const segs = [
-    [[-2.5, -3], [-3.5, NY * 0.3], [-1.5, NY * 0.55], [-2.5, NY * 0.75]],
-    [[-2.5, NY * 0.75], [-3.5, NY + 1], [NX * 0.15, NY + 3.5], [NX * 0.45, NY + 2.5]],
-    [[NX * 0.45, NY + 2.5], [NX * 0.75, NY + 1.5], [NX + 1, NY + 4], [NX + 4, NY + 2.5]]
+    [[2.5, 0.5], [1.8, NY * 0.35], [3.2, NY * 0.6], [2.5, NY - 9]],
+    [[2.5, NY - 9], [2.4, NY - 3], [5, NY - 2.6], [11, NY - 2.5]],
+    [[11, NY - 2.5], [NX * 0.5, NY - 1.9], [NX * 0.75, NY - 3.1], [NX - 0.5, NY - 2.5]]
   ]
   const out: [number, number][] = []
   for (const [a, b, c, d] of segs) for (let i = 0; i < 40; i++) { const p = bez(a, b, c, d, i / 40); out.push([p[0], p[1]]) }
@@ -198,7 +208,7 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     const p = toScreen(...a); const q = toScreen(...b); ctx.beginPath(); ctx.setLineDash(dash); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke(); ctx.setLineDash([])
   }
   // la ciudad sigue más allá del borde: calles y casitas sencillas hasta el horizonte (sin pasto vacío)
-  const EXT = 26
+  const EXT = 8
   rect(-EXT, -EXT, NX + EXT, NY + EXT, '#4A4D55')
   const roofs = ['#C9694A', '#D9A066', '#B9B2A4', '#E3C9A0', '#9DA7B3', '#C98B6B']
   for (let i = -EXT; i < NX + EXT; i += P) for (let j = -EXT; j < NY + EXT; j += P) {
@@ -212,15 +222,6 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
       ctx.save(); ctx.translate(0, -hgt); rect(x0, y0, x0 + 0.76, y0 + 0.76, roofs[(i + j * 3 + a + b * 2 + 60) % roofs.length]); ctx.restore()
     }
   }
-  // Periférico: columnas, calzada de abajo y segundo piso elevado
-  const path = (lift: number) => { ctx.beginPath(); PERIFERICO.forEach(([x, y], i) => { const p = toScreen(x, y); if (i) ctx.lineTo(p.x, p.y - lift); else ctx.moveTo(p.x, p.y - lift) }) }
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-  path(0); ctx.strokeStyle = '#3E4148'; ctx.lineWidth = 64; ctx.stroke()
-  path(0); ctx.strokeStyle = '#E8C547'; ctx.lineWidth = 2; ctx.setLineDash([16, 14]); ctx.stroke(); ctx.setLineDash([])
-  PERIFERICO.forEach(([x, y], i) => { if (i % 5) return; const p = toScreen(x, y); ctx.fillStyle = '#9A958B'; ctx.fillRect(p.x - 5, p.y - DECK, 10, DECK); ctx.fillStyle = '#7E796F'; ctx.fillRect(p.x + 1, p.y - DECK, 4, DECK) })
-  path(DECK - 6); ctx.strokeStyle = '#8D877C'; ctx.lineWidth = 50; ctx.stroke() // canto del puente
-  path(DECK); ctx.strokeStyle = '#53565D'; ctx.lineWidth = 46; ctx.stroke()
-  path(DECK); ctx.strokeStyle = '#EDEDED'; ctx.lineWidth = 2; ctx.setLineDash([14, 12]); ctx.stroke(); ctx.setLineDash([])
   ctx.fillStyle = 'rgba(233,226,210,.18)'; ctx.fillRect(0, 0, W, H) // bruma ligera: lo lejano se ve más tenue
   rect(0, 0, NX, NY, '#4A4D55')
   // camellones de las avenidas
@@ -297,6 +298,15 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     if (a.id === 'parque_mexico') { const c = toScreen(x0 + 1.5, y0 + 1.5); ctx.strokeStyle = '#D9CCB4'; ctx.lineWidth = 10; ctx.beginPath(); ctx.ellipse(c.x, c.y, TW * 1.05, TH * 1.05, 0, 0, 7); ctx.stroke(); ctx.fillStyle = '#4FB3C8'; ctx.beginPath(); ctx.ellipse(c.x, c.y, TW * 0.4, TH * 0.4, 0, 0, 7); ctx.fill() }
     if (a.ground === 'water') for (let k = 0; k < 3; k++) { rect(x0 + 0.4, y0 + 1.1 + k * 2.6, x1 - 0.4, y0 + 1.6 + k * 2.6, '#4FB3C8'); rect(x0 + 1.1 + k * 2.6, y0 + 0.4, x0 + 1.6 + k * 2.6, y1 - 0.4, '#4FB3C8') }
   }
+  // Periférico: columnas, calzada de abajo y segundo piso elevado
+  const path = (lift: number) => { ctx.beginPath(); PERIFERICO.forEach(([x, y], i) => { const p = toScreen(x, y); if (i) ctx.lineTo(p.x, p.y - lift); else ctx.moveTo(p.x, p.y - lift) }) }
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  path(0); ctx.strokeStyle = '#3E4148'; ctx.lineWidth = 64; ctx.stroke()
+  path(0); ctx.strokeStyle = '#E8C547'; ctx.lineWidth = 2; ctx.setLineDash([16, 14]); ctx.stroke(); ctx.setLineDash([])
+  PERIFERICO.forEach(([x, y], i) => { if (i % 5) return; const p = toScreen(x, y); ctx.fillStyle = '#9A958B'; ctx.fillRect(p.x - 5, p.y - DECK, 10, DECK); ctx.fillStyle = '#7E796F'; ctx.fillRect(p.x + 1, p.y - DECK, 4, DECK) })
+  path(DECK - 6); ctx.strokeStyle = '#8D877C'; ctx.lineWidth = 50; ctx.stroke() // canto del puente
+  path(DECK); ctx.strokeStyle = '#53565D'; ctx.lineWidth = 46; ctx.stroke()
+  path(DECK); ctx.strokeStyle = '#EDEDED'; ctx.lineWidth = 2; ctx.setLineDash([14, 12]); ctx.stroke(); ctx.setLineDash([])
   if (night) { // noche: tinte índigo multiplicado (oscurece sin lavar los colores)
     ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(118,128,182)'; ctx.fillRect(0, 0, W, H); ctx.restore()
   }
