@@ -92,39 +92,47 @@ export function colonyCenters (kit: CityKit, colonies: Colony[]) {
 }
 
 // ---------- dibujo del piso ----------
-export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, img: (p: string) => HTMLImageElement | null, night: boolean) {
-  ctx.fillStyle = '#7FA35B'; ctx.fillRect(0, 0, W, H)
-  const recta = img('kit/polanco/tile_calle_recta.webp'); const cruce = img('kit/polanco/tile_cruce_cebra.webp')
-  const avenida = img('kit/polanco/tile_avenida_masaryk.webp'); const glorieta = img('kit/polanco/tile_glorieta_lujo.webp')
-  const banqueta = img('sprites/piso-banqueta.webp'); const pasto = img('sprites/piso-pasto.webp')
-  const diamond = (tx: number, ty: number, fill: string) => {
-    const a = toScreen(tx, ty); const b = toScreen(tx + 1, ty); const c = toScreen(tx + 1, ty + 1); const d = toScreen(tx, ty + 1)
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fillStyle = fill; ctx.fill()
+// todo se dibuja con formas limpias: asfalto continuo, banquetas alrededor de cada cuadra,
+// líneas de carril, cebras solo en las esquinas y camellón verde en Reforma e Insurgentes
+export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (p: string) => HTMLImageElement | null, night: boolean) {
+  ctx.fillStyle = '#6E8F50'; ctx.fillRect(0, 0, W, H)
+  const poly = (pts: [number, number][], fill: string, stroke?: string) => {
+    ctx.beginPath(); pts.forEach(([tx, ty], i) => { const p = toScreen(tx, ty); if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y) }); ctx.closePath()
+    ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke() }
   }
-  const tile = (im: HTMLImageElement | null, tx: number, ty: number, flip = false) => {
-    const c = toScreen(tx + 0.5, ty + 0.5)
-    if (!im) return false
-    const w = TW * 1.02; const h = w * im.height / im.width
-    ctx.save(); ctx.translate(c.x, c.y); if (flip) ctx.scale(-1, 1)
-    ctx.drawImage(im, -w / 2, -h * 0.46, w, h); ctx.restore(); return true
+  const rect = (x0: number, y0: number, x1: number, y1: number, fill: string, stroke?: string) => poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], fill, stroke)
+  const line = (a: [number, number], b: [number, number], color: string, w: number, dash: number[] = []) => {
+    const p = toScreen(...a); const q = toScreen(...b); ctx.beginPath(); ctx.setLineDash(dash); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.stroke(); ctx.setLineDash([])
   }
-  for (let s = 0; s < NX + NY; s++) {
-    for (let tx = 0; tx < NX; tx++) {
-      const ty = s - tx; if (ty < 0 || ty >= NY) continue
-      const bx = Math.floor(tx / P); const by = Math.floor(ty / P)
-      if (isRoad(tx, ty)) {
-        const cross = tx % P === 0 && ty % P === 0
-        if (cross && tx === INSURGENTES && ty === REFORMA) { if (!tile(glorieta, tx, ty)) diamond(tx, ty, '#3A3D44') } else if (cross) { if (!tile(cruce, tx, ty)) diamond(tx, ty, '#3A3D44') } else {
-          // calle a lo largo de x (ty fijo) o de y (tx fijo)
-          const alongX = ty % P === 0
-          const im = isAvenue(tx, ty) ? avenida : recta
-          if (!tile(im, tx, ty, !alongX)) diamond(tx, ty, '#40434B')
-        }
-      } else {
-        const u = kit.blocks(Math.min(bx, NBX - 1), Math.min(by, NBY - 1))
-        const park = u.kind === 'park' || (u.kind === 'mon' && /chapultepec|estanque|zocalo/.test(u.sprite))
-        if (!tile(park ? pasto : banqueta, tx, ty)) diamond(tx, ty, park ? '#8CBF6E' : '#D9D2C4')
-      }
+  // asfalto de toda la ciudad
+  rect(0, 0, NX, NY, '#4A4D55')
+  // camellones de las avenidas
+  rect(INSURGENTES + 0.44, 0, INSURGENTES + 0.56, NY, '#6FA04A')
+  rect(0, REFORMA + 0.44, NX, REFORMA + 0.56, '#6FA04A')
+  // líneas de carril (amarillas al centro) en las calles normales
+  for (let i = 0; i < NX; i += P) if (i !== INSURGENTES) line([i + 0.5, 0], [i + 0.5, NY], '#E8C547', 2, [18, 14])
+  for (let j = 0; j < NY; j += P) if (j !== REFORMA) line([0, j + 0.5], [NX, j + 0.5], '#E8C547', 2, [18, 14])
+  // cebras en cada esquina
+  for (let i = 0; i < NX; i += P) for (let j = 0; j < NY; j += P) {
+    for (let k = 0; k < 5; k++) {
+      const t = 0.12 + k * 0.17
+      rect(i + t, j - 0.32, i + t + 0.08, j - 0.04, 'rgba(255,255,255,.85)'); rect(i + t, j + 1.04, i + t + 0.08, j + 1.32, 'rgba(255,255,255,.85)')
+      rect(i - 0.32, j + t, i - 0.04, j + t + 0.08, 'rgba(255,255,255,.85)'); rect(i + 1.04, j + t, i + 1.32, j + t + 0.08, 'rgba(255,255,255,.85)')
+    }
+  }
+  // glorieta del Ángel
+  const g = toScreen(INSURGENTES + 0.5, REFORMA + 0.5)
+  ctx.beginPath(); ctx.ellipse(g.x, g.y, TW * 0.42, TH * 0.42, 0, 0, 7); ctx.fillStyle = '#6FA04A'; ctx.fill(); ctx.strokeStyle = '#E9E2D2'; ctx.lineWidth = 6; ctx.stroke()
+  // cuadras: banqueta, guarnición y el interior (plaza, pasto o patio)
+  for (let bx = 0; bx < NBX; bx++) for (let by = 0; by < NBY; by++) {
+    const x0 = bx * P + 1; const y0 = by * P + 1
+    const u = kit.blocks(bx, by)
+    const park = u.kind === 'park' || (u.kind === 'mon' && /chapultepec|estanque|zocalo/.test(u.sprite))
+    rect(x0 - 0.02, y0 - 0.02, x0 + 3.02, y0 + 3.02, '#B9B2A4') // guarnición
+    rect(x0, y0, x0 + 3, y0 + 3, '#DCD5C6') // banqueta
+    rect(x0 + 0.28, y0 + 0.28, x0 + 2.72, y0 + 2.72, park ? '#7DB35A' : u.kind === 'mon' ? '#E6DCC6' : '#C9C2B2', park ? '#5E9440' : '#B3AB9A')
+    if (!park) for (const [a, b] of [[0.14, 0.14], [2.86, 0.14], [0.14, 2.86], [2.86, 2.86], [1.5, 0.14], [0.14, 1.5]]) {
+      const p = toScreen(x0 + a, y0 + b); ctx.beginPath(); ctx.ellipse(p.x, p.y - 10, 11, 9, 0, 0, 7); ctx.fillStyle = '#5C8F3C'; ctx.fill()
     }
   }
   if (night) { ctx.fillStyle = 'rgba(14,20,48,.45)'; ctx.fillRect(0, 0, W, H) }

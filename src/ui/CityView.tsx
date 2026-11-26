@@ -97,7 +97,7 @@ export function CityView () {
       const k = st ? city.colonies.findIndex(c => c.id === st.colonyId) : 0
       const c = cam.current
       const lb = modItems?.labels ?? fullItems?.labels
-      const fl = lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
+      const fl = kit && !st ? blockRect(3, 3) : lb ? lb.find(l => l.id === (st?.colonyId ?? city.colonies[0].id)) : null
       if (fl) { c.x = -(fl.x / 100 * W) * c.s + vw / 2; c.y = -(fl.y / 100 * H) * c.s + el.clientHeight / 2 }
       else { c.x = -((k % cols) * TW + TW / 2) * c.s + vw / 2; c.y = -(Math.floor(k / cols) * TH + TH * 0.4) * c.s + el.clientHeight / 2 }
       clamp(); apply(); force(n => n + 1)
@@ -322,15 +322,16 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
   }
   const kitEd: Record<string, string> = { bolsa: 'kit/cdmx/colonia_polanco_torre.webp', inversion: 'kit/polanco/polanco_torre_corporativa.webp', estilo: 'kit/polanco/polanco_boutique_lujo.webp', logistica: 'kit/cdmx/comercio_mercado_frutas.webp', corporativo: 'kit/polanco/polanco_torre_corporativa.webp' }
   // tamaño de cada sprite respecto a la cuadra: árboles y puestos más chicos que los edificios
-  const scale = (ed?: string) => !ed ? 0.9 : /jacaranda/.test(ed) ? 0.5 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.62 : /tienda-|sprites\//.test(ed) ? 0.78 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.7 : /monumento/.test(ed) ? 1 : 0.86
-  const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => ({ ...r, w: r.w * scale(ed) })
+  const scale = (ed?: string) => !ed ? 0.7 : /jacaranda/.test(ed) ? 0.42 : /kiosco|puesto|parada|estanque/.test(ed) ? 0.5 : /tienda-|sprites\//.test(ed) ? 0.66 : /monumento_(angel|estela|torre_latino)/.test(ed) ? 0.55 : /monumento/.test(ed) ? 0.86 : 0.7
+  // el edificio se encoge y su base queda dentro de la plaza, con banqueta alrededor
+  const sized = (r: { x: number; y: number; w: number; bottom: number }, ed?: string) => { const k = scale(ed) * 0.95; return { ...r, w: r.w * scale(ed), bottom: r.y + (r.bottom - r.y) * Math.min(1, k + 0.05) } }
   const items: Lot[] = []
   const byColony: Record<string, { x: number; y: number; w: number; bottom: number }[]> = {}
   for (let bx = 0; bx < NBX; bx++) for (let by = 0; by < NBY; by++) {
     const r = blockRect(bx, by); const u = kit.blocks(bx, by)
     if (u.kind === 'mon') items.push({ ...sized(r, u.sprite), ed: u.sprite, label: u.sprite.split('/').pop()!.replace('.webp', '').replace(/_/g, ' ') })
     else if (u.kind === 'civic') { const c = civicById[u.id]; if (c) { const ed = kitEd[u.id] ?? c.ed; items.push({ ...c, ...sized(r, ed), ed }) } }
-    else if (u.kind === 'park') items.push({ ...sized(r, 'deco_jacaranda'), ed: 'kit/cdmx/deco_jacaranda.webp' })
+    else if (u.kind === 'park') for (const [dx, dy] of [[-2.2, -0.6], [2.2, -0.6], [0, 0.9], [0, -1.8]]) { const q = { ...r, x: r.x + dx, y: r.y + dy, bottom: r.y + dy + (r.bottom - r.y) * 0.35 }; items.push({ ...q, w: r.w * 0.36, ed: 'kit/cdmx/deco_jacaranda.webp' }) }
     else (byColony[u.colony] ??= []).push(r)
   }
   const labels: { id: string; name: string; x: number; y: number; mine: number }[] = []
