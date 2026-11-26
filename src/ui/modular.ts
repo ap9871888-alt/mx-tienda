@@ -22,7 +22,7 @@ export const REFORMA = INSURGENTES_TY; export const INSURGENTES = REFORMA_TX // 
 export const isRoad = (tx: number, ty: number) => tx % P === 0 || ty % P === 0
 export const isAvenue = (tx: number, ty: number) => tx === REFORMA_TX || ty === INSURGENTES_TY
 
-export type BlockUse = { kind: 'mon'; sprite: string } | { kind: 'civic'; id: string } | { kind: 'park' } | { kind: 'lot'; colony: string }
+export type BlockUse = { kind: 'mon'; sprite: string } | { kind: 'civic'; id: string } | { kind: 'park' } | { kind: 'lot'; colony: string } | { kind: 'curve'; sprite: string; colony: string }
 export interface CityKit {
   id: string
   blocks: (bx: number, by: number) => BlockUse
@@ -64,6 +64,23 @@ const colonyOf = (bx: number, by: number) => {
   for (const [id, x, y] of COLONY_AT) { const d = ((bx - by) - (x - y)) ** 2 + ((bx + by) - (x + y)) ** 2 * 0.8; if (d < bd) { bd = d; best = id } }
   return best
 }
+// calles que rompen la cuadrícula: retornos, curvas con camellón, bifurcaciones, glorietas y el distribuidor
+// de San Antonio. Ocupan una manzana entera; se eligen por colonia para que tengan sentido.
+const CURVE_BY: Record<string, string[]> = {
+  coyoacan: ['via_curva_suave_90', 'via_retorno_residencial'], delvalle: ['via_retorno_residencial', 'via_segundo_piso_curvo'],
+  santafe: ['via_retorno_residencial', 'via_curva_suave_90'], iztapalapa: ['via_bifurcacion_y'], narvarte: ['via_bifurcacion_y'], roma: ['via_glorieta_grande']
+}
+const CURVES: Record<string, string> = (() => {
+  const out: Record<string, string> = {}; const used: Record<string, number> = {}
+  for (let by = 0; by < NBY; by++) for (let bx = 0; bx < NBX; bx++) {
+    const k = `${bx},${by}`; if (MON[k] || CIVIC[k] || PARKS.has(k)) continue
+    const col = colonyOf(bx, by); const opts = CURVE_BY[col]; if (!opts) continue
+    const n = used[col] ?? 0
+    if (n < opts.length && (bx * 7 + by * 13) % 6 === 0) { out[k] = `kit/v3/${opts[n]}.webp`; used[col] = n + 1 }
+  }
+  return out
+})()
+export const CURVE_SPRITES = [...new Set(Object.values(CURVES))]
 export const CDMX_KIT: CityKit = {
   id: 'cdmx',
   blocks: (bx, by) => {
@@ -71,7 +88,9 @@ export const CDMX_KIT: CityKit = {
     if (MON[k]) return { kind: 'mon', sprite: MON[k] }
     if (CIVIC[k]) return { kind: 'civic', id: CIVIC[k] }
     if (PARKS.has(k)) return { kind: 'park' }
-    return { kind: 'lot', colony: colonyOf(bx, by) }
+    const col = colonyOf(bx, by)
+    if (CURVES[k]) return { kind: 'curve', sprite: CURVES[k], colony: col }
+    return { kind: 'lot', colony: col }
   },
   decor: {
     polanco: [X('02_torre_helipuerto'), KP('polanco_torre_corporativa'), KP('polanco_boutique_lujo'), K2('hotel_moderno_cristal'), X('01_rascacielos_reforma'), KP('polanco_residencia_lujo'), KP('polanco_cafe_bistro'), K2('hotel_torre_jardin_alberca'), X('mob_puesto_flores')],
@@ -225,6 +244,17 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     const x0 = bx * P + 1; const y0 = by * P + 1
     const u = kit.blocks(bx, by)
     const park = u.kind === 'park' || (u.kind === 'mon' && /chapultepec|estanque|zocalo|chinampa|embarcadero|antropologia|parque_|alameda|borde_/.test(u.sprite))
+    if (u.kind === 'curve') { // la manzana entera es calle curva: se estira al rombo exacto de la cuadra
+      const im = _img(u.sprite); const top = toScreen(x0 - 0.1, y0 - 0.1); const w = 3.2 * TW; const h = 3.2 * TH
+      if (im) ctx.drawImage(im, top.x - w / 2, top.y, w, h)
+      else rect(x0, y0, x0 + 3, y0 + 3, '#7DB35A')
+      continue
+    }
+    // Coyoacán: calles empedradas alrededor de la manzana
+    if (u.kind === 'lot' && u.colony === 'coyoacan') {
+      rect(x0 - 1, y0 - 1, x0 + 4, y0 + 4, '#8B7A68')
+      for (let d = 0; d < 26; d++) { const p = toScreen(x0 - 0.9 + seeded(d + bx * 31) * 4.8, y0 - 0.9 + seeded(d + by * 17) * 4.8); ctx.fillStyle = 'rgba(60,45,35,.35)'; ctx.fillRect(p.x, p.y, 4, 2) }
+    }
     rect(x0 - 0.02, y0 - 0.02, x0 + 3.02, y0 + 3.02, '#B9B2A4') // guarnición
     rect(x0, y0, x0 + 3, y0 + 3, '#DCD5C6') // banqueta
     rect(x0 + 0.28, y0 + 0.28, x0 + 2.72, y0 + 2.72, park ? '#7DB35A' : u.kind === 'mon' ? '#E6DCC6' : '#C9C2B2', park ? '#5E9440' : '#B3AB9A')

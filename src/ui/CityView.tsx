@@ -9,7 +9,7 @@ import LOTS from '../data/cityLots.json'
 import { ColonyTraffic } from './ColonyTraffic'
 import { ModularTraffic } from './ModularTraffic'
 import { usePrefs } from './settings'
-import { RES, KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
+import { RES, CURVE_SPRITES, KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
 import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
@@ -302,7 +302,7 @@ function ModularGround ({ kit, night }: { kit: CityKit; night: boolean }) {
   useEffect(() => {
     const cv = ref.current!; cv.width = Math.round(MW * RES); cv.height = Math.round(MH * RES)
     const ctx = cv.getContext('2d')!; ctx.setTransform(RES, 0, 0, RES, 0, 0)
-    const paths = ['kit/polanco/tile_calle_recta.webp', 'kit/polanco/tile_cruce_cebra.webp', 'kit/polanco/tile_avenida_masaryk.webp', 'kit/polanco/tile_glorieta_lujo.webp', 'sprites/piso-banqueta.webp', 'sprites/piso-pasto.webp']
+    const paths = [...CURVE_SPRITES, 'kit/polanco/tile_calle_recta.webp', 'kit/polanco/tile_cruce_cebra.webp', 'kit/polanco/tile_avenida_masaryk.webp', 'kit/polanco/tile_glorieta_lujo.webp', 'sprites/piso-banqueta.webp', 'sprites/piso-pasto.webp']
     let tries = 0; let t: ReturnType<typeof setTimeout>
     const draw = () => {
       drawGround(ctx, kit, p => sprite(p), night)
@@ -337,7 +337,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
       items.push({ ...at(tx + 1.5, ty + 1.5, 1.6), ed: 'kit/cdmx2/veg_parquecito_denso.webp' })
       for (const [a, b, ed] of [[0.7, 0.7, 'veg_ahuehuete_chapultepec'], [2.6, 0.9, 'veg_jardin_agaves_nopales'], [0.9, 2.6, 'veg_jardinera_bugambilias'], [2.6, 2.6, 'veg_ahuehuete_chapultepec']] as const) items.push({ ...at(tx + a, ty + b, 0.8), ed: `kit/cdmx2/${ed}.webp` })
     }
-    else (byColony[u.colony] ??= []).push({ ...r, bx, by } as typeof r)
+    else if (u.kind === 'lot') (byColony[u.colony] ??= []).push({ ...r, bx, by } as typeof r)
   }
   const labels: { id: string; name: string; x: number; y: number; mine: number }[] = []
   const centers = colonyCenters(kit, colonies)
