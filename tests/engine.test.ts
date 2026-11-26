@@ -235,7 +235,7 @@ describe('Épocas, ciudades y muchas tiendas', () => {
     const g = E.newGame(2); g.cash = 1e9
     let n = 0
     while (E.openStore(g, 'cdmx', 'centro', 'tiendita').ok) n++
-    expect(n).toBe(8)
+    expect(n).toBe(12)
     expect(new Set(g.stores.map(s => s.label)).size).toBeGreaterThan(1)
   })
   it('otras ciudades se desbloquean desde Clúster Urbano y fuera del radio no aplica el CEDIS', () => {
