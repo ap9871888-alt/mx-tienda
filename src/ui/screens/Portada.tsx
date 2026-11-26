@@ -75,6 +75,15 @@ const CAPITALS = [
   { id: 'calle', label: 'Desde la calle', amount: 6000, desc: 'Ciudad al azar y un puesto ambulante. El reto real.', icon: '🛒' },
   { id: 'normal', label: 'Emprendedor', amount: 500000, desc: 'Tu tiendita en la CDMX con ahorros y un crédito.', icon: '🏪' }
 ]
+// paquetes de inversionista: mientras más grande, más rinde cada peso y trae extras
+// (precio por millón: 10M $2.00 · 20M $1.75 · 40M $1.50 · 80M $1.24 · 100M $1.19)
+export const PACKS = [
+  { id: 'p10', amount: 10_000_000, price: 20, cities: [] as string[], extra: 'Arranque sólido en la CDMX.' },
+  { id: 'p20', amount: 20_000_000, price: 35, cities: ['pue'], extra: 'Puebla ya abierta.' },
+  { id: 'p40', amount: 40_000_000, price: 60, cities: ['pue', 'qro', 'gdl'], extra: 'Puebla, Querétaro y Guadalajara abiertas.' },
+  { id: 'p80', amount: 80_000_000, price: 99, cities: ['pue', 'qro', 'gdl', 'mty', 'mer'], extra: '5 ciudades abiertas, incluidas Monterrey y Mérida.' },
+  { id: 'p100', amount: 100_000_000, price: 119, cities: ['pue', 'qro', 'gdl', 'mty', 'mer', 'tij', 'oax', 'aca', 'pach', 'ver'], extra: 'Todo México abierto desde el día 1.' }
+]
 export const PREMIUM_KEY = 'tienda-mx-premium'
 // por ahora el modo inversionista es gratis para todos (el cobro llegará después)
 export const isPremium = () => true
@@ -90,8 +99,9 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
   const ch = CHARACTERS.find(c => c.id === who)!
   const premium = isPremium()
   const start = () => {
-    const capital = cap === 'vip' ? vip : CAPITALS.find(c => c.id === cap)!.amount
-    const profile: CompanyProfile = { icon, color, founder: ch.founder, perk, difficulty: diff, street: cap === 'calle', age: 22, skin: ch.skin ?? SKINS[2], character: ch.id, capital }
+    const pk = PACKS.find(p => p.id === cap)
+    const capital = pk ? pk.amount : cap === 'vip' ? vip : CAPITALS.find(c => c.id === cap)!.amount
+    const profile: CompanyProfile = { icon, color, founder: ch.founder, perk, difficulty: diff, street: cap === 'calle', age: 22, skin: ch.skin ?? SKINS[2], character: ch.id, capital, bonusCities: pk?.cities }
     sfx.good(); useApp.getState().newGame(name.trim() || 'Tienda MX Inc.', 2027, profile)
   }
   const card = (on: boolean) => `rounded-2xl border-2 bg-white ${on ? 'border-rojo shadow-card' : 'border-borde'}`
@@ -136,6 +146,18 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
           {premium && cap === 'vip' && <label className='text-sm font-semibold'>Capital: ${vip.toLocaleString('es-MX')}
             <input type='range' min={1_000_000} max={10_000_000} step={500_000} value={vip} onChange={e => setVip(+e.target.value)} className='w-full' /></label>}
         </div>
+        <b className='text-sm mt-1'>Paquetes Pro</b>
+        {PACKS.map((p, i) => {
+          const perM = p.price / (p.amount / 1e6); const save = Math.round((1 - perM / 2) * 100)
+          return (
+            <button key={p.id} onClick={() => setCap(p.id)} className={`${card(cap === p.id)} p-3 flex items-center gap-3 text-left relative`}>
+              {i === 4 && <span className='absolute -top-2 right-3 bg-oferta text-white text-[10px] font-black rounded-full px-2 py-0.5'>MEJOR VALOR</span>}
+              <span className='w-12 h-12 rounded-full bg-urbano text-white grid place-items-center font-black text-sm shrink-0'>{p.amount / 1e6}M</span>
+              <span className='flex-1'><b className='block'>${p.amount.toLocaleString('es-MX')}</b><span className='text-xs text-tenue'>{p.extra}{save > 0 ? ` · ahorras ${save} % por millón` : ''}</span></span>
+              <span className='text-right'><b className='block text-lg'>${p.price}</b><span className='text-[10px] text-tenue'>MXN pago único</span></span>
+            </button>)
+        })}
+        <p className='text-[11px] text-tenue'>Por ahora los paquetes Pro están abiertos gratis para probar; el cobro se activa al lanzar.</p>
       </Section>
       <Section t='4 · Dificultad del reto'>
         <div className='grid grid-cols-3 gap-2'>

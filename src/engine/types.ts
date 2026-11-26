@@ -121,7 +121,7 @@ export type GameEvent =
 export interface Result<T = undefined> { ok: boolean; msg: string; data?: T }
 
 export type Difficulty = 'facil' | 'normal' | 'dificil'
-export interface CompanyProfile { icon: string; color: string; founder: 'h' | 'm'; perk: 'ventas' | 'logistica'; difficulty: Difficulty; street?: boolean; age?: number; skin?: string; character?: string; capital?: number }
+export interface CompanyProfile { icon: string; color: string; founder: 'h' | 'm'; perk: 'ventas' | 'logistica'; difficulty: Difficulty; street?: boolean; age?: number; skin?: string; character?: string; capital?: number; bonusCities?: string[] }
 
 export interface WeeklyReport {
   week: number; sales: number; profit: number; prevProfit: number | null; tickets: number; abandoned: number

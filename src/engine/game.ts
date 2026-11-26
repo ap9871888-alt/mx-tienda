@@ -48,6 +48,8 @@ export function newGame (seed: number, company = 'Tienda MX Inc.', startYear = 2
     s.founder = { age: profile.age ?? 16, skin: profile.skin ?? '#C68642', street: true }
   }
   if (profile?.capital != null && !profile.street) s.cash = profile.capital
+  // paquetes grandes: empiezas con ciudades ya abiertas (sin pagar su apertura)
+  if (!profile?.street) for (const id of profile?.bonusCities ?? []) if (!s.cities.includes(id) && CITIES.some(c => c.id === id)) s.cities.push(id)
   for (const r of s.market.rivals) r.aggression = +(r.aggression * DIFFICULTY[profile?.difficulty ?? 'normal'].rivals).toFixed(2)
   refreshCandidates(s)
   initStocks(s)
