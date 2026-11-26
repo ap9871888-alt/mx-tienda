@@ -7,15 +7,18 @@ export const P = 4 // cada cuadra son 3×3 mosaicos + 1 de calle
 export const NBX = 7; export const NBY = 8 // cuadras en cada eje
 export const NX = NBX * P + 1; export const NY = NBY * P + 1
 export const TOP = 380 // margen para lo alto de los edificios de arriba
-export const M = 300 // margen alrededor para los cerros del borde
+export const M = 120 // margen alrededor para los cerros del borde
 export const OX = NY * TW / 2 + M // origen x para que todo quede en positivo
 export const W = (NX + NY) * TW / 2 + 2 * M; export const H = (NX + NY) * TH / 2 + TOP + M
 export const toScreen = (tx: number, ty: number) => ({ x: OX + (tx - ty) * TW / 2, y: TOP + (tx + ty) * TH / 2 })
 
-// calles: cada 4 mosaicos. Reforma corre a lo largo de ty=16 e Insurgentes de tx=12
-export const REFORMA = 16; export const INSURGENTES = 12
+// calles: cada 4 mosaicos. En pantalla el norte queda arriba y el oriente a la derecha.
+// Paseo de la Reforma corre en diagonal del Centro (arriba a la derecha) a Chapultepec (abajo a la izquierda),
+// sobre tx=12; Insurgentes la cruza sobre ty=16 en la glorieta del Ángel.
+export const REFORMA_TX = 12; export const INSURGENTES_TY = 16
+export const REFORMA = INSURGENTES_TY; export const INSURGENTES = REFORMA_TX // nombres viejos usados en el dibujo
 export const isRoad = (tx: number, ty: number) => tx % P === 0 || ty % P === 0
-export const isAvenue = (tx: number, ty: number) => ty === REFORMA || tx === INSURGENTES
+export const isAvenue = (tx: number, ty: number) => tx === REFORMA_TX || ty === INSURGENTES_TY
 
 export type BlockUse = { kind: 'mon'; sprite: string } | { kind: 'civic'; id: string } | { kind: 'park' } | { kind: 'lot'; colony: string }
 export interface CityKit {
@@ -25,36 +28,39 @@ export interface CityKit {
 }
 
 const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
-// geografía real simplificada: norte arriba, poniente a la izquierda, oriente a la derecha
+// manzanas: (bx, by). Arriba = norte (Gustavo A. Madero), derecha = oriente (Iztapalapa, aeropuerto),
+// izquierda = poniente (Polanco, Santa Fe), abajo = sur (Coyoacán)
 const MON: Record<string, string> = {
-  '3,0': K('monumento_basilica'), // La Villa, al norte
-  '0,3': K('monumento_chapultepec'), // Castillo en el bosque, al poniente
-  '1,3': K('monumento_estela_luz'), // Estela de Luz sobre Reforma
-  '3,3': K('monumento_angel'), // Ángel de la Independencia sobre Reforma
-  '5,2': K('monumento_revolucion'), // Monumento a la Revolución
-  '6,3': K('monumento_bellas_artes'), // Bellas Artes, junto a la Alameda
-  '5,3': K('monumento_torre_latino'), // Torre Latinoamericana
-  '6,1': K('monumento_catedral'), // Catedral Metropolitana
-  '6,2': K('monumento_zocalo'), // Zócalo
-  '5,1': K('monumento_palacio_nacional'), // Palacio Nacional
-  '1,2': KP('polanco_museo_moderno'), // museo moderno de Polanco
-  '0,2': KP('polanco_estanque_lincoln') // parque Lincoln
+  '1,0': K('monumento_basilica'), // La Villa, al norte
+  '3,0': K('monumento_bellas_artes'), // fin de Reforma: Alameda y Bellas Artes
+  '4,0': K('monumento_torre_latino'), // Madero
+  '5,0': K('monumento_catedral'),
+  '6,0': K('monumento_zocalo'),
+  '6,1': K('monumento_palacio_nacional'), // al oriente del Zócalo
+  '2,1': K('monumento_revolucion'), // junto a Reforma, al poniente
+  '3,3': K('monumento_angel'), // glorieta de Reforma e Insurgentes
+  '3,5': K('monumento_estela_luz'), // entrada a Chapultepec
+  '2,6': K('monumento_chapultepec'), // el Castillo
+  '1,4': KP('polanco_museo_moderno'), // museos de Polanco
+  '0,3': KP('polanco_estanque_lincoln') // parque Lincoln
 }
 const CIVIC: Record<string, string> = {
-  '4,3': 'banco', '2,3': 'bolsa', '1,1': 'inversion', '0,1': 'estilo', '6,5': 'logistica', '0,6': 'corporativo', '6,4': 'aeropuerto', '4,0': 'central'
+  '4,1': 'banco', '3,2': 'bolsa', '2,3': 'inversion', '1,3': 'estilo', '6,3': 'logistica', '0,6': 'corporativo', '6,2': 'aeropuerto', '2,0': 'central'
 }
-const PARKS = new Set(['0,4', '0,5', '3,7'])
-function colonyOf (bx: number, by: number) {
-  if (by <= 2 && bx <= 2) return 'polanco'
-  if (by <= 3 && bx >= 4) return 'centro'
-  if (by <= 3) return 'polanco'
-  if (bx === 0) return 'santafe'
-  if (bx >= 5) return 'iztapalapa'
-  if (by >= 7) return 'coyoacan'
-  if (bx <= 2 && by <= 5) return 'roma'
-  if (by <= 5) return 'narvarte'
-  return 'delvalle'
-}
+const PARKS = new Set(['1,6', '1,7', '2,7', '1,5']) // bosque de Chapultepec
+// colonias por manzana (filas = by, columnas = bx)
+const GRID = [
+  'CCCCCCC',
+  'PCCCCCC',
+  'PPCCNII',
+  'PPCCNII',
+  'PPRRNDI',
+  'SPRRDDI',
+  'SSRRDYY',
+  'SSRRDYY'
+]
+const CODE: Record<string, string> = { C: 'centro', P: 'polanco', S: 'santafe', I: 'iztapalapa', R: 'roma', N: 'narvarte', D: 'delvalle', Y: 'coyoacan' }
+const colonyOf = (bx: number, by: number) => CODE[GRID[by]?.[bx] ?? 'C']
 export const CDMX_KIT: CityKit = {
   id: 'cdmx',
   blocks: (bx, by) => {
@@ -102,12 +108,7 @@ export const quarters = (bx: number, by: number) => [[0, 0], [1, 0], [0, 1], [1,
 // adornos de la ciudad: palmeras en los camellones y cerros alrededor del valle
 export function scenery () {
   const out: { r: ReturnType<typeof at>; ed: string }[] = []
-  for (let i = 1; i < NX; i++) if (i % P !== 0 && i % 2) out.push({ r: at(i + 0.5, REFORMA + 0.55, 0.55), ed: K2('veg_palmera_reforma') })
-  for (let j = 1; j < NY; j++) if (j % P !== 0 && j % 2 === 0) out.push({ r: at(INSURGENTES + 0.55, j + 0.5, 0.55), ed: K2('veg_palmera_reforma') })
-  const hills = ['borde_cerro_bosque', 'borde_cerro_villas_lomas', 'borde_montana_valle', 'borde_cerro_casas_colores', 'borde_barranca_casas']
-  let k = 0
-  for (let i = -1; i <= NX + 1; i += 3) { out.push({ r: at(i, -1.6, 3.2), ed: K2(hills[k++ % 5]) }) }
-  for (let j = 2; j <= NY - 1; j += 3) { out.push({ r: at(-1.6, j, 3.2), ed: K2(hills[k++ % 5]) }) }
+  for (let j = 1; j < NY; j++) if (j % P !== 0 && j % 2 === 0) out.push({ r: at(REFORMA_TX + 0.55, j + 0.5, 0.5), ed: K2('veg_palmera_reforma') })
   return out
 }
 
@@ -141,8 +142,11 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     }
   }
   // glorieta del Ángel
-  const g = toScreen(INSURGENTES + 0.5, REFORMA + 0.5)
-  ctx.beginPath(); ctx.ellipse(g.x, g.y, TW * 0.42, TH * 0.42, 0, 0, 7); ctx.fillStyle = '#6FA04A'; ctx.fill(); ctx.strokeStyle = '#E9E2D2'; ctx.lineWidth = 6; ctx.stroke()
+  // glorietas en fila sobre Reforma, como en la foto satelital
+  for (let j = 0; j < NY; j += P) {
+    const g = toScreen(REFORMA_TX + 0.5, j + 0.5); const big = j === INSURGENTES_TY
+    ctx.beginPath(); ctx.ellipse(g.x, g.y, TW * (big ? 0.46 : 0.34), TH * (big ? 0.46 : 0.34), 0, 0, 7); ctx.fillStyle = '#6FA04A'; ctx.fill(); ctx.strokeStyle = '#E9E2D2'; ctx.lineWidth = 6; ctx.stroke()
+  }
   // cuadras: banqueta, guarnición y el interior (plaza, pasto o patio)
   for (let bx = 0; bx < NBX; bx++) for (let by = 0; by < NBY; by++) {
     const x0 = bx * P + 1; const y0 = by * P + 1

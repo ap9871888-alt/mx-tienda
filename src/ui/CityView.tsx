@@ -9,7 +9,7 @@ import { cityOf } from '../data/cities'
 import LOTS from '../data/cityLots.json'
 import { ColonyTraffic } from './ColonyTraffic'
 import { ModularTraffic } from './ModularTraffic'
-import { KITS, W as MW, H as MH, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
+import { KITS, W as MW, H as MH, M as MM, TOP as MTOP, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
 import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
@@ -84,6 +84,13 @@ export function CityView () {
   const clamp = () => {
     const el = box.current; if (!el) return
     const c = cam.current; const vw = el.clientWidth; const vh = el.clientHeight
+    if (kit) {
+      // mapa modular: no deja alejarse de más ni salirse de la ciudad
+      const minS = Math.max(vw / (MW * 0.55), vh / (MH - MTOP * 0.8 - MM * 0.4)); c.s = Math.min(2.4, Math.max(minS, c.s))
+      const x0 = MM * 1.6; const x1 = MW - MM * 1.6; const y0 = MTOP * 0.8; const y1 = MH - MM * 0.4
+      c.x = Math.min(-x0 * c.s, Math.max(vw - x1 * c.s, c.x)); c.y = Math.min(-y0 * c.s, Math.max(vh - y1 * c.s, c.y))
+      return
+    }
     const minS = Math.max(vw / W, vh / H) * 0.98; c.s = Math.min(3.2, Math.max(minS * 0.85, c.s))
     c.x = Math.min(0, Math.max(vw - W * c.s, c.x)); c.y = Math.min(0, Math.max(vh - H * c.s, c.y))
   }
@@ -140,7 +147,7 @@ export function CityView () {
 
   const myColor = game.profile?.color ?? '#D63B2F'; const myIcon = game.profile?.icon ?? 'carrito'
   return (
-    <div ref={box} className='relative flex-1 overflow-hidden bg-[#8FA3B5] touch-none select-none' style={{ overscrollBehavior: 'none' }}>
+    <div ref={box} className={`relative flex-1 overflow-hidden ${kit ? 'bg-[#6E8F50]' : 'bg-[#8FA3B5]'} touch-none select-none`} style={{ overscrollBehavior: 'none' }}>
       <div ref={world} className='absolute left-0 top-0 origin-top-left will-change-transform' style={{ width: W, height: H }}>
         {kit && modItems && (
           <div className='absolute inset-0 isolate'>
