@@ -23,8 +23,9 @@ const PEOPLE = ['peaton_ejecutivo', 'peaton_compradora', 'peaton_paseador_perros
 type Car = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; skin: string; cur?: number; wait?: number; turned?: number }
 type Walker = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; who: string; side: number }
 
-export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boolean; density?: number; riders?: number }) {
+export function ModularTraffic ({ night, density = 1, riders = 0, active = true }: { night: boolean; density?: number; riders?: number; active?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const activeRef = useRef(active); activeRef.current = active
   useEffect(() => {
     const cv = ref.current!; const ctx = cv.getContext('2d')!
     cv.width = Math.round(W * RES); cv.height = Math.round(H * RES); ctx.setTransform(RES, 0, 0, RES, 0, 0)
@@ -46,10 +47,23 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
     })
     const peri = Array.from({ length: Math.round(16 * density) }, (_, i) => ({ t: i / (16 * density), dir: i % 2 ? 1 : -1, v: 0.9 + rnd() * 0.5, skin: ['taxi_rosa', 'vocho_verde', 'camion_reparto', 'patrulla', 'taxi_rosa'][i % 5] }))
     let raf = 0; let last = performance.now()
+    // optimización: 30 cuadros por segundo, se pausa si el mapa no está a la vista,
+    // y solo se borra y se dibuja la parte de la ciudad que cabe en la pantalla
+    let prev = { x0: 0, y0: 0, x1: W, y1: H }
     const frame = (now: number) => {
+      raf = requestAnimationFrame(frame)
+      if (now - last < 32 || document.hidden || !activeRef.current) return
       const dt = Math.min(0.1, (now - last) / 1000); last = now
-      ctx.clearRect(0, 0, W, H)
+      const r = cv.getBoundingClientRect(); const sc = r.width / W || 1
+      const view = { x0: -r.left / sc - 120, y0: -r.top / sc - 160, x1: (innerWidth - r.left) / sc + 120, y1: (innerHeight - r.top) / sc + 160 }
+      const ux0 = Math.max(0, Math.min(prev.x0, view.x0)); const uy0 = Math.max(0, Math.min(prev.y0, view.y0))
+      ctx.clearRect(ux0, uy0, Math.min(W, Math.max(prev.x1, view.x1)) - ux0, Math.min(H, Math.max(prev.y1, view.y1)) - uy0)
+      prev = view
+      const seen = (x: number, y: number) => x > view.x0 && x < view.x1 && y > view.y0 && y < view.y1
       const list: { y: number; draw: () => void }[] = []
+      // carriles: cada coche solo mira a los de su mismo carril (en vez de revisar todos contra todos)
+      const lanes = new Map<string, Car[]>()
+      for (const c of cars) { const k = c.axis + c.line + c.dir; const a = lanes.get(k); if (a) a.push(c); else lanes.set(k, [c]) }
       for (const c of cars) {
         // se detiene antes de la esquina si su semáforo está en rojo
         const next = c.dir > 0 ? Math.ceil((c.pos + 0.05) / P) * P - 0.35 : Math.floor((c.pos - 0.05) / P) * P + 1.35
@@ -58,7 +72,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
         // velocidad deseada: frena en baches, respeta al de adelante y a veces el taxi se para a subir pasaje
         let want = c.v * (0.85 + 0.15 * Math.sin(now / 1500 + c.pos))
         if (POTHOLES.some(h => h.axis === c.axis && h.line === c.line && (h.pos - c.pos) * c.dir > -0.2 && (h.pos - c.pos) * c.dir < 0.5)) want *= 0.3
-        for (const o of cars) if (o !== c && o.axis === c.axis && o.line === c.line && o.dir === c.dir) { const d = (o.pos - c.pos) * c.dir; if (d > 0 && d < 0.75) want = Math.min(want, (o.cur ?? 0) * (d < 0.5 ? 0.5 : 1)) }
+        for (const o of lanes.get(c.axis + c.line + c.dir)!) if (o !== c) { const d = (o.pos - c.pos) * c.dir; if (d > 0 && d < 0.75) want = Math.min(want, (o.cur ?? 0) * (d < 0.5 ? 0.5 : 1)) }
         if (c.wait && c.wait > 0) { c.wait -= dt; want = 0 } else if (c.skin === 'px:taxi_rosa' && Math.random() < dt * 0.02) c.wait = 2 + Math.random() * 3
         if (red && gap > 0 && gap < 0.5) want = 0
         c.cur = (c.cur ?? want) + (want - (c.cur ?? want)) * Math.min(1, dt * 3)
@@ -75,14 +89,14 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
         // carril derecho: un poco desplazado según el sentido
         const off = 0.5 + (c.dir > 0 ? 0.2 : -0.2)
         const p = c.axis === 'x' ? toScreen(c.pos, c.line + off) : toScreen(c.line + off, c.pos)
-        list.push({ y: p.y, draw: () => drawCar(ctx, c, p.x, p.y, night) })
+        if (seen(p.x, p.y)) list.push({ y: p.y, draw: () => drawCar(ctx, c, p.x, p.y, night) })
       }
       for (const w of walkers) {
         w.pos += w.dir * w.v * dt
         const max = w.axis === 'x' ? NX : NY
         if (w.pos > max) w.pos = 0; if (w.pos < 0) w.pos = max
         const p = w.axis === 'x' ? toScreen(w.pos, w.line + w.side) : toScreen(w.line + w.side, w.pos)
-        list.push({ y: p.y, draw: () => drawWalker(ctx, w, p.x, p.y) })
+        if (seen(p.x, p.y)) list.push({ y: p.y, draw: () => drawWalker(ctx, w, p.x, p.y) })
       }
       // Periférico: coches en el segundo piso, sin semáforos (van por la curva)
       for (const f of peri) {
@@ -92,12 +106,13 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
         const ox = -p.dy / len * 9 * sgn; const oy = p.dx / len * 9 * sgn
         const vx = p.dx * sgn; const vy = p.dy * sgn
         const fc = vy >= 0 ? (vx >= 0 ? 'SE' : 'SW') : (vx >= 0 ? 'NE' : 'NW')
-        list.push({ y: p.y + 9999, draw: () => drawPx(ctx, f.skin, fc as Face, p.x + ox, p.y + oy - DECK) })
+        if (seen(p.x, p.y)) list.push({ y: p.y + 9999, draw: () => drawPx(ctx, f.skin, fc as Face, p.x + ox, p.y + oy - DECK) })
       }
       // semáforos y farolas en las esquinas de las banquetas
       const g = greenAxis(now / 1000)
       for (const i of ys) for (const j of xs) {
         const a = toScreen(i + 1.12, j - 0.12); const b = toScreen(i - 0.12, j + 1.12)
+        if (!seen(a.x, a.y)) continue
         list.push({ y: a.y, draw: () => drawPole(ctx, `semaforo_${g === 'x' ? 'verde' : 'rojo'}_frente`, a.x, a.y, 0.5) })
         list.push({ y: b.y, draw: () => drawPole(ctx, `semaforo_${g === 'y' ? 'verde' : 'rojo'}_izq`, b.x, b.y, 0.5) })
         const f = toScreen(i + 1.12, j + 1.12)
@@ -108,7 +123,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
       // de noche: halos de farolas, semáforos y faros encima de todo, sumando luz
       if (night) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter'
-        const halo = (x: number, y: number, r: number, c: string) => { const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, r * 2, r * 2) }
+        const halo = (x: number, y: number, r: number, c: string) => { if (seen(x, y)) ctx.drawImage(glow(c), x - r, y - r, r * 2, r * 2) }
         for (const i of ys) for (const j of xs) {
           const f = toScreen(i + 1.12, j + 1.12); halo(f.x, f.y - TW * 0.48, 30, 'rgba(255,210,120,.9)'); halo(f.x, f.y, 60, 'rgba(255,190,100,.35)')
           const a = toScreen(i + 1.12, j - 0.12); halo(a.x, a.y - TW * 0.4, 12, g === 'x' ? 'rgba(80,255,140,.6)' : 'rgba(255,60,50,.6)')
@@ -121,7 +136,6 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
         }
         ctx.restore()
       }
-      raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
@@ -129,6 +143,14 @@ export function ModularTraffic ({ night, density = 1, riders = 0 }: { night: boo
   return <canvas ref={ref} className='absolute inset-0 w-full h-full pointer-events-none' aria-hidden />
 }
 
+// halos de luz pre-dibujados una sola vez (crear degradados en cada cuadro es caro)
+const glows = new Map<string, HTMLCanvasElement>()
+function glow (c: string) {
+  let g = glows.get(c); if (g) return g
+  g = document.createElement('canvas'); g.width = g.height = 64
+  const x = g.getContext('2d')!; const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)')
+  x.fillStyle = gr; x.fillRect(0, 0, 64, 64); glows.set(c, g); return g
+}
 function drawPole (ctx: CanvasRenderingContext2D, name: string, x: number, y: number, hTiles: number) {
   const im = sprite(`kit/px/${name}.webp`); if (!im) return
   const h = TW * hTiles; const w = h * im.width / im.height
