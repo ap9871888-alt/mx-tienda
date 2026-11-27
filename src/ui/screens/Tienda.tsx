@@ -209,7 +209,7 @@ function Interior ({ st }: { st: Store }) {
   const lvl = st.remodel ?? 0; const next = REMODEL[lvl + 1]
   const f = formatOf(st.formatId)
   const floor = ['#E7DFD0', '#EDE6DA', '#F4EFE6', '#FFFFFF'][lvl]
-  const group = { tiendita: 'tiendita', conveniencia: 'conveniencia', hardDiscount: 'bodega', bodega: 'bodega', taqueria: 'taqueria', paleteria: 'paleteria' }[st.formatId as string]
+  const group = { tiendita: 'tiendita', conveniencia: 'conveniencia', hardDiscount: 'bodega', bodega: 'bodega', taqueria: 'taqueria', paleteria: 'paleteria', farmacia: 'farmacia', papeleria: 'papeleria', fruteria: 'fruteria', ferreteria: 'ferreteria', panaderia: 'panaderia' }[st.formatId as string]
   const art = group ? assetUrl(`ui/interior-${group}-${Math.min(2, lvl)}.webp`) : ''
   const things: [string, number][] = art ? [] : [['anaquel', f.food ? 2 : 4], ['caja', Math.max(1, st.cashiers.length)], ['autocobro', st.selfCheckouts], ['camara', st.security], ['limpieza', st.cleaning]]
   return (
