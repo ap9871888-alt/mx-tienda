@@ -1,3 +1,4 @@
+import { getPrefs } from '../ui/settings'
 import { sfx } from '../ui/sound'
 import type { CompanyProfile } from '../engine/types'
 // Estado de la app con Zustand. La partida es un objeto mutable que el motor avanza en el bucle;
@@ -10,7 +11,7 @@ import { ECONOMY } from '../data/economy'
 import { bus } from './bus'
 
 export type Tab = 'calle' | 'mapa' | 'tienda' | 'logistica' | 'corporativo' | 'banco' | 'productos' | 'inversion' | 'estilo' | 'bolsa' | 'calendario' | 'directivos' | 'mundo' | 'laboratorio'
-export type Speed = 0 | 1 | 2 | 4
+export type Speed = 0 | 1 | 2 | 4 | 8
 
 interface AppState {
   game: GameState | null
@@ -138,6 +139,8 @@ export function startLoop () {
       if (st.tab === 'tienda' && events.some(e => e.type === 'arrive' && e.storeId === st.storeId) && Math.random() < 0.3) sfx.door()
       if (events.some(e => e.type === 'dayEnd')) sfx.cash()
       if (events.some(e => e.type === 'opening')) sfx.opening()
+      // pausa automática cuando pasa algo grave (asalto, clausura, apagón, multa)
+      if ((getPrefs().autoPause ?? true) && events.some(e => e.type === 'log' && e.entry.kind === 'bad' && /Asaltaron|clausura|Apagón|Profeco/.test(e.entry.text))) useApp.setState({ speed: 0 })
       uiAcc += dt
       if ((uiAcc > 0.4 && !touching) || events.some(e => e.type === 'dayEnd')) { uiAcc = 0; useApp.setState({ game: st.game, rev: st.rev + 1 }) }
     }

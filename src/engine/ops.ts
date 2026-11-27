@@ -33,9 +33,27 @@ export function opsMult (g: GameState | null | undefined, st: Store, hour: numbe
   if (!g) return 1
   let k = weatherMult(g, hour)
   if (promoActive(g, st)) k *= 1.25
+  if (st.loyalty) k *= 1.08
+  if (st.app) k *= 1.12
   if ((st.outageDay ?? -1) === today(g)) k *= 0.35
   return k
 }
+
+// ---------- servicios extra por tienda (costo mensual) ----------
+export const EXTRAS: { id: 'ext' | 'loyalty' | 'app'; name: string; desc: string; monthly: (st: Store) => number }[] = [
+  { id: 'ext', name: 'Horario extendido', desc: 'Abre 1 hora antes y cierra 1 hora después', monthly: st => Math.round(formatOf(st.formatId).overhead * 0.25 + 3000) },
+  { id: 'loyalty', name: 'Tarjeta de lealtad', desc: '+8 % clientes que regresan y mejor satisfacción', monthly: st => Math.round(3500 * size(st)) },
+  { id: 'app', name: 'App de reparto PideYa', desc: '+12 % pedidos; la app cobra 4 % de comisión', monthly: () => 1500 }
+]
+export function toggleExtra (s: GameState, storeId: number, id: 'ext' | 'loyalty' | 'app'): Result {
+  const st = s.stores.find(x => x.id === storeId); if (!st) return { ok: false, msg: 'No existe' }
+  if (id === 'ext' && formatOf(st.formatId).allDay) return { ok: false, msg: 'Esta tienda ya abre las 24 horas' }
+  st[id] = !st[id]
+  return { ok: true, msg: `${EXTRAS.find(e => e.id === id)!.name}: ${st[id] ? 'activado' : 'desactivado'}` }
+}
+export const opsMonthly = (s: GameState, st: Store) => EXTRAS.reduce((a, e) => a + (st[e.id] ? e.monthly(st) : 0), 0) + (s.insured ? insuranceMonthly(st) : 0)
+export const insuranceMonthly = (st: Store) => Math.round(2500 * size(st))
+export function toggleInsurance (s: GameState): Result { s.insured = !s.insured; return { ok: true, msg: s.insured ? 'Seguro contratado: cubre el 80 % de los asaltos' : 'Cancelaste el seguro' } }
 
 // ---------- renta: sube 4 % cada año que cumple el local ----------
 export const rentFactor = (st: Store) => st.rentMult ?? 1
@@ -96,11 +114,20 @@ export function opsDaily (s: GameState, log: (t: string, k: 'good' | 'bad' | 'in
     const p = [0.012, 0.005, 0.0015][st.security] * (f.hours[1] >= 23 || f.hours[0] === 0 ? 1.5 : 1)
     if (st.today.sales > 0 && nextRandom(s) < p) {
       const loss = Math.round(Math.min(st.today.sales * 0.35, 25000 * size(st)))
-      s.cash -= loss; st.satisfaction = Math.max(0, st.satisfaction - 4)
-      log(`Asaltaron ${st.label}: se llevaron $${loss.toLocaleString('es-MX')}. Más seguridad reduce el riesgo`, 'bad')
+      const paid = s.insured ? Math.round(loss * 0.8) : 0
+      s.cash -= loss - paid; st.satisfaction = Math.max(0, st.satisfaction - 4)
+      log(`Asaltaron ${st.label}: se llevaron $${loss.toLocaleString('es-MX')}.${paid ? ` El seguro te repone $${paid.toLocaleString('es-MX')}` : ' Más seguridad o un seguro reducen la pérdida'}`, 'bad')
     }
     // apagones: mañana la tienda casi no vende, salvo que tenga planta de luz
     if (!st.equipment?.includes('planta') && nextRandom(s) < 0.006) { st.outageDay = d + 1; log(`Apagón en la zona de ${st.label}: mañana venderá muy poco. Una planta de luz lo evita`, 'bad') }
+    // comisión de la app de reparto sobre lo vendido hoy
+    const last = st.history[st.history.length - 1]
+    const lp = last as (typeof last & { appPaid?: boolean }) | undefined
+    if (st.app && lp && !lp.appPaid && lp.day >= d - 1) { lp.appPaid = true; const fee = Math.round(last.sales * 0.04); s.cash -= fee; last.profit -= fee; last.fees += fee }
+    // Profeco: si los precios son abusivos, multa
+    const m = Object.values(st.margins); const avg = m.reduce((a, x) => a + x, 0) / Math.max(1, m.length)
+    if (avg > 0.42 && nextRandom(s) < 0.03) { const fine = Math.round(15000 * size(st)); s.cash -= fine; st.satisfaction = Math.max(0, st.satisfaction - 5); log(`Profeco multó a ${st.label} con $${fine.toLocaleString('es-MX')} por precios abusivos`, 'bad') }
+    if (st.loyalty) st.satisfaction = Math.min(100, st.satisfaction + 0.3)
     // aumento de renta en cada aniversario
     if (d > st.openedDay && (d - st.openedDay) % 365 === 0) { st.rentMult = +((st.rentMult ?? 1) * 1.04).toFixed(3); log(`El casero de ${st.label} subió la renta 4 %`, 'info') }
   }

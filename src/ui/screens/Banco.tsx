@@ -51,6 +51,10 @@ export function Banco () {
         })}
       </Card>
 
+      <Card title='Seguro empresarial' right={<span className={`text-xs font-bold ${game.insured ? 'text-ahorro' : 'text-tenue'}`}>{game.insured ? 'Activo' : 'Sin seguro'}</span>}>
+        <p className='text-sm'>Cubre el 80 % de lo que se llevan en un asalto. Cuesta {fmtK(game.stores.reduce((a, st) => a + E.insuranceMonthly(st), 0))}/mes por todas tus tiendas.</p>
+        <Btn small kind={game.insured ? 'ghost' : 'primary'} onClick={() => useApp.getState().run(g => E.toggleInsurance(g))}>{game.insured ? 'Cancelar seguro' : 'Contratar seguro'}</Btn>
+      </Card>
       <Card fold title='Oficinas corporativas'>
         <div className='flex gap-1.5'>{OFFICES.map((_, i) => <span key={i} className={`h-2 flex-1 rounded-full ${i <= lvl ? 'bg-corp' : 'bg-borde'}`} />)}</div>
         <div><b className='text-sm'>{OFFICES[lvl].name}</b> <span className='text-xs text-tenue'>· {OFFICES[lvl].place}</span><p className='text-xs text-tenue'>{OFFICES[lvl].desc}{OFFICES[lvl].monthly ? ` Renta ${fmtK(OFFICES[lvl].monthly)}/mes.` : ''}</p></div>

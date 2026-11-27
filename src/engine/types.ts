@@ -57,6 +57,9 @@ export interface Store {
   promoUntil?: number // promoción activa hasta este día
   outageDay?: number // día con apagón
   rentMult?: number // aumentos de renta acumulados
+  ext?: boolean // horario extendido (+1 h al abrir y al cerrar)
+  loyalty?: boolean // tarjeta de lealtad
+  app?: boolean // vende también por app de reparto
 }
 
 export interface LogEntry { minute: number; text: string; kind: 'info' | 'good' | 'bad' }
@@ -68,6 +71,7 @@ export interface MarketState { colonies: Record<string, ColonyMarket>; rivals: R
 
 export interface GameState {
   mission?: import('./ops').Mission | null
+  insured?: boolean // seguro empresarial contra asaltos
   version: number
   startYear: number
   cities: string[] // ciudades desbloqueadas

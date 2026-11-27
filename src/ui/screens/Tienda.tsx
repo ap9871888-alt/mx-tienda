@@ -40,8 +40,12 @@ export function Tienda () {
 
   return (
     <div className='flex flex-col gap-3'>
-      <div><h1 className='font-display text-2xl uppercase leading-tight'>{E.storeName(st)}</h1>
-        <p className='text-xs text-tenue'>Abierta de {f.hours[0]}:00 a {f.hours[1]}:00 · renta {fmt(E.monthlyRent(st))}/mes</p></div>
+      <div className='flex items-center gap-2'>
+        {game.stores.length > 1 && <button aria-label='Tienda anterior' onClick={() => { const i = game.stores.indexOf(st); useApp.getState().selectStore(game.stores[(i - 1 + game.stores.length) % game.stores.length].id) }} className='w-10 h-10 rounded-full bg-white border border-borde text-xl font-bold shrink-0'>‹</button>}
+        <div className='flex-1 min-w-0'><h1 className='font-display text-2xl uppercase leading-tight truncate'>{E.storeName(st)}</h1>
+          <p className='text-xs text-tenue'>Abierta de {f.allDay ? '0' : Math.max(0, f.hours[0] - (st.ext ? 1 : 0))}:00 a {f.allDay ? '24' : Math.min(24, f.hours[1] + (st.ext ? 1 : 0))}:00 · renta {fmt(E.monthlyRent(st))}/mes{game.stores.length > 1 ? ` · ${game.stores.indexOf(st) + 1} de ${game.stores.length}` : ''}</p></div>
+        {game.stores.length > 1 && <button aria-label='Tienda siguiente' onClick={() => { const i = game.stores.indexOf(st); useApp.getState().selectStore(game.stores[(i + 1) % game.stores.length].id) }} className='w-10 h-10 rounded-full bg-white border border-borde text-xl font-bold shrink-0'>›</button>}
+      </div>
       {!st.cashiers.length && !f.ownerSells && <Pill tone='bad'>Sin cajeros nadie puede cobrar: contrata al menos uno</Pill>}
       <div className='grid grid-cols-2 gap-2'>
         <Kpi label='Ventas hoy' value={fmt(t.sales + t.commissions)} />
@@ -62,6 +66,13 @@ export function Tienda () {
           <Btn small disabled={E.promoActive(game, st) || game.cash < E.promoCost(st)} onClick={() => run(g => E.startPromo(g, st.id))}>{fmtK(E.promoCost(st))}</Btn>
         </div>
         {E.rainToday(day) && <p className='text-xs text-tenue'>Hoy llueve por la tarde: entre 15:00 y 19:00 llega menos gente.</p>}
+      </Card>}
+      {sub === 'resumen' && <Card title='Servicios extra'>
+        {E.EXTRAS.map(x => (
+          <label key={x.id} className='flex items-center gap-3 py-1 border-t border-borde first:border-t-0'>
+            <span className='flex-1 min-w-0'><b className='text-sm block'>{x.name}</b><span className='text-[11px] text-tenue'>{x.desc} · {fmtK(x.monthly(st))}/mes</span></span>
+            <input type='checkbox' checked={!!st[x.id]} disabled={x.id === 'ext' && !!f.allDay} onChange={() => run(g => E.toggleExtra(g, st.id, x.id))} className='w-6 h-6 accent-rojo' />
+          </label>))}
       </Card>}
       {sub === 'resumen' && <Card title='Lo que dicen los clientes'>
         {E.reviews(st).map((r, i) => <div key={i} className='flex gap-2 items-start text-sm py-1 border-t border-borde first:border-t-0'><img src={assetUrl(`ui/px-cara_${r.stars >= 4 ? 'feliz' : r.stars >= 3 ? 'neutral' : 'triste'}.webp`)} alt='' className='w-6 h-6 object-contain' /><span className='flex-1'>«{r.text}»</span><Stars n={r.stars} /></div>)}

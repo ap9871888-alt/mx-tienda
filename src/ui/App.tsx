@@ -20,7 +20,7 @@ import { Banco } from './screens/Banco'
 import { Productos } from './screens/Productos'
 import { Inversion, Estilo, Bolsa, DilemmaModal, Calendario, WeeklyModal, MilestoneModal, Directivos, Mundo, Laboratorio } from './screens/Imperio'
 
-const SPEEDS: [Speed, typeof Play, string][] = [[0, Pause, 'Pausa'], [1, Play, '1x'], [2, FastForward, '2x'], [4, ChevronsRight, '4x']]
+const SPEEDS: [Speed, typeof Play, string][] = [[0, Pause, 'Pausa'], [1, Play, '1x'], [2, FastForward, '2x'], [4, ChevronsRight, '4x'], [8, ChevronsRight, '8x']]
 
 function TopBar () {
   useApp(s => s.rev)
@@ -41,7 +41,7 @@ function TopBar () {
         <div className='flex bg-black/15 rounded-xl p-0.5' role='group' aria-label='Velocidad'>
           {SPEEDS.map(([v, Icon, l]) => (
             <button key={v} aria-label={l} aria-pressed={speed === v} onClick={() => useApp.getState().setSpeed(v)}
-              className={`w-8 h-8 rounded-lg grid place-items-center text-[10px] font-bold ${speed === v ? 'bg-white text-rojo' : ''}`}>
+              className={`w-7 h-8 rounded-lg grid place-items-center text-[10px] font-bold ${speed === v ? 'bg-white text-rojo' : ''}`}>
               {v === 0 || v === 1 ? <Icon size={15} /> : l}
             </button>
           ))}

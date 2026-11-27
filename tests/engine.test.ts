@@ -1,3 +1,4 @@
+import { formatOf } from '../src/data/formats'
 import { cityOf } from '../src/data/cities'
 import { describe, it, expect } from 'vitest'
 import * as E from '../src/engine'
@@ -447,5 +448,20 @@ describe('Operación diaria', () => {
     for (let i = 0; i < 370; i++) E.advance(s, 1440)
     expect(st.rentMult ?? 1).toBeGreaterThan(1)
     expect(E.reviews(st).length).toBeGreaterThan(0)
+  })
+})
+
+describe('Servicios extra y seguro', () => {
+  it('horario extendido abre antes, el seguro cubre y los extras cuestan', () => {
+    const { s, st } = withStore()
+    const f = formatOf(st.formatId)
+    expect(E.isOpen(st, f.hours[0] - 1)).toBe(false)
+    expect(E.toggleExtra(s, st.id, 'ext').ok).toBe(true)
+    expect(E.isOpen(st, f.hours[0] - 1)).toBe(true)
+    E.toggleExtra(s, st.id, 'loyalty'); E.toggleExtra(s, st.id, 'app')
+    expect(E.opsMonthly(s, st)).toBeGreaterThan(0)
+    E.toggleInsurance(s); expect(s.insured).toBe(true)
+    for (let i = 0; i < 30; i++) E.advance(s, 1440)
+    expect(st.history.length).toBeGreaterThan(20)
   })
 })

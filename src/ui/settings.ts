@@ -1,7 +1,7 @@
 // Preferencias del jugador que se guardan en el teléfono (vista del mapa, tráfico…)
 import { useSyncExternalStore } from 'react'
 
-export interface Prefs { labels: boolean; traffic: number; petals: boolean; lite?: boolean }
+export interface Prefs { labels: boolean; traffic: number; petals: boolean; lite?: boolean; autoPause?: boolean }
 const KEY = 'tienda-mx-prefs'
 let prefs: Prefs = (() => { try { return { labels: true, traffic: 1, petals: true, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } } catch { return { labels: true, traffic: 1, petals: true } } })()
 const subs = new Set<() => void>()

@@ -7,7 +7,7 @@ import { FIRST_NAMES, LAST_NAMES } from '../data/names'
 import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/logistics'
 import { nextRandom, pick, poisson, randInt } from './rng'
 import { upkeepDaily, PERMITS, requestPermit, deepClean, paintStore } from './upkeep'
-import { opsDaily } from './ops'
+import { opsDaily, opsMonthly } from './ops'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth, effectiveTraffic, effectiveCompetition } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
 import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
@@ -588,7 +588,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
       st.inventory[c.id] -= take
       shrink += take * purchaseCost(s, c.id, st)
     }
-    const upkeep = (f.overhead + ECONOMY.securityMonthly[st.security] + ECONOMY.cleaningMonthly[st.cleaning]) / 30
+    const upkeep = (f.overhead + ECONOMY.securityMonthly[st.security] + ECONOMY.cleaningMonthly[st.cleaning] + opsMonthly(s, st)) / 30
     const profit = t.sales + t.commissions - t.cogs - payroll - rent - power - shrink - upkeep - t.fees
     s.cash -= payroll + rent + power + upkeep
     st.reputation = clamp(st.reputation + (st.satisfaction / 20 - st.reputation) * 0.15, 0, 5)

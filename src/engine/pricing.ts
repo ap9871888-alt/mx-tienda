@@ -72,7 +72,8 @@ export const reputationFactor = (rep: number) => 0.75 + rep * 0.07
 export function isOpen (store: Store, hour: number) {
   const f = formatOf(store.formatId)
   if (f.allDay) return true
-  return hour >= f.hours[0] && hour < f.hours[1]
+  const e = store.ext ? 1 : 0
+  return hour >= Math.max(0, f.hours[0] - e) && hour < Math.min(24, f.hours[1] + e)
 }
 // dos tiendas propias en la misma colonia se reparten el tráfico
 export function cannibalization (g: GameState | null | undefined, store: Store) {
