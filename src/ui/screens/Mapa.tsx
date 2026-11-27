@@ -62,7 +62,7 @@ export function Mapa () {
         <button onClick={() => setNational(true)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-sm font-semibold border ${national ? 'bg-corp text-white border-corp' : 'bg-white border-borde'}`}>🇲🇽 México</button>
         {CITIES.filter(c => game.cities.includes(c.id)).map(c => (
           <button key={c.id} onClick={() => { setCityId(c.id); setNational(false) }} className={`shrink-0 px-3 min-h-[36px] rounded-full text-sm font-semibold border ${!national && c.id === cityId ? 'bg-corp text-white border-corp' : 'bg-white border-borde'}`}>
-            {c.id === here ? '📍 ' : ''}{c.name} <span className='opacity-70'>· {game.stores.filter(s => s.cityId === c.id).length}</span></button>))}
+            {c.id === here ? <img src={assetUrl('ui/px-casitas_colonia.webp')} alt='' className='w-4 h-4 mr-1 inline object-contain' /> : null}{c.name} <span className='opacity-70'>· {game.stores.filter(s => s.cityId === c.id).length}</span></button>))}
       </div>
       {game.trip && <TripBanner />}
       {!national && cityId !== here && !game.trip && <Travel to={cityId} />}

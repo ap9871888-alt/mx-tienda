@@ -225,7 +225,7 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
         <div className={`${card(cap === 'vip')} p-3 flex flex-col gap-2`}>
           <button onClick={() => (premium ? setCap('vip') : setPay(true))} className='flex items-center gap-3 text-left'>
             <img src={assetUrl('ui/ic-premium.webp')} alt='' className='w-10 h-10 object-contain' />
-            <span className='flex-1'><b className='block'>Inversionista {premium ? '' : '🔒'}</b><span className='text-xs text-tenue'>Elige tu capital, hasta $10,000,000.</span></span>
+            <span className='flex-1'><b className='block'>Inversionista {premium ? '' : <img src={assetUrl('ui/px-candado.webp')} alt='' className='w-4 h-4 inline object-contain' />}</b><span className='text-xs text-tenue'>Elige tu capital, hasta $10,000,000.</span></span>
           </button>
           {premium && cap === 'vip' && <label className='text-sm font-semibold'>Capital: ${vip.toLocaleString('es-MX')}
             <input type='range' min={1_000_000} max={10_000_000} step={500_000} value={vip} onChange={e => setVip(+e.target.value)} className='w-full' /></label>}

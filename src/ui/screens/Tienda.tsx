@@ -223,7 +223,7 @@ function Gerente ({ st, go }: { st: Store; go: (s: 'precios' | 'personal' | 'int
       </div>
       <div className='grid grid-cols-3 gap-2'>
         <Btn small kind={noStaff || queue ? 'primary' : 'ghost'} onClick={() => go('personal')}><img src={assetUrl('ui/ic-personal.webp')} alt='' className='w-5 h-5 inline object-contain' /> Personal</Btn>
-        <Btn small kind={low ? 'primary' : 'ghost'} disabled={game.cash < 1000} onClick={() => useApp.getState().run(g => E.placeOrder(g, st.id))}>📦 Pedir</Btn>
+        <Btn small kind={low ? 'primary' : 'ghost'} disabled={game.cash < 1000} onClick={() => useApp.getState().run(g => E.placeOrder(g, st.id))}><img src={assetUrl('ui/px-caja_mercancia.webp')} alt='' className='w-5 h-5 inline object-contain' /> Pedir</Btn>
         <Btn small kind='ghost' onClick={() => go('precios')}><img src={assetUrl('ui/ic-precios.webp')} alt='' className='w-5 h-5 inline object-contain' /> Precios</Btn>
       </div>
     </Card>

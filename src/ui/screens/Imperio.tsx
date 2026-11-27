@@ -222,7 +222,7 @@ export function DilemmaModal () {
   return (
     <div className='fixed inset-0 z-50 bg-black/50 grid place-items-center p-4'>
       <div className='w-full max-w-[420px] rounded-3xl overflow-hidden bg-white shadow-2xl'>
-        <div className='bg-rojo text-white px-4 py-3'><span className='text-[11px] font-black tracking-wider'>⚠️ NOTICIAS MX · ÚLTIMA HORA</span><h2 className='font-display text-2xl uppercase leading-tight'>{d.title}</h2></div>
+        <div className='bg-rojo text-white px-4 py-3'><span className='text-[11px] font-black tracking-wider'>NOTICIAS MX · ÚLTIMA HORA</span><h2 className='font-display text-2xl uppercase leading-tight'>{d.title}</h2></div>
         <div className='p-4 flex flex-col gap-2.5'>
           <p className='text-[15px]'>{d.text}</p>
           {d.options.map((o, i) => (
@@ -251,7 +251,7 @@ function TuEmpresa () {
       <Card title='Salir a la Bolsa MX'>
         <p className='text-sm'>Vende el {Math.round(IPO.float * 100)} % de {game.company} al público y recibe dinero fresco para crecer. Tu empresa tendrá precio de acción todos los días.</p>
         <div className='grid grid-cols-2 gap-2'><Kpi label='Valor estimado' value={fmtK(val)} /><Kpi label='Recaudarías' value={fmtK(val * IPO.float * (1 - IPO.fee))} tone='good' /></div>
-        {reasons.length ? <div className='flex flex-col gap-1'>{reasons.map(r => <span key={r} className='text-sm'>⬜ {r}</span>)}</div> : <p className='text-sm font-semibold text-ahorro'>✅ Cumples todos los requisitos</p>}
+        {reasons.length ? <div className='flex flex-col gap-1'>{reasons.map(r => <span key={r} className='text-sm flex items-center gap-1.5'><img src={assetUrl('ui/px-candado.webp')} alt='' className='w-4 h-4 inline object-contain' />{r}</span>)}</div> : <p className='text-sm font-semibold text-ahorro'>✅ Cumples todos los requisitos</p>}
         <Btn disabled={reasons.length > 0} onClick={() => { const r = run(g => E.goPublic(g, E.netWorth(g))); if (r?.ok) sfx.bell() }}><img src={assetUrl('ui/pi-campana_notificacion.webp')} alt='' className='w-5 h-5 inline object-contain' /> Tocar la campana</Btn>
       </Card>
     )
@@ -430,7 +430,7 @@ export function Directivos () {
           return <div key={d.id} className={`flex items-center gap-3 py-2 border-t border-borde first:border-t-0 ${locked ? 'opacity-55' : ''}`}>
             <img src={assetUrl(`ui/dir-${d.id}.webp`)} alt='' className={`w-14 h-14 object-contain rounded-full bg-arena shrink-0 ${locked ? 'grayscale' : ''}`} />
             <div className='flex-1 min-w-0'><b className='text-sm block'>{d.name} · {d.who}</b><span className='text-xs text-tenue'>{d.desc} {fmtK(d.salary)}/mes</span></div>
-            {locked ? <span className='text-xs font-bold'>🔒 {fmtK(d.minWorth)}</span> : <Btn small kind={on ? 'green' : 'ghost'} onClick={() => run(g => E.hireDirector(g, d.id))}>{on ? 'Trabajando' : 'Contratar'}</Btn>}
+            {locked ? <span className='text-xs font-bold inline-flex items-center gap-1'><img src={assetUrl('ui/px-candado.webp')} alt='' className='w-4 h-4 inline object-contain' />{fmtK(d.minWorth)}</span> : <Btn small kind={on ? 'green' : 'ghost'} onClick={() => run(g => E.hireDirector(g, d.id))}>{on ? 'Trabajando' : 'Contratar'}</Btn>}
           </div>
         })}
         {game.directors?.dg && <label className='flex items-center justify-between bg-arena rounded-xl px-3 min-h-[44px] text-sm font-semibold'>Autorizar que abra tiendas con mi dinero

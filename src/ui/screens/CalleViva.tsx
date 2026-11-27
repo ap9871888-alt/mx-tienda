@@ -46,11 +46,11 @@ export function Calle ({ bare }: { bare?: boolean } = {}) {
       )}
       <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#CFC9BD]'>
         <canvas ref={canvas} className='block w-full aspect-[4/3.4] sm:aspect-[16/11]' aria-label='Calle viva: vista animada de tu tienda y su esquina' role='img' />
-        {!bare && <button onClick={() => useApp.getState().setTab('banco')} className='absolute left-2 top-2 bg-corp text-white rounded-full px-3 min-h-[36px] text-[12.5px] font-bold shadow flex items-center gap-1'>🏦 Banco</button>}
+        {!bare && <button onClick={() => useApp.getState().setTab('banco')} className='absolute left-2 top-2 bg-corp text-white rounded-full px-3 min-h-[36px] text-[12.5px] font-bold shadow flex items-center gap-1'><img src={assetUrl('ui/ic-banco.webp')} alt='' className='w-5 h-5 inline object-contain' /> Banco</button>}
         {store && (
           <div className='absolute left-2 right-2 bottom-2 bg-white/95 rounded-xl px-3 py-2 flex items-center gap-3 text-[12.5px] font-semibold'>
             <span>Fila y satisfacción</span>
-            <span aria-hidden>{store.satisfaction >= 70 ? '😄' : store.satisfaction >= 50 ? '🙂' : '😟'}</span>
+            <img aria-hidden src={assetUrl(`ui/px-cara_${store.satisfaction >= 70 ? 'feliz' : store.satisfaction >= 50 ? 'neutral' : 'triste'}.webp`)} alt='' className='w-5 h-5 inline object-contain' />
             <div className='flex-1'><Bar value={store.satisfaction / 100} color={store.satisfaction >= 70 ? '#2E7D5B' : store.satisfaction >= 50 ? '#F2B705' : '#D63B2F'} /></div>
             <span className='num'>{store.queue.length} en fila</span>
           </div>
@@ -160,7 +160,7 @@ export function CalleViva () {
     <div className='flex flex-col gap-3'>
       <div className='grid grid-cols-2 bg-white border border-borde rounded-full p-1'>
         {(['colonia', 'calle'] as const).map(k => (
-          <button key={k} disabled={k === 'calle' && !hasStore} onClick={() => setView(k)} className={`min-h-[36px] rounded-full text-sm font-bold ${v === k ? 'bg-rojo text-white' : 'text-tenue'}`}>{k === 'colonia' ? '🏙️ Colonia' : '🚶 Calle'}</button>
+          <button key={k} disabled={k === 'calle' && !hasStore} onClick={() => setView(k)} className={`min-h-[36px] rounded-full text-sm font-bold ${v === k ? 'bg-rojo text-white' : 'text-tenue'}`}>{k === 'colonia' ? <><img src={assetUrl('ui/px-edificios_ciudad.webp')} alt='' className='w-5 h-5 inline object-contain' /> Colonia</> : <><img src={assetUrl('ui/px-persona_caminando.webp')} alt='' className='w-5 h-5 inline object-contain' /> Calle</>}</button>
         ))}
       </div>
       {v === 'colonia' ? <Colonia onStreet={() => setView('calle')} /> : <Calle />}
