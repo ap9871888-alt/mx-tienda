@@ -62,7 +62,7 @@ export function Corporativo () {
           : <p className='text-sm text-tenue'>El primer corte se hace a medianoche.</p>}
       </Card>
 
-      <Card title='Estado de resultados semanal'>
+      <Card fold title='Estado de resultados semanal'>
         <table className='w-full text-sm num'>
           <thead><tr className='text-[11px] uppercase text-tenue'><th className='text-left font-semibold'>Concepto</th><th className='text-right font-semibold'>Últimos 7 días</th><th className='text-right font-semibold'>7 días previos</th></tr></thead>
           <tbody>
@@ -72,7 +72,7 @@ export function Corporativo () {
         </table>
       </Card>
 
-      <Card title='Flujo de caja · utilidad diaria'>
+      <Card fold title='Flujo de caja · utilidad diaria'>
         <BarChart values={game.reports.slice(-30).map(r => Math.round(r.profit))} labels={game.reports.slice(-30).map(r => E.dateLabel(r.day).date.slice(0, 6))} color='#2E7D5B' />
       </Card>
 
@@ -82,7 +82,7 @@ export function Corporativo () {
         <span className='text-3xl'>🏦</span><span className='flex-1'><b className='block'>Banco y oficinas</b><span className='text-xs opacity-80'>Créditos, inversiones y tu sede corporativa</span></span><span>›</span>
       </button>
 
-      <Card title='Partida'>
+      <Card fold title='Partida'>
         <div className='flex flex-wrap gap-2'>
           <Btn small kind='ghost' onClick={exportGame}><Download size={14} /> Exportar JSON</Btn>
           <Btn small kind='ghost' onClick={() => file.current?.click()}><Upload size={14} /> Importar JSON</Btn>

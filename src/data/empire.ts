@@ -191,7 +191,7 @@ export const MILESTONES = [
 // ---------- directivos: delegar para que la cadena funcione sola ----------
 export interface DirectorDef { id: 'ops' | 'com' | 'rh' | 'dg'; name: string; who: string; salary: number; minWorth: number; desc: string }
 export const DIRECTORS: DirectorDef[] = [
-  { id: 'ops', name: 'Gerente de Operaciones', who: 'Lupita', salary: 45000, minWorth: 1_000_000, desc: 'Pide mercancía a tiempo y contrata cajeros cuando la fila crece.' },
+  { id: 'ops', name: 'Gerente de Operaciones', who: 'Lupita', salary: 45000, minWorth: 1_000_000, desc: 'Pide mercancía a tiempo, contrata cajeros cuando la fila crece, tramita permisos y mantiene limpias y pintadas las tiendas.' },
   { id: 'rh', name: 'Jefa de Recursos Humanos', who: 'Doña Carmen', salary: 40000, minWorth: 1_000_000, desc: 'Resuelve sola los problemas laborales menores y capacita al personal.' },
   { id: 'com', name: 'Director Comercial', who: 'Don Ramiro', salary: 70000, minWorth: 5_000_000, desc: 'Ajusta los precios de cada tienda según su colonia y competencia.' },
   { id: 'dg', name: 'Director General', who: 'Lic. Valeria', salary: 150000, minWorth: 10_000_000, desc: 'Abre tiendas nuevas en las mejores colonias con tu dinero (si se lo autorizas).' }

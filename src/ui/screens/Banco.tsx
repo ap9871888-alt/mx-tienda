@@ -39,7 +39,7 @@ export function Banco () {
         <p className='text-xs text-tenue'>Revolvente: pagas interés diario sobre lo usado. El límite crece con tus tiendas y tu sede.</p>
       </Card>
 
-      <Card title='Créditos a plazo'>
+      <Card fold title='Créditos a plazo'>
         {TERM_LOANS.map(t => {
           const mine = terms.find(x => x.id === t.id)
           return <div key={t.id} className='flex items-center gap-3 py-2 border-t border-borde first:border-t-0'>
@@ -51,7 +51,7 @@ export function Banco () {
         })}
       </Card>
 
-      <Card title='Oficinas corporativas'>
+      <Card fold title='Oficinas corporativas'>
         <div className='flex gap-1.5'>{OFFICES.map((_, i) => <span key={i} className={`h-2 flex-1 rounded-full ${i <= lvl ? 'bg-corp' : 'bg-borde'}`} />)}</div>
         <div><b className='text-sm'>{OFFICES[lvl].name}</b> <span className='text-xs text-tenue'>· {OFFICES[lvl].place}</span><p className='text-xs text-tenue'>{OFFICES[lvl].desc}{OFFICES[lvl].monthly ? ` Renta ${fmtK(OFFICES[lvl].monthly)}/mes.` : ''}</p></div>
         {next && <div className='rounded-xl border border-dashed border-borde p-3 flex flex-col gap-1.5'>
@@ -63,7 +63,7 @@ export function Banco () {
 
       <Advisor who='finanzas'>{debt > limit * 0.8 ? 'Estás muy endeudado: abona antes de abrir más tiendas.' : game.cash > 600000 ? 'Tienes efectivo de sobra: invierte lo que no uses y deja colchón para nómina y renta.' : 'Un crédito a plazo sale más barato que la línea revolvente para abrir tiendas.'}</Advisor>
 
-      <Card title='Inversiones' right={<span className='num text-sm font-bold'>{fmtK(E.fundValue(game))}</span>}>
+      <Card fold title='Inversiones' right={<span className='num text-sm font-bold'>{fmtK(E.fundValue(game))}</span>}>
         {FUNDS.map(f => {
           const st = game.market?.funds[f.id]
           if (!st) return null

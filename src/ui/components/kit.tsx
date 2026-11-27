@@ -7,7 +7,14 @@ import { useApp, fmtK } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
 import type { Insight } from '../../engine'
 
-export function Card ({ title, right, children, className = '' }: { title?: string; right?: ReactNode; children: ReactNode; className?: string }) {
+// fold: la tarjeta empieza cerrada y se abre al tocar su título (para pantallas más cortas)
+export function Card ({ title, right, children, className = '', fold }: { title?: string; right?: ReactNode; children: ReactNode; className?: string; fold?: boolean }) {
+  if (fold && title) return (
+    <details className={`group bg-white border border-borde rounded-2xl shadow-card p-4 min-w-0 ${className}`}>
+      <summary className='flex items-center gap-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden'><h3 className='text-[11px] font-semibold uppercase tracking-[.09em] text-tenue'>{title}</h3><div className='flex-1 h-px bg-borde' />{right}<span className='text-tenue text-sm transition-transform group-open:rotate-180'>▾</span></summary>
+      <div className='flex flex-col gap-3 mt-3'>{children}</div>
+    </details>
+  )
   return (
     <section className={`bg-white border border-borde rounded-2xl shadow-card p-4 flex flex-col gap-3 min-w-0 ${className}`}>
       {title && <div className='flex items-center gap-3'><h3 className='text-[11px] font-semibold uppercase tracking-[.09em] text-tenue'>{title}</h3><div className='flex-1 h-px bg-borde' />{right}</div>}

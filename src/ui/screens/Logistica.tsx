@@ -59,7 +59,7 @@ export function Logistica () {
         </Card>
       )}
 
-      <Card title='Marca Propia' right={game.cedis ? <Pill tone='blue'>{game.labels.length}/{PRIVATE_LABELS.length} líneas</Pill> : <Pill><Lock size={11} /> Requiere CEDIS</Pill>}>
+      <Card fold title='Marca Propia' right={game.cedis ? <Pill tone='blue'>{game.labels.length}/{PRIVATE_LABELS.length} líneas</Pill> : <Pill><Lock size={11} /> Requiere CEDIS</Pill>}>
         {PRIVATE_LABELS.map(l => {
           const on = game.labels.includes(l.id)
           return (

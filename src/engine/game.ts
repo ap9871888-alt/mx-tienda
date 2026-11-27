@@ -6,7 +6,7 @@ import { ECONOMY } from '../data/economy'
 import { FIRST_NAMES, LAST_NAMES } from '../data/names'
 import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/logistics'
 import { nextRandom, pick, poisson, randInt } from './rng'
-import { upkeepDaily } from './upkeep'
+import { upkeepDaily, PERMITS, requestPermit, deepClean, paintStore } from './upkeep'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth, effectiveTraffic, effectiveCompetition } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
 import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
@@ -122,6 +122,10 @@ export function runDirectors (s: GameState, events: GameEvent[]) {
         const best = s.candidates.reduce((bi, c, i, a) => (c.stars > a[bi].stars ? i : bi), 0)
         hireCashier(s, st.id, best)
       }
+      // también cuida el local: tramita permisos que falten, manda limpiar y pinta cuando hace falta
+      for (const p of PERMITS) if (st.permits?.[p.id] == null && !f.ownerSells && s.cash > 100000) requestPermit(s, st.id, p.id)
+      if ((st.dirt ?? 0) > 55 && s.cash > 50000) deepClean(s, st.id)
+      if ((st.wear ?? 0) > 75 && s.cash > 300000) paintStore(s, st.id)
     }
     if (d.rh) {
       const low = st.cashiers.find(c => c.stars < 3)
