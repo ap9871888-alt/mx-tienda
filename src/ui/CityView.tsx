@@ -247,7 +247,7 @@ const HEIGHTS: [RegExp, number][] = [
   [/tienda-|tiendita|farmacia|panaderia|taqueria|cafe|metro|kiosco/, 115], [/puesto|mob_/, 80],
   [/jacaranda|veg_|ahuehuete|bugambilia/, 95]
 ]
-const SMALL_FORMATS = new Set(['ambulante', 'paleteria', 'conveniencia', 'taqueria', 'tiendita'])
+const SMALL_FORMATS = new Set(['ambulante', 'paleteria', 'conveniencia', 'taqueria', 'tiendita', 'farmacia', 'papeleria', 'fruteria', 'ferreteria', 'panaderia'])
 const aspectOf = (ed: string) => (ASPECT as Record<string, number>)[ed] ?? 0.75
 function placeIn (r: { x: number; y: number; w: number; bottom: number }, ed?: string) {
   // los edificios con plaza o base ancha se encogen para que su base no invada la calle
