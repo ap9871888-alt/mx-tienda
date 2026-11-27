@@ -46,11 +46,15 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true,
     const rnd = Math.random
     const lines = (n: number) => Array.from({ length: Math.floor((n - 1) / P) + 1 }, (_, i) => i * P)
     const xs = lines(NY); const ys = lines(NX)
+    const cars0: Car[] = []
     const car = (): Car => {
       const axis = rnd() < 0.5 ? 'x' : 'y'; const line = (axis === 'x' ? xs : ys)[Math.floor(rnd() * (axis === 'x' ? xs : ys).length)]
       const max = axis === 'x' ? NX : NY
       const c: Car = { axis, line, pos: rnd() * max, dir: rnd() < 0.5 ? 1 : -1, v: 1.6 + rnd() * 1.2, skin: SKINS[Math.floor(rnd() * SKINS.length)] }
-      return inside(c.axis, c.line, c.pos) ? car() : c
+      // no aparece encima de otro coche ni dentro de una plaza
+      const crowded = cars0.some(o => o.axis === c.axis && o.line === c.line && Math.abs(o.pos - c.pos) < 1.2)
+      if (inside(c.axis, c.line, c.pos) || crowded) return car()
+      cars0.push(c); return c
     }
     const inside = (axis: 'x' | 'y', line: number, pos: number) => axis === 'x' ? blocked(pos, line + 0.5) : blocked(line + 0.5, pos)
     const cars: Car[] = Array.from({ length: Math.round(45 * density * rush) }, car)

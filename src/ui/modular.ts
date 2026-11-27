@@ -91,7 +91,9 @@ export function activateKit (k: CityKit) { AREAS = k.areas ?? []; EXTRAS = !!k.e
 // Canal Nacional: canal con andador verde que corre por el sur-oriente sobre una calle (los coches no pasan)
 export const CANAL_TX = 10 * P; export const CANAL_TY0 = 9 * P
 const inCanal = (tx: number, ty: number) => EXTRAS && tx >= CANAL_TX && tx < CANAL_TX + 1 && ty >= CANAL_TY0 && ty < NY - P
-export const blocked = (tx: number, ty: number) => inCanal(tx, ty) || AREAS.some(a => tx >= a.bx * P + 1 && tx < (a.bx + a.w) * P && ty >= a.by * P + 1 && ty < (a.by + a.h) * P)
+// glorietas con monumento (Ángel y Diana): los coches no pasan por encima, dan vuelta antes
+const onGlorieta = (tx: number, ty: number) => EXTRAS && tx >= REFORMA_TX && tx < REFORMA_TX + 1 && ((ty >= INSURGENTES_TY && ty < INSURGENTES_TY + 1) || (ty >= INSURGENTES_TY + P && ty < INSURGENTES_TY + P + 1))
+export const blocked = (tx: number, ty: number) => onGlorieta(tx, ty) || inCanal(tx, ty) || AREAS.some(a => tx >= a.bx * P + 1 && tx < (a.bx + a.w) * P && ty >= a.by * P + 1 && ty < (a.by + a.h) * P)
 const PARKS = new Set<string>()
 export const WATER: Record<string, 'lago' | 'canal'> = {}
 // centro de cada colonia en la retícula; cada manzana libre pertenece a la colonia más cercana
@@ -215,7 +217,7 @@ export const quarters = (bx: number, by: number) => [[0, 0], [1, 0], [0, 1], [1,
 export function scenery () {
   const out: { r: ReturnType<typeof at>; ed: string }[] = []
   // monumentos de glorieta sobre Reforma: el Ángel (cruce con Insurgentes) y la Diana (hacia Chapultepec)
-  if (EXTRAS) { out.push({ r: at(REFORMA_TX + 0.5, INSURGENTES_TY + 0.62, 0.95), ed: MX('angel_independencia_dia') }); out.push({ r: at(REFORMA_TX + 0.5, INSURGENTES_TY + P + 0.62, 0.95), ed: MX('diana_cazadora') }) }
+  if (EXTRAS) { out.push({ r: at(REFORMA_TX + 0.5, INSURGENTES_TY + 0.62, 1.35), ed: MX('angel_independencia_dia') }); out.push({ r: at(REFORMA_TX + 0.5, INSURGENTES_TY + P + 0.62, 1.25), ed: MX('diana_cazadora') }) }
   if (EXTRAS) for (let j = 1; j < NY; j++) {
     if (j % P === 0 || blocked(REFORMA_TX + 0.5, j + 0.5)) continue
     if (j % 2 === 0) out.push({ r: at(REFORMA_TX + 0.55, j + 0.5, 0.5), ed: K2('veg_palmera_reforma') })

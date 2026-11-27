@@ -250,7 +250,8 @@ const HEIGHTS: [RegExp, number][] = [
 const SMALL_FORMATS = new Set(['ambulante', 'paleteria', 'conveniencia', 'taqueria', 'tiendita'])
 const aspectOf = (ed: string) => (ASPECT as Record<string, number>)[ed] ?? 0.75
 function placeIn (r: { x: number; y: number; w: number; bottom: number }, ed?: string) {
-  const maxW = r.w * MW / 100 * 0.95
+  // los edificios con plaza o base ancha se encogen para que su base no invada la calle
+  const maxW = r.w * MW / 100 * (ed && /mx\/|px\/(0[1-6]|1[0-9]|20)_|monumento|kit\/v3\/manzana/.test(ed) ? 0.82 : 0.92)
   const wpx = ed ? Math.min(maxW, (HEIGHTS.find(([re]) => re.test(ed))?.[1] ?? 170) * aspectOf(ed)) : maxW * 0.8
   const f = Math.max(0.35, wpx / (r.w * MW / 100))
   return { ...r, w: wpx / MW * 100, bottom: r.y + (r.bottom - r.y) * Math.min(1, f) }
