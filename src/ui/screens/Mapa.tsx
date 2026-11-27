@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MapPin } from 'lucide-react'
-import { CITIES, HOUR_PROFILE, cityOf, colonyById, STATES, NATIONAL_MAP, CITY_STATE, stateAt, type City } from '../../data/cities'
+import { CITIES, HOUR_PROFILE, cityOf, colonyById, STATES, NATIONAL_MAP, CITY_STATE, stateAt } from '../../data/cities'
 import { FORMATS, formatOf, type FormatId } from '../../data/formats'
 import { RIVAL_STYLES } from '../../data/market'
 import * as E from '../../engine'
@@ -10,12 +9,6 @@ import { sfx } from '../sound'
 import { Card, Btn, Pill, Modal, Kpi, BarChart, Icon, AnalystCard } from '../components/kit'
 
 // qué colonia hay en un punto del mapa (usa la máscara de colores de tu lámina)
-function colonyAt (CITY: City, px: number, py: number) {
-  const { grid, n, ids } = CITY.map!
-  const gx = Math.min(n - 1, Math.max(0, Math.floor(px * n))); const gy = Math.min(n - 1, Math.max(0, Math.floor(py * n)))
-  const v = +grid[gy * n + gx]
-  return v ? ids[v - 1] : null
-}
 
 // colonia elegida desde el mapa de la ciudad (ficha de colonia → «Abrir tienda aquí»)
 export let pendingColony: { city: string; colony: string } | null = null
@@ -55,18 +48,12 @@ export function Mapa () {
   const wealth = E.effectiveWealth(game, CITY.id, col.id)
   const comp = E.effectiveCompetition(game, CITY.id, col.id)
   const cm = game.market?.colonies[col.id]
-  const maxT = Math.max(...CITY.colonies.map(c => E.effectiveTraffic(game, CITY.id, c.id)))
 
   const open = () => {
     const fid = confirm!
     const r = useApp.getState().run(g => E.openStore(g, CITY.id, col.id, fid))
     setConfirm(null)
     if (r?.ok && r.data) { useApp.getState().selectStore(r.data.id); useApp.getState().setTab('tienda') }
-  }
-  const onMap = (e: React.MouseEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect()
-    const id = colonyAt(CITY, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
-    if (id) setSel(id)
   }
 
   return (
@@ -80,46 +67,13 @@ export function Mapa () {
       {game.trip && <TripBanner />}
       {!national && cityId !== here && !game.trip && <Travel to={cityId} />}
       {national ? <Nacional onCity={id => { if (game.cities.includes(id)) useApp.getState().setViewCity(id); else setUnlock(id) }} /> : <>
-      <div className='flex items-baseline justify-between'><h1 className='font-display text-2xl uppercase'>{CITY.name}</h1><span className='text-xs text-tenue'>{CITY.map ? 'Toca una colonia' : 'Elige una zona'}</span></div>
-      {CITY.map ? <div className='relative rounded-2xl overflow-hidden border border-borde shadow-card bg-[#EDE8DC] aspect-square select-none' onClick={onMap} role='img' aria-label='Mapa de la Ciudad de México con colonias, tráfico y tiendas'>
-        <img src={assetUrl('map/cdmx.webp')} alt='' className='absolute inset-0 w-full h-full' draggable={false} />
+      {/* la colonia se elige en el mapa de la ciudad; aquí solo un selector rápido */}
+      <div className='-mx-4 px-4 flex gap-2 overflow-x-auto [scrollbar-width:none]'>
         {CITY.colonies.map(c => (
-          <img key={c.id} src={assetUrl(`map/zona-${c.id}.png`)} alt='' draggable={false}
-            className='absolute inset-0 w-full h-full pointer-events-none transition-opacity'
-            style={{ opacity: c.id === sel ? 0.55 : 0, filter: 'brightness(0) saturate(100%) invert(22%) sepia(60%) saturate(2400%) hue-rotate(205deg)' }} />
-        ))}
-        {CITY.colonies.map(c => {
-          const t = E.effectiveTraffic(game, CITY.id, c.id) / maxT
-          return <div key={c.id} className='absolute rounded-full pointer-events-none' style={{ left: `${c.x}%`, top: `${c.y}%`, width: `${10 + t * 14}%`, height: `${10 + t * 14}%`, transform: 'translate(-50%,-50%)', background: 'radial-gradient(closest-side, rgba(214,59,47,.5), rgba(242,183,5,.25) 60%, rgba(242,183,5,0))' }} />
-        })}
-        {CITY.colonies.map(c => {
-          const mine = game.stores.filter(s => s.colonyId === c.id).length
-          const rivals = E.rivalStoresIn(game, c.id)
-          return (
-            <div key={c.id} className='absolute pointer-events-none flex flex-col items-center' style={{ left: `${c.x}%`, top: `${c.y}%`, transform: 'translate(-50%,-50%)' }}>
-              <span className={`text-[10.5px] font-bold px-1.5 py-0.5 rounded-md shadow whitespace-nowrap ${c.id === sel ? 'bg-corp text-white' : 'bg-white/95 text-urbano'}`}>{c.name}</span>
-              <span className='flex gap-0.5 mt-0.5'>
-                {mine > 0 && <span className='inline-flex items-center text-[10px] font-bold bg-rojo text-white rounded-full pl-0.5 pr-1.5 shadow'><MapPin size={12} className='fill-white text-rojo' />{mine}</span>}
-                {rivals > 0 && <span className='text-[10px] font-bold bg-urbano/80 text-white rounded-full px-1.5 shadow'>{rivals}</span>}
-              </span>
-            </div>
-          )
-        })}
-      </div> : (
-        <div className='grid grid-cols-2 gap-2'>
-          {CITY.colonies.map(c => {
-            return <button key={c.id} onClick={() => setSel(c.id)} className={`text-left rounded-xl border p-2.5 min-h-[60px] ${c.id === col.id ? 'border-corp bg-corp/10' : 'border-borde bg-white'}`}>
-              <b className='block text-sm'>{c.name}</b>
-              <span className='text-[11.5px] text-tenue'>{Math.round(E.effectiveTraffic(game, CITY.id, c.id))} peat/h · {E.usedSpace(game, c.id)}/{c.slots} locales · {E.rivalStoresIn(game, c.id)} rivales</span>
-            </button>
-          })}
-        </div>)}
-      <div className='flex flex-wrap gap-3 text-[11.5px] text-tenue -mt-1'>
-        <span className='inline-flex items-center gap-1'><span className='w-3 h-3 rounded-full' style={{ background: 'radial-gradient(#D63B2F,#F2B705)' }} /> Tráfico peatonal</span>
-        <span className='inline-flex items-center gap-1'><MapPin size={12} className='text-rojo' /> Tus tiendas</span>
-        <span className='inline-flex items-center gap-1'><span className='w-2.5 h-2.5 rounded-full bg-urbano/70' /> Tiendas rivales</span>
+          <button key={c.id} onClick={() => setSel(c.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-semibold border ${c.id === col.id ? 'bg-corp text-white border-corp' : 'bg-white border-borde'}`}>
+            {c.name} <span className='opacity-70 num'>{E.usedSpace(game, c.id)}/{c.slots}</span>
+          </button>))}
       </div>
-
       <Card title={col.name} right={<Pill tone={used >= col.slots ? 'bad' : used ? 'good' : undefined}>Locales {used}/{col.slots}</Pill>}>
         <p className='text-sm text-tenue -mt-1'>{col.blurb}</p>
         <div className='grid grid-cols-3 gap-2'>
