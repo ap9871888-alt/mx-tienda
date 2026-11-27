@@ -56,7 +56,7 @@ function Proyectos () {
     <>
       <Card>
         <div className='flex items-center gap-3'><img src={assetUrl('ui/ic-dinero.webp')} alt='' className='w-14 h-14 object-contain' />
-          <p className='text-sm'>Emprendedores te buscan para financiar sus ideas. Algunos multiplican tu dinero varias veces; otros lo pierden todo. Cada semana aparecen nuevas.</p></div>
+          <p className='text-sm'>Emprendedores te buscan para financiar sus ideas. Algunos multiplican tu dinero varias veces; otros lo pierden todo. <b>Los grandes éxitos salen a la Bolsa MX</b> y te dan acciones. Cada semana aparecen nuevas.</p></div>
       </Card>
       {open.map(d => {
         const sc = dealScores(d); const pre = Math.round(d.ask / (d.pct / 100) - d.ask)
@@ -83,7 +83,8 @@ function Proyectos () {
             <div key={d.id} className='py-2 border-t border-borde first:border-t-0'>
               <div className='flex justify-between text-sm'><b>{d.name}</b><span className='num'>{fmtK(d.ask)}</span></div>
               <div className='flex gap-1 mt-1'>{E.DEAL_STAGES.map((n, k) => <span key={n} className={`flex-1 text-[10px] text-center font-bold rounded py-0.5 ${k <= d.stage ? 'bg-oferta' : 'bg-borde text-tenue'}`}>{n}</span>)}</div>
-              {d.result != null && <span className={`text-xs font-bold ${d.result >= 1 ? 'text-ahorro' : 'text-rojo'}`}>{d.result >= 1 ? `Éxito: ×${d.result} (${fmtK(d.ask * d.result)})` : d.result === 0 ? 'Cerró: perdiste la inversión' : `Recuperaste ${Math.round(d.result * 100)} %`}</span>}
+              {d.ipo && <button onClick={() => useApp.getState().setTab('bolsa')} className='mt-1 text-xs font-bold bg-ahorro text-white rounded-full px-2 py-0.5 inline-flex items-center gap-1'><img src={assetUrl('ui/pi-certificado_acciones.webp')} alt='' className='w-4 h-4' />Cotiza en Bolsa MX · ver acciones ›</button>}
+              {d.result != null && !d.ipo && <span className={`text-xs font-bold ${d.result >= 1 ? 'text-ahorro' : 'text-rojo'}`}>{d.result >= 1 ? `Éxito: ×${d.result} (${fmtK(d.ask * d.result)})` : d.result === 0 ? 'Cerró: perdiste la inversión' : `Recuperaste ${Math.round(d.result * 100)} %`}</span>}
             </div>
           ))}
         </Card>
@@ -508,7 +509,7 @@ export function Mundo () {
           {w.works.map(o => {
             const col = cityOf(o.city).colonies.find(c => c.id === o.colony)
             return <div key={o.id} className='py-2 border-t border-borde first:border-t-0'>
-              <b className='text-sm block'>🚧 {o.name} · {col?.name}</b>
+              <b className='text-sm flex items-center gap-1.5'><img src={assetUrl('kit/vida/trabajador_obra_0.webp')} alt='' className='h-6' />{o.name} · {col?.name}</b>
               <div className='flex gap-1 mt-1'>{o.stages.map((st, k) => <span key={k} className={`flex-1 text-[10px] text-center font-bold rounded py-0.5 ${k <= o.stage ? 'bg-oferta text-urbano' : 'bg-borde text-tenue'}`}>{st}</span>)}</div>
               {o.stage < o.stages.length - 1 && <span className='text-[11px] text-tenue'>Siguiente etapa en {Math.max(0, o.next - day)} días</span>}
             </div>
@@ -535,7 +536,7 @@ export function Laboratorio () {
       <Card>
         <p className='text-sm'>Invierte en ideas propias. Cada invento tarda unos días y puede salir bien (te da una ventaja para siempre) o fallar (pierdes lo invertido y puedes reintentar).</p>
         {act && <div className='rounded-xl bg-oferta/25 border border-oferta p-3'>
-          <b className='text-sm'>🔬 Desarrollando: {act.name}</b>
+          <b className='text-sm flex items-center gap-1.5'><img src={assetUrl('ui/pi-matraz_laboratorio.webp')} alt='' className='h-6' />Desarrollando: {act.name}</b>
           <Bar value={1 - Math.max(0, L.active!.end - day) / act.days} color='#F2B705' />
           <span className='text-xs text-tenue'>Listo en {Math.max(0, L.active!.end - day)} días · probabilidad de éxito {Math.round(act.chance * 100)} %</span>
         </div>}

@@ -149,8 +149,8 @@ export const CHARACTERS: { id: string; name: string; img?: string; skin?: string
 ]
 // capital inicial: los dos primeros son gratis; el modo inversionista se desbloquea con un pago único
 const CAPITALS = [
-  { id: 'calle', label: 'Desde la calle', amount: 6000, desc: 'Ciudad al azar y un puesto ambulante. El reto real.', icon: '🛒' },
-  { id: 'normal', label: 'Emprendedor', amount: 500000, desc: 'Tu tiendita en la CDMX con ahorros y un crédito.', icon: '🏪' }
+  { id: 'calle', label: 'Desde la calle', amount: 6000, desc: 'Ciudad al azar y un puesto ambulante. El reto real.', icon: 'ui/logo-carrito.webp' },
+  { id: 'normal', label: 'Emprendedor', amount: 500000, desc: 'Tu tiendita en la CDMX con ahorros y un crédito.', icon: 'ui/ic-tiendas.webp' }
 ]
 // paquetes de inversionista: mientras más grande, más rinde cada peso y trae extras
 // (precio por millón: 10M $2.00 · 20M $1.75 · 40M $1.50 · 80M $1.24 · 100M $1.19)
@@ -220,7 +220,7 @@ function NuevaEmpresa ({ onBack }: { onBack: () => void }) {
     { t: 'Capital', body: <>      <Section t='Capital inicial'>
         {CAPITALS.map(c => (
           <button key={c.id} onClick={() => setCap(c.id)} className={`${card(cap === c.id)} p-3 flex items-center gap-3 text-left`}>
-            <span className='text-3xl'>{c.icon}</span><span className='flex-1'><b className='block'>{c.label} · ${c.amount.toLocaleString('es-MX')}</b><span className='text-xs text-tenue'>{c.desc}</span></span>
+            <img src={assetUrl(c.icon)} alt='' className='w-10 h-10 object-contain' /><span className='flex-1'><b className='block'>{c.label} · ${c.amount.toLocaleString('es-MX')}</b><span className='text-xs text-tenue'>{c.desc}</span></span>
           </button>))}
         <div className={`${card(cap === 'vip')} p-3 flex flex-col gap-2`}>
           <button onClick={() => (premium ? setCap('vip') : setPay(true))} className='flex items-center gap-3 text-left'>

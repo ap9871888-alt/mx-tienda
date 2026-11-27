@@ -36,6 +36,7 @@ export interface WorldState {
 export interface AngelDeal {
   id: string; name: string; idea: string; founder: string; ask: number; pct: number; risk: number
   stage: number; next: number; invested: boolean; result: number | null; expires: number
+  ipo?: string // si salió a la Bolsa: id de su acción
 }
 export const DEAL_STAGES = ['Idea', 'Prototipo', 'Lanzamiento', 'Crecimiento', 'Resultado']
 
@@ -172,14 +173,17 @@ const IDEAS = [
   ['PaseCar', 'renta de autos entre vecinos'], ['Nopalia', 'snacks saludables de nopal'], ['Tianguis Online', 'marketplace de tianguis'],
   ['ChambaYa', 'bolsa de trabajo para jóvenes'], ['MezcalHub', 'exportación de mezcal artesanal'], ['EcoBolsa', 'bolsas compostables para tiendas'],
   ['Carrera de Muertos', 'carrera nocturna de Día de Muertos en la capital'], ['CasaInversor', 'casas compartidas para inversionistas'], ['VerdeFarm', 'huertos verticales en azoteas'],
-  ['PagoBarrio', 'pagos con celular para tienditas'], ['DronExpress', 'entregas con drones en colonias'], ['Cafecito MX', 'cafeterías en estaciones del Metro']
+  ['PagoBarrio', 'pagos con celular para tienditas'], ['TianguisApp', 'pedidos en línea a los tianguis'], ['TacoTech', 'franquicia de taquerías con cocina automática'],
+  ['AguaLimpia', 'purificadoras de agua por colonia'], ['SolarCasa', 'paneles solares a meses'], ['Lavamático', 'lavanderías de autoservicio'], ['BiciRuta', 'reparto en bicicleta eléctrica'],
+  ['Abarrotech', 'inventario inteligente para tienditas'], ['MercaFresco', 'fruta y verdura directo del campo'], ['ChambaYa', 'empleos por hora en el barrio'], ['ClínicaBarrio', 'consultorios de bajo costo'],
+  ['EduMX', 'clases en línea para preparatoria'], ['ReciclaMX', 'reciclaje con pago al vecino'], ['DronExpress', 'entregas con drones en colonias'], ['Cafecito MX', 'cafeterías en estaciones del Metro']
 ]
 const FOUNDERS = ['Andrea', 'Luis', 'Mariana', 'Jorge', 'Fernanda', 'Diego', 'Ximena', 'Rodrigo', 'Valeria', 'Emilio']
 export function worldDeals (s: GameState) {
   const w = initWorld(s); const day = Math.floor(s.minute / 1440)
   w.deals ??= []
   // nuevas propuestas de vez en cuando (más grandes si tu empresa es grande)
-  if (w.deals.filter(d => !d.invested && d.result == null && d.expires > day).length < 3 && nextRandom(s) < 1 / 6) {
+  if (w.deals.filter(d => !d.invested && d.result == null && d.expires > day).length < 5 && nextRandom(s) < 1 / 4) {
     const [name, idea] = pick(s, IDEAS); const scale = Math.max(1, Math.min(20, s.cash / 1_000_000))
     const ask = Math.round((150000 + nextRandom(s) * 600000) * scale / 10000) * 10000
     w.seq++
@@ -193,7 +197,19 @@ export function worldDeals (s: GameState) {
       news(s, `${d.name} avanza a la etapa de ${DEAL_STAGES[d.stage].toLowerCase()}`, 'info')
     } else {
       const mult = nextRandom(s) < d.risk ? +(nextRandom(s) * 0.8).toFixed(2) : +(1.5 + nextRandom(s) * 6 * (1 + d.risk)).toFixed(1)
-      d.result = mult; s.cash += d.ask * mult
+      d.result = mult
+      if (mult >= 2.5) {
+        // los grandes éxitos salen a la Bolsa MX: recibes acciones en lugar de efectivo
+        const w2 = initWorld(s); w2.seq++
+        const ticker = d.name.normalize('NFD').replace(/[^A-Za-z]/g, '').slice(0, 4).toUpperCase()
+        const c: WorldCompany = { id: `w${w2.seq}`, name: d.name, ticker, sector: 'Startup', vol: 0.03 + d.risk * 0.03, drift: 0.06 + nextRandom(s) * 0.2, day }
+        const price = Math.round(10 + nextRandom(s) * 30); const stocks = s.stocks ?? {}
+        stocks[c.id] = { price, hist: [price], shares: Math.round(d.ask * mult / price), cost: d.ask }; s.stocks = stocks
+        w2.companies.push(c); d.ipo = c.id
+        news(s, `🔔 ¡${d.name} sale a la Bolsa MX como ${ticker}! Tus acciones valen ${Math.round(d.ask * mult).toLocaleString('es-MX')} (×${mult}). Véndelas cuando quieras en Bolsa MX`, 'good')
+        continue
+      }
+      s.cash += d.ask * mult
       news(s, mult >= 1 ? `¡${d.name} fue un éxito! Tu inversión se multiplicó ×${mult}` : `${d.name} no despegó: recuperaste solo ${Math.round(mult * 100)} %`, mult >= 1 ? 'good' : 'bad')
     }
   }
