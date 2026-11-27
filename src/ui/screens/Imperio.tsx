@@ -3,8 +3,9 @@ import * as E from '../../engine'
 import { useApp, fmt, fmtK } from '../../state/store'
 import { assetUrl } from '../../renderer/assets'
 import { Card, Btn, Bar, Kpi, Modal } from '../components/kit'
-import { MILESTONES, DIRECTORS, SOCIAL_PROGRAMS, DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, IPO } from '../../data/empire'
+import { SEASONS, MILESTONES, DIRECTORS, SOCIAL_PROGRAMS, DILEMMAS, INVESTORS, STATUS_ITEMS, STOCKS, STOCK_FEE, IPO } from '../../data/empire'
 import { cityOf } from '../../data/cities'
+import { formatOf } from '../../data/formats'
 import { Spark } from './Corporativo'
 import { Avatar } from '../Avatar'
 import { sfx } from '../sound'
@@ -315,7 +316,8 @@ export function Calendario () {
   const Row = ({ name, tip, mult, city, when }: { name: string; tip: string; mult: number; city?: string; when?: string }) => (
     <div className={`flex items-center gap-3 py-2 border-t border-borde first:border-t-0 ${city && !mine.has(city) ? 'opacity-60' : ''}`}>
       <span className={`w-12 text-center text-xs font-black rounded-lg py-1 ${mult >= 0 ? 'bg-ahorro/15 text-ahorro' : 'bg-rojo/15 text-rojo'}`}>{mult >= 0 ? '+' : ''}{Math.round(mult * 100)} %</span>
-      <div className='flex-1 min-w-0'><b className='text-sm block'>{name}{city ? ` · ${cityOf(city).name}` : ''}</b><span className='text-xs text-tenue'>{when ? `${when} · ` : ''}{tip}</span></div>
+      <div className='flex-1 min-w-0'><b className='text-sm block'>{name}{city ? ` · ${cityOf(city).name}` : ''}</b><span className='text-xs text-tenue'>{when ? `${when} · ` : ''}{tip}</span>
+        {(() => { const f = SEASONS.find(x => x.name === name)?.formats; return f ? <span className='flex flex-wrap gap-1 mt-0.5'>{Object.entries(f).map(([k, v]) => <span key={k} className='inline-flex items-center gap-0.5 text-[10px] font-bold bg-oferta/25 rounded-full pl-0.5 pr-1.5'><img src={assetUrl(`ui/${k}.webp`)} alt='' className='w-4 h-4 object-contain' />{formatOf(k as never).name.split(' ')[0]} +{Math.round(v * 100)} %</span>)}</span> : null })()}</div>
     </div>
   )
   return (

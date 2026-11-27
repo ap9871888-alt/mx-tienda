@@ -1,22 +1,22 @@
 // Contenido de "Imperio MX": temporadas, dilemas, inversionistas, estilo de vida y Bolsa MX. Todo ficticio.
 
 // Calendario mexicano de temporadas (MM-DD). mult sube o baja el tráfico; tourism se suma en ciudades turísticas
-export interface Season { id: string; name: string; from: string; to: string; mult: number; tourism?: number; tip: string }
+export interface Season { id: string; name: string; from: string; to: string; mult: number; tourism?: number; tip: string; formats?: Record<string, number> } // formats: empujón extra por tipo de negocio
 export const SEASONS: Season[] = [
-  { id: 'reyes', name: 'Día de Reyes', from: '01-04', to: '01-07', mult: 0.12, tip: 'Rosca, chocolate y leche vuelan' },
-  { id: 'cuesta', name: 'Cuesta de enero', from: '01-08', to: '01-31', mult: -0.1, tip: 'La gente cuida el gasto tras las fiestas' },
-  { id: 'valentin', name: 'San Valentín', from: '02-12', to: '02-14', mult: 0.1, tip: 'Dulces y botanas suben' },
+  { id: 'reyes', name: 'Día de Reyes', from: '01-04', to: '01-07', mult: 0.12, tip: 'Rosca, chocolate y leche vuelan', formats: { panaderia: 0.6 } },
+  { id: 'cuesta', name: 'Cuesta de enero', from: '01-08', to: '01-31', mult: -0.1, tip: 'La gente cuida el gasto tras las fiestas', formats: { farmacia: 0.15 } },
+  { id: 'valentin', name: 'San Valentín', from: '02-12', to: '02-14', mult: 0.1, tip: 'Dulces y botanas suben', formats: { papeleria: 0.3, panaderia: 0.2 } },
   { id: 'santa', name: 'Semana Santa', from: '03-28', to: '04-12', mult: -0.05, tourism: 0.35, tip: 'Playas llenas, ciudades vacías' },
-  { id: 'nino', name: 'Día del Niño', from: '04-28', to: '04-30', mult: 0.1, tip: 'Dulces, paletas y helados' },
-  { id: 'madres', name: 'Día de las Madres', from: '05-08', to: '05-10', mult: 0.15, tip: 'Pan, pastel y refrescos' },
+  { id: 'nino', name: 'Día del Niño', from: '04-28', to: '04-30', mult: 0.1, tip: 'Dulces, paletas y helados', formats: { paleteria: 0.4, papeleria: 0.15 } },
+  { id: 'madres', name: 'Día de las Madres', from: '05-08', to: '05-10', mult: 0.15, tip: 'Pan, pastel y refrescos', formats: { panaderia: 0.45, papeleria: 0.2 } },
   { id: 'mundial', name: 'Partidos de la Selección', from: '06-15', to: '07-10', mult: 0.12, tip: 'Botanas y cerveza sin alcohol en cada partido' },
-  { id: 'verano', name: 'Vacaciones de verano', from: '07-11', to: '08-20', mult: 0, tourism: 0.3, tip: 'Turismo alto en playas y ciudades coloniales' },
-  { id: 'clases', name: 'Regreso a clases', from: '08-21', to: '09-05', mult: 0.08, tip: 'Lunch, agua y papelería' },
-  { id: 'patrias', name: 'Fiestas Patrias', from: '09-13', to: '09-16', mult: 0.15, tip: 'Antojitos y refrescos para el grito' },
-  { id: 'muertos', name: 'Día de Muertos', from: '10-28', to: '11-02', mult: 0.12, tourism: 0.25, tip: 'Pan de muerto y turismo en Oaxaca' },
-  { id: 'buenfin', name: 'El Buen Fin', from: '11-14', to: '11-17', mult: 0.2, tip: 'Todo el país sale de compras' },
-  { id: 'guadalupe', name: 'Maratón Guadalupe-Reyes', from: '12-12', to: '12-23', mult: 0.15, tip: 'Posadas, piñatas y ponche' },
-  { id: 'navidad', name: 'Navidad y Año Nuevo', from: '12-24', to: '01-03', mult: 0.18, tourism: 0.3, tip: 'Las ventas del año' }
+  { id: 'verano', name: 'Vacaciones de verano', from: '07-11', to: '08-20', mult: 0, tourism: 0.3, tip: 'Turismo alto en playas y ciudades coloniales', formats: { paleteria: 0.35, fruteria: 0.15 } },
+  { id: 'clases', name: 'Regreso a clases', from: '08-21', to: '09-05', mult: 0.08, tip: 'Lunch, agua y papelería', formats: { papeleria: 0.9, ferreteria: 0.1 } },
+  { id: 'patrias', name: 'Fiestas Patrias', from: '09-13', to: '09-16', mult: 0.15, tip: 'Antojitos y refrescos para el grito', formats: { taqueria: 0.3, fruteria: 0.1 } },
+  { id: 'muertos', name: 'Día de Muertos', from: '10-28', to: '11-02', mult: 0.12, tourism: 0.25, tip: 'Pan de muerto y turismo en Oaxaca', formats: { panaderia: 0.7, fruteria: 0.25 } },
+  { id: 'buenfin', name: 'El Buen Fin', from: '11-14', to: '11-17', mult: 0.2, tip: 'Todo el país sale de compras', formats: { ferreteria: 0.35 } },
+  { id: 'guadalupe', name: 'Maratón Guadalupe-Reyes', from: '12-12', to: '12-23', mult: 0.15, tip: 'Posadas, piñatas y ponche', formats: { panaderia: 0.25, fruteria: 0.3 } },
+  { id: 'navidad', name: 'Navidad y Año Nuevo', from: '12-24', to: '01-03', mult: 0.18, tourism: 0.3, tip: 'Las ventas del año', formats: { panaderia: 0.3, farmacia: 0.15, ferreteria: 0.1 } }
 ]
 export const SEASON_ICON: Record<string, string> = { reyes: 'reyes', cuesta: 'reyes', valentin: 'valentin', santa: 'santa', nino: 'nino', madres: 'madres', mundial: 'mundial', verano: 'santa', clases: 'clases', patrias: 'patrias', muertos: 'muertos', buenfin: 'buenfin', guadalupe: 'guadalupe', navidad: 'navidad' }
 

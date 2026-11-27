@@ -7,6 +7,15 @@ import { ECONOMY } from '../data/economy'
 import { VOLUME_DISCOUNT, CEDIS, PRIVATE_LABELS, LABEL_COST_FACTOR, LABEL_LOYALTY } from '../data/logistics'
 import type { Store, CatMap, GameState } from './types'
 import { upkeepMult } from './upkeep'
+import { SEASONS } from '../data/empire'
+// temporadas que favorecen a ciertos negocios (pan de muerto, regreso a clases, rosca de reyes…)
+function seasonFormatMult (g: GameState | null | undefined, store: Store) {
+  if (!g) return 1
+  const d = new Date(Date.UTC(2027, 0, 1 + Math.floor(g.minute / 1440))); const md = `${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+  let k = 1
+  for (const s of SEASONS) { const on = s.from <= s.to ? md >= s.from && md <= s.to : md >= s.from || md <= s.to; if (on && s.formats?.[store.formatId]) k *= 1 + s.formats[store.formatId] }
+  return k
+}
 import { effectiveTraffic, effectiveWealth, effectiveCompetition } from './market'
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
@@ -78,7 +87,7 @@ export function labelLoyalty (g: GameState | null | undefined, store: Store) {
 export function arrivalsPerHour (store: Store, hour: number, dayMult: number, g?: GameState | null) {
   if (!isOpen(store, hour)) return 0
   const f = formatOf(store.formatId)
-  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * 1.3 * (1 + 0.08 * (store.remodel ?? 0)) * (store.works ? 0.6 : 1) * (g?.lab?.done.includes('app') ? 1.06 : 1) * (g?.lab?.done.includes('lealtad') ? 1.04 : 1) * (store.equipment?.includes('atm') ? 1.05 : 1) * upkeepMult(g, store) * dayMult *
+  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * 1.3 * (1 + 0.08 * (store.remodel ?? 0)) * (store.works ? 0.6 : 1) * (g?.lab?.done.includes('app') ? 1.06 : 1) * (g?.lab?.done.includes('lealtad') ? 1.04 : 1) * (store.equipment?.includes('atm') ? 1.05 : 1) * upkeepMult(g, store) * seasonFormatMult(g, store) * dayMult *
     (1 - effectiveCompetition(g, store.cityId, store.colonyId) * 0.3) *
     reputationFactor(store.reputation) * priceAttraction(store, g) * cannibalization(g, store) * labelLoyalty(g, store)
 }
