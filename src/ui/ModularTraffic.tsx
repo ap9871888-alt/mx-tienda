@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
 import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, POTHOLES, alongPeriferico, DECK, blocked } from './modular'
 
-const SKINS = ['px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
+const SKINS = ['px:microbus', 'px:camion_rtp', 'px:microbus', 'px:pipa_gas', 'px:camion_basura', 'px:ambulancia', 'px:trolebus', 'px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
 // láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
 type Face = 'SE' | 'SW' | 'NE' | 'NW'
 const OLD: Record<Face, string> = { SE: 'se', SW: 'sw', NE: 'nw', NW: 'ne' }
@@ -12,6 +12,9 @@ const PX_VIEW: Record<string, Record<Face, string>> = {
   taxi_rosa: OLD, patrulla: OLD, camion_reparto: OLD,
   metrobus_rojo: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' },
   moto_repartidor: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' },
+  camion_rtp: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' }, trolebus: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' },
+  ambulancia: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' }, camion_basura: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' },
+  pipa_gas: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' }, microbus: { SE: 'se', SW: 'sw', NE: 'ne', NW: 'nw' },
   vocho_verde: { SE: 'sw', SW: 'se', NE: 'ne', NW: 'nw' }
 }
 // semáforos: cada 7 s cambia qué eje tiene verde
@@ -191,7 +194,7 @@ function drawCar (ctx: CanvasRenderingContext2D, c: Car, x: number, y: number, n
     const face = c.axis === 'x' ? (c.dir > 0 ? 'SE' : 'NW') : (c.dir > 0 ? 'SW' : 'NE')
     const name = c.skin.slice(3); const im = sprite(`kit/px/${name}_${PX_VIEW[name][face]}.webp`)
     if (!im) return
-    const w = (name === 'metrobus_rojo' ? 0.95 : name === 'moto_repartidor' ? 0.26 : name === 'camion_reparto' ? 0.52 : 0.44) * TW; const h = w * im.height / im.width
+    const w = (name === 'metrobus_rojo' ? 0.95 : /camion_rtp|trolebus/.test(name) ? 0.7 : /basura|pipa|microbus/.test(name) ? 0.55 : name === 'ambulancia' ? 0.48 : name === 'moto_repartidor' ? 0.26 : name === 'camion_reparto' ? 0.52 : 0.44) * TW; const h = w * im.height / im.width
     ctx.drawImage(im, x - w / 2, y - h * 0.75, w, h)
     return
   }
