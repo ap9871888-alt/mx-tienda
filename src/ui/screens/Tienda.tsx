@@ -55,6 +55,28 @@ export function Tienda () {
       </div>
 
       {sub === 'resumen' && <Gerente st={st} go={setSub} />}
+      {sub === 'resumen' && <Card title='Promoción'>
+        <div className='flex items-center gap-3'>
+          <img src={assetUrl('ui/px-etiqueta_precio.webp')} alt='' className='w-10 h-10 object-contain' />
+          <p className='flex-1 text-sm'>{E.promoActive(game, st) ? <b className='text-ahorro'>Promoción activa: +25 % de clientes hasta el día {st.promoUntil}</b> : 'Volantes, lona y ofertas: +25 % de clientes durante 3 días.'}</p>
+          <Btn small disabled={E.promoActive(game, st) || game.cash < E.promoCost(st)} onClick={() => run(g => E.startPromo(g, st.id))}>{fmtK(E.promoCost(st))}</Btn>
+        </div>
+        {E.rainToday(day) && <p className='text-xs text-tenue'>Hoy llueve por la tarde: entre 15:00 y 19:00 llega menos gente.</p>}
+      </Card>}
+      {sub === 'resumen' && <Card title='Lo que dicen los clientes'>
+        {E.reviews(st).map((r, i) => <div key={i} className='flex gap-2 items-start text-sm py-1 border-t border-borde first:border-t-0'><img src={assetUrl(`ui/px-cara_${r.stars >= 4 ? 'feliz' : r.stars >= 3 ? 'neutral' : 'triste'}.webp`)} alt='' className='w-6 h-6 object-contain' /><span className='flex-1'>«{r.text}»</span><Stars n={r.stars} /></div>)}
+      </Card>}
+      {sub === 'resumen' && game.stores.length > 1 && <Card title='Para todas tus tiendas'>
+        <div className='grid grid-cols-3 gap-2'>
+          <Btn small kind='ghost' onClick={() => run(g => E.permitsForAll(g))}>Tramitar permisos{E.pendingPermits(game) ? ` (${E.pendingPermits(game)})` : ''}</Btn>
+          <Btn small kind='ghost' onClick={() => run(g => E.cleanAll(g))}>Limpiar sucias</Btn>
+          <Btn small kind='ghost' onClick={() => run(g => { let n = 0; for (const x of g.stores) if (!x.orders.length && E.placeOrder(g, x.id).ok) n++; return n ? { ok: true, msg: `${n} pedidos hechos` } : { ok: false, msg: 'Nada que pedir' } })}>Pedir mercancía</Btn>
+        </div>
+      </Card>}
+      {sub === 'resumen' && <Card fold title='Traspasar este local'>
+        <p className='text-sm'>Vende el local con todo y clientela. Te darían <b>{fmt(E.sellValue(st))}</b> (depende de su reputación y remodelación).</p>
+        <Btn kind='ghost' disabled={game.stores.length < 2} onClick={() => { if (confirm(`¿Traspasar ${E.storeName(st)} por ${fmt(E.sellValue(st))}?`)) run(g => E.sellStore(g, st.id)) }}>Traspasar por {fmtK(E.sellValue(st))}</Btn>
+      </Card>}
       {sub === 'resumen' && (insights.length ? <AnalystCard insights={insights} onApply={i => { if (i.cat && i.margin != null) run(g => { const r = E.setMargin(g, st.id, i.cat!, i.margin!); return { ...r, msg: 'Margen ajustado' } }) }} />
         : <Advisor who='encargado'>Todo en orden en esta tienda. Revisa la fila en las horas pico y que no falte mercancía.</Advisor>)}
       {sub === 'precios' && <PriceWheel st={st} />}

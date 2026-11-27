@@ -52,6 +52,13 @@ export function Corporativo () {
         <span className='text-xs text-tenue'>{ph.next}</span>
       </Card>
 
+      {game.stores.length > 1 && <Card title='Ranking de tiendas · últimos 7 días'>
+        {[...game.stores].map(st => ({ st, p: st.history.slice(-7).reduce((a, h) => a + h.profit, 0) })).sort((a, b) => b.p - a.p).map(({ st, p }, i) => (
+          <button key={st.id} onClick={() => { useApp.getState().selectStore(st.id); useApp.getState().setTab('tienda') }} className='flex items-center gap-2 text-sm py-1 border-t border-borde first:border-t-0 text-left'>
+            <span className={`w-6 h-6 rounded-full grid place-items-center text-[11px] font-black ${i === 0 ? 'bg-oferta' : 'bg-arena'}`}>{i + 1}</span>
+            <span className='flex-1 truncate'>{E.storeShort(st)}{E.isSealed(game, st) ? ' · clausurada' : ''}</span>
+            <span className={`num font-bold ${p >= 0 ? 'text-ahorro' : 'text-rojo'}`}>{fmtK(p)}</span></button>))}
+      </Card>}
       <Card title={last ? `Corte del ${E.dateLabel(last.day).date}` : 'Corte diario'}>
         {last
           ? <div className='text-sm num flex flex-col gap-1'>

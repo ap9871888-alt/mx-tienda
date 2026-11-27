@@ -4,6 +4,7 @@ import { useApp, type Tab } from '../state/store'
 import { assetUrl } from '../renderer/assets'
 import { createPortal } from 'react-dom'
 import { whatToDo } from '../engine'
+import * as E from '../engine'
 import type { GameState } from '../engine/types'
 
 interface Step { text: string; tab?: Tab; done: (g: GameState) => boolean }
@@ -56,6 +57,12 @@ export function GuiaButton () {
               {([['ahora', `Ahora${todos.length ? ` (${todos.length})` : ''}`], ['guia', i >= 0 ? `Guía ${i + 1}/${STEPS.length}` : 'Guía ✓'], ['donde', '¿Dónde está?']] as const).map(([k, l]) => (
                 <button key={k} role='tab' aria-selected={tab === k} onClick={() => setTab(k)} className={`rounded-lg py-2 text-[13px] font-bold ${tab === k ? 'bg-rojo text-white' : ''}`}>{l}</button>))}
             </div>
+            {tab === 'ahora' && game.mission && (() => { const m = game.mission; const p = E.missionProgress(game, m); const day = Math.floor(game.minute / 1440)
+              return <div className='rounded-2xl bg-urbano text-white p-3'>
+                <div className='flex items-center gap-2'><img src={assetUrl('ui/pi-trofeo_dorado.webp')} alt='' className='w-8 h-8' /><b className='flex-1 text-sm'>Misión de la semana: {m.text}</b><span className='text-xs opacity-80'>{Math.max(0, m.until - day)} d</span></div>
+                <div className='h-2 bg-white/20 rounded-full mt-2 overflow-hidden'><div className='h-full bg-oferta' style={{ width: `${Math.min(100, p / m.target * 100)}%` }} /></div>
+                <span className='text-[11px] opacity-85'>{m.kind === 'ventas' ? `${Math.round(p).toLocaleString('es-MX')} de ${m.target.toLocaleString('es-MX')}` : `${Math.round(p)} de ${m.target}`} · premio ${m.reward.toLocaleString('es-MX')}</span>
+              </div> })()}
             {tab === 'ahora' && (todos.length ? todos.map((t, n) => (
               <button key={n} onClick={() => go(t.tab as Tab, t.storeId)} className='bg-white border border-borde rounded-2xl p-3 flex items-center gap-3 text-left active:bg-borde/40'>
                 <img src={assetUrl(`ui/${t.icon}.webp`)} alt='' className='w-10 h-10 object-contain shrink-0' />

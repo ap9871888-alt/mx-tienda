@@ -54,6 +54,9 @@ export interface Store {
   wear?: number // 0–100: desgaste de pintura y fachada
   permits?: Partial<Record<'licencia' | 'proteccion' | 'salud', number>> // día en que queda listo cada trámite
   sealedUntil?: number // clausurada hasta este día
+  promoUntil?: number // promoción activa hasta este día
+  outageDay?: number // día con apagón
+  rentMult?: number // aumentos de renta acumulados
 }
 
 export interface LogEntry { minute: number; text: string; kind: 'info' | 'good' | 'bad' }
@@ -64,6 +67,7 @@ export interface FundState { nav: number; hist: number[]; units: number; investe
 export interface MarketState { colonies: Record<string, ColonyMarket>; rivals: RivalChain[]; funds: Record<string, FundState>; regime: number; insightsDay: number }
 
 export interface GameState {
+  mission?: import('./ops').Mission | null
   version: number
   startYear: number
   cities: string[] // ciudades desbloqueadas

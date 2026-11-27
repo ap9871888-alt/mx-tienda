@@ -36,7 +36,7 @@ function TopBar () {
         <button onClick={() => useApp.getState().setTab('banco')} aria-label='Abrir banco' className={`num font-bold text-[17px] px-3 py-1 rounded-full border-[1.5px] border-oferta whitespace-nowrap min-w-[118px] text-center ${game.cash < 0 ? 'bg-urbano' : 'bg-black/15'}`}>{fmt(game.cash)}<small className='text-[11px] opacity-80 ml-1'>MXN</small></button>
         <div className='flex-1 min-w-0 text-right leading-tight h-[30px] overflow-hidden'>
           <div className='text-[12px] font-semibold num whitespace-nowrap'>{d.date.replace(/ \d{4}$/, '')} · {E.clockLabel(game.minute)}</div>
-          <div className='text-[11px] opacity-85 truncate'>{season ? <><img src={assetUrl(`ui/temp-${SEASON_ICON[season.id]}.webp`)} alt='' className='inline h-3.5 -mt-0.5 mr-0.5' />{season.name}</> : <>{d.weekday}{tags.length ? ` · ${tags.join(' · ')}` : ''}</>}</div>
+          <div className='text-[11px] opacity-85 truncate'>{season ? <><img src={assetUrl(`ui/temp-${SEASON_ICON[season.id]}.webp`)} alt='' className='inline h-3.5 -mt-0.5 mr-0.5' />{season.name}</> : <>{d.weekday}{tags.length ? ` · ${tags.join(' · ')}` : ''}</>}{E.rainToday(E.dayOf(game.minute)) ? ' · lluvia por la tarde' : ''}</div>
         </div>
         <div className='flex bg-black/15 rounded-xl p-0.5' role='group' aria-label='Velocidad'>
           {SPEEDS.map(([v, Icon, l]) => (

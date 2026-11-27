@@ -434,3 +434,18 @@ describe('Mantenimiento y permisos', () => {
     expect(st2.sealedUntil).toBeUndefined()
   })
 })
+
+describe('Operación diaria', () => {
+  it('promoción, traspaso, renta, misiones y reseñas', () => {
+    const { s, st } = withStore()
+    s.cash += 1e6
+    expect(E.startPromo(s, st.id).ok).toBe(true)
+    expect(E.promoActive(s, st)).toBe(true)
+    expect(E.sellStore(s, st.id).ok).toBe(false) // única tienda
+    const b = E.openStore(s, 'cdmx', 'polanco', 'tiendita').data!
+    const cash = s.cash; expect(E.sellStore(s, b.id).ok).toBe(true); expect(s.cash).toBeGreaterThan(cash)
+    for (let i = 0; i < 370; i++) E.advance(s, 1440)
+    expect(st.rentMult ?? 1).toBeGreaterThan(1)
+    expect(E.reviews(st).length).toBeGreaterThan(0)
+  })
+})

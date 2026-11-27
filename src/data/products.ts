@@ -34,6 +34,7 @@ export const EQUIPMENT: EquipDef[] = [
   { id: 'congelador', name: 'Congelador de paletas', cost: 30000, desc: '+18 % helados y paletas', cat: 'botanas', boost: 0.18, only: ['paleteria', 'conveniencia', 'tiendita'] },
   { id: 'atm', name: 'Cajero automático', cost: 90000, desc: '+5 % clientes que entran a retirar' },
   { id: 'farmacia', name: 'Estante de farmacia', cost: 70000, desc: '+8 % en todas las líneas', only: ['bodega', 'conveniencia'] },
-  { id: 'pos', name: 'Caja moderna', cost: 35000, desc: '+12 % rapidez de cobro' }
+  { id: 'pos', name: 'Caja moderna', cost: 35000, desc: '+12 % rapidez de cobro' },
+  { id: 'planta', name: 'Planta de luz', cost: 55000, desc: 'Sigues vendiendo aunque haya apagón' }
 ]
 export const equipFor = (formatId: FormatId) => EQUIPMENT.filter(e => !e.only || e.only.includes(formatId))

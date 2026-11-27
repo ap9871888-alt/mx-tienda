@@ -7,6 +7,7 @@ import { ECONOMY } from '../data/economy'
 import { VOLUME_DISCOUNT, CEDIS, PRIVATE_LABELS, LABEL_COST_FACTOR, LABEL_LOYALTY } from '../data/logistics'
 import type { Store, CatMap, GameState } from './types'
 import { upkeepMult } from './upkeep'
+import { opsMult, rentFactor } from './ops'
 import { SEASONS } from '../data/empire'
 // temporadas que favorecen a ciertos negocios (pan de muerto, regreso a clases, rosca de reyes…)
 function seasonFormatMult (g: GameState | null | undefined, store: Store) {
@@ -87,7 +88,7 @@ export function labelLoyalty (g: GameState | null | undefined, store: Store) {
 export function arrivalsPerHour (store: Store, hour: number, dayMult: number, g?: GameState | null) {
   if (!isOpen(store, hour)) return 0
   const f = formatOf(store.formatId)
-  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * 1.3 * (1 + 0.08 * (store.remodel ?? 0)) * (store.works ? 0.6 : 1) * (g?.lab?.done.includes('app') ? 1.06 : 1) * (g?.lab?.done.includes('lealtad') ? 1.04 : 1) * (store.equipment?.includes('atm') ? 1.05 : 1) * upkeepMult(g, store) * seasonFormatMult(g, store) * dayMult *
+  return effectiveTraffic(g, store.cityId, store.colonyId) * HOUR_PROFILE[hour] * f.capture * 1.3 * (1 + 0.08 * (store.remodel ?? 0)) * (store.works ? 0.6 : 1) * (g?.lab?.done.includes('app') ? 1.06 : 1) * (g?.lab?.done.includes('lealtad') ? 1.04 : 1) * (store.equipment?.includes('atm') ? 1.05 : 1) * upkeepMult(g, store) * seasonFormatMult(g, store) * opsMult(g, store, hour) * dayMult *
     (1 - effectiveCompetition(g, store.cityId, store.colonyId) * 0.3) *
     reputationFactor(store.reputation) * priceAttraction(store, g) * cannibalization(g, store) * labelLoyalty(g, store)
 }
@@ -101,7 +102,7 @@ export function serviceRate (store: Store) {
 export const shelfCapacity = (store: Store) => formatOf(store.formatId).shelfUnits
 export const salaryFor = (stars: number) => ECONOMY.salaryBase + ECONOMY.salaryPerStar * stars
 export function monthlyRent (store: Store) {
-  return formatOf(store.formatId).rent * colonyOf(store.cityId, store.colonyId).rentMult
+  return formatOf(store.formatId).rent * colonyOf(store.cityId, store.colonyId).rentMult * rentFactor(store)
 }
 
 // inventos del laboratorio que afectan a cada tienda (se registran al iniciar el día)
