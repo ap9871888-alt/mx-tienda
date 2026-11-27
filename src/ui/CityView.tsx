@@ -174,6 +174,10 @@ export function CityView () {
   const zoom = (f: number) => { const el = box.current!; const c = cam.current; const ns = c.s * f; const mx = el.clientWidth / 2; const my = el.clientHeight / 2; c.x = mx - (mx - c.x) * ns / c.s; c.y = my - (my - c.y) * ns / c.s; c.s = ns; clamp(); apply() }
 
   const myColor = game.profile?.color ?? '#D63B2F'; const myIcon = game.profile?.icon ?? 'carrito'
+  // eventos del día en el mapa: tianguis y partido los domingos, marcha en Reforma algunos días entre semana
+  const today = E.dayOf(game.minute); const wd = E.dateOfDay(today).getUTCDay()
+  const cityEv = useMemo(() => cityEvents(today, wd), [today, wd])
+  const myShops = useMemo(() => (modItems?.items ?? []).filter(l => l.mine).map(l => { const st = game.stores.find(s => s.id === (l as { storeId?: number }).storeId); return { x: l.x / 100 * W, y: (l.bottom ?? l.y) / 100 * H, rate: Math.min(1, (st?.today.tickets ?? 20) / 150) } }), [modItems, E.dayOf(game.minute), Math.floor(game.minute / 60)]) // eslint-disable-line react-hooks/exhaustive-deps
   // solo se montan los edificios cerca de la pantalla: el iPhone no aguanta cientos de imágenes grandes a la vez
   const vw0 = box.current?.clientWidth ?? innerWidth; const vh0 = box.current?.clientHeight ?? innerHeight; const cc = cam.current
   const vx0 = (-cc.x / cc.s) / W * 100; const vx1 = ((vw0 - cc.x) / cc.s) / W * 100; const vy0 = (-cc.y / cc.s) / H * 100; const vy1 = ((vh0 - cc.y) / cc.s) / H * 100
@@ -186,7 +190,7 @@ export function CityView () {
         {kit && modItems && (
           <div className='absolute inset-0 isolate'>
             <ModularGround kit={kit} night={night} />
-            <ModularTraffic active={useApp.getState().tab === 'calle'} density={prefs.traffic} night={night} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
+            <ModularTraffic active={useApp.getState().tab === 'calle'} density={prefs.traffic} night={night} hour={(game.minute % 1440) / 60} events={cityEv} shops={myShops} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
             {prefs.labels && modItems.labels.map(l => <button key={l.id} onClick={() => setSheet(l.id)} className='absolute z-[2000] -translate-x-1/2 bg-urbano/85 text-white text-[15px] font-bold rounded-full px-3 py-1 shadow-lg whitespace-nowrap active:scale-95' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name} · {E.usedSpace(game, l.id)}/{city.colonies.find(c => c.id === l.id)?.slots} ⓘ</button>)}
             {modItems.items.map((l, j) => near(l) && <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} night={night} />)}
           </div>
@@ -250,6 +254,9 @@ function placeIn (r: { x: number; y: number; w: number; bottom: number }, ed?: s
   const wpx = ed ? Math.min(maxW, (HEIGHTS.find(([re]) => re.test(ed))?.[1] ?? 170) * aspectOf(ed)) : maxW * 0.8
   const f = Math.max(0.35, wpx / (r.w * MW / 100))
   return { ...r, w: wpx / MW * 100, bottom: r.y + (r.bottom - r.y) * Math.min(1, f) }
+}
+export function cityEvents (day: number, wd: number) {
+  return { tianguis: wd === 0, partido: wd === 0 || wd === 6 && day % 2 === 0, marcha: wd >= 1 && wd <= 5 && (day * 7) % 11 === 3 }
 }
 // manzana compuesta que le toca a cada colonia
 const COMPOSITE: Record<string, string> = { polanco: 'manzana_polanco_lujo', santafe: 'manzana_polanco_lujo', centro: 'manzana_centro_historico', roma: 'manzana_roma_condesa', coyoacan: 'manzana_coyoacan_colonial', iztapalapa: 'manzana_iztapalapa_densa' }

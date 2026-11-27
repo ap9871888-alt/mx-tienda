@@ -2,7 +2,7 @@
 // y la gente camina por las banquetas. Cada coche usa la vista correcta según su dirección.
 import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
-import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, POTHOLES, alongPeriferico, DECK, blocked } from './modular'
+import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, REFORMA_TX, POTHOLES, alongPeriferico, DECK, blocked, AREAS } from './modular'
 
 const SKINS = ['px:microbus', 'px:camion_rtp', 'px:microbus', 'px:pipa_gas', 'px:camion_basura', 'px:ambulancia', 'px:trolebus', 'px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
 // láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
@@ -31,7 +31,13 @@ const STILL = ['policia_transito', 'organillero', 'franelero', 'trabajador_obra'
 type Car = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; skin: string; cur?: number; wait?: number; turned?: number }
 type Walker = { axis: 'x' | 'y'; line: number; pos: number; dir: 1 | -1; v: number; who: string; side: number }
 
-export function ModularTraffic ({ night, density = 1, riders = 0, active = true }: { night: boolean; density?: number; riders?: number; active?: boolean }) {
+// eventos de la ciudad que se ven en el mapa
+export interface CityEvents { marcha: boolean; partido: boolean; tianguis: boolean }
+export function ModularTraffic ({ night, density = 1, riders = 0, active = true, hour = 12, events, shops = [] }: { night: boolean; density?: number; riders?: number; active?: boolean; hour?: number; events?: CityEvents; shops?: { x: number; y: number; rate: number }[] }) {
+  // hora pico: más coches de 7 a 9 y de 17 a 20; casi nada de madrugada
+  const rush = hour >= 7 && hour < 9.5 ? 1.5 : hour >= 17 && hour < 20.5 ? 1.6 : hour < 5 ? 0.25 : hour >= 23 ? 0.45 : 1
+  const evRef = useRef(events); evRef.current = events
+  const shopsRef = useRef(shops); shopsRef.current = shops
   const ref = useRef<HTMLCanvasElement>(null)
   const activeRef = useRef(active); activeRef.current = active
   useEffect(() => {
@@ -47,7 +53,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
       return inside(c.axis, c.line, c.pos) ? car() : c
     }
     const inside = (axis: 'x' | 'y', line: number, pos: number) => axis === 'x' ? blocked(pos, line + 0.5) : blocked(line + 0.5, pos)
-    const cars: Car[] = Array.from({ length: Math.round(45 * density) }, car)
+    const cars: Car[] = Array.from({ length: Math.round(45 * density * rush) }, car)
     for (let i = 0; i < riders; i++) { const c = car(); c.skin = 'px:moto_repartidor'; c.v = 3; cars.push(c) }
     // Metrobús: corre sobre Insurgentes en los dos sentidos
     for (let i = 0; i < 4; i++) cars.push({ axis: 'x', line: INSURGENTES_TY, pos: i * NX / 4, dir: i % 2 ? 1 : -1, v: 1.3, skin: 'px:metrobus_rojo' })
@@ -95,6 +101,8 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
         let want = c.v * (0.85 + 0.15 * Math.sin(now / 1500 + c.pos))
         if (POTHOLES.some(h => h.axis === c.axis && h.line === c.line && (h.pos - c.pos) * c.dir > -0.2 && (h.pos - c.pos) * c.dir < 0.5)) want *= 0.3
         for (const o of lanes.get(c.axis + c.line + c.dir)!) if (o !== c) { const d = (o.pos - c.pos) * c.dir; if (d > 0 && d < 0.75) want = Math.min(want, (o.cur ?? 0) * (d < 0.5 ? 0.5 : 1)) }
+        // marcha sobre Reforma: los coches no entran, se dan la vuelta
+        if (evRef.current?.marcha && c.axis === 'y' && c.line === REFORMA_TX && c.skin !== 'px:metrobus_rojo') { c.dir = (c.dir > 0 ? -1 : 1); c.axis = 'x'; c.line = Math.floor(c.pos / P) * P }
         if (c.wait && c.wait > 0) { c.wait -= dt; want = 0 } else if (c.skin === 'px:taxi_rosa' && Math.random() < dt * 0.02) c.wait = 2 + Math.random() * 3
         if (red && gap > 0 && gap < 0.5) want = 0
         c.cur = (c.cur ?? want) + (want - (c.cur ?? want)) * Math.min(1, dt * 3)
@@ -134,6 +142,29 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
         const fc = vy >= 0 ? (vx >= 0 ? 'SE' : 'SW') : (vx >= 0 ? 'NE' : 'NW')
         if (seen(p.x, p.y)) list.push({ y: p.y + 9999, draw: () => drawPx(ctx, f.skin, fc as Face, p.x + ox, p.y + oy - DECK) })
       }
+      const ev = evRef.current
+      // marcha: contingente caminando por Reforma con mantas
+      if (ev?.marcha) for (let k = 0; k < 60; k++) {
+        const t = ((now / 9000 + k / 60) % 1) * (NY - 2) + 1; const p = toScreen(REFORMA_TX + 0.25 + (k % 3) * 0.25, t)
+        if (seen(p.x, p.y)) list.push({ y: p.y, draw: () => drawVida(ctx, ['senora_mandado', 'ninos_uniforme', 'franelero', 'mariachi'][k % 4], Math.floor(now / 200 + k) % 4, p.x, p.y, false) })
+      }
+      // partido en el Azteca: aficionados alrededor del estadio
+      if (ev?.partido) { const az = AREAS.find(a => a.id === 'azteca'); if (az) for (let k = 0; k < 40; k++) {
+        const ang = k / 40 * Math.PI * 2 + now / 20000; const r = az.w * P / 2 + 0.6
+        const p = toScreen(az.bx * P + 1 + az.w * P / 2 + Math.cos(ang) * r, az.by * P + 1 + az.h * P / 2 + Math.sin(ang) * r)
+        if (seen(p.x, p.y)) list.push({ y: p.y, draw: () => drawVida(ctx, k % 3 ? 'ninos_uniforme' : 'vendedor_globos', Math.floor(now / 220 + k) % 4, p.x, p.y, k % 2 === 0) })
+      } }
+      // tianguis: fila de puestos con lonas sobre una calle de Iztapalapa y otra de la Roma
+      if (ev?.tianguis) for (const [lx, ly] of [[9 * P, 8 * P + 1], [5 * P, 10 * P + 1]]) for (let k = 0; k < 3; k++) {
+        const p = toScreen(lx + 0.5, ly + k + 0.5)
+        if (seen(p.x, p.y)) list.push({ y: p.y + 1, draw: () => tianguis(ctx, p.x, p.y, k) })
+      }
+      // clientes entrando y saliendo de tus tiendas (más gente si vende más)
+      for (const sh of shopsRef.current) for (let k = 0; k < Math.min(6, 1 + Math.round(sh.rate * 5)); k++) {
+        const t = (now / 3200 + k / 6) % 1; const back = t > 0.5; const d = back ? (1 - t) * 2 : t * 2
+        const x = sh.x + (k % 2 ? 1 : -1) * (30 + k * 8) * (1 - d); const y = sh.y + 18 + (1 - d) * 22
+        if (seen(x, y)) list.push({ y, draw: () => drawVida(ctx, k % 3 ? 'senora_mandado' : 'ninos_uniforme', Math.floor(now / 170 + k) % 4, x, y, (k % 2 ? 1 : -1) * (back ? -1 : 1) > 0) })
+      }
       for (const s of still) if (seen(s.x, s.y)) list.push({ y: s.y, draw: () => drawVida(ctx, s.who, Math.floor(now / 260 + s.ph) % 4, s.x, s.y, false) })
       // semáforos y farolas en las esquinas de las banquetas
       const g = greenAxis(now / 1000)
@@ -167,7 +198,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true 
     }
     raf = requestAnimationFrame(frame)
     return () => cancelAnimationFrame(raf)
-  }, [night, density, riders])
+  }, [night, density, riders, rush])
   return <canvas ref={ref} className='absolute pointer-events-none' style={{ left: 0, top: 0, width: 0, height: 0 }} aria-hidden />
 }
 
@@ -178,6 +209,13 @@ function glow (c: string) {
   g = document.createElement('canvas'); g.width = g.height = 64
   const x = g.getContext('2d')!; const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)')
   x.fillStyle = gr; x.fillRect(0, 0, 64, 64); glows.set(c, g); return g
+}
+function tianguis (ctx: CanvasRenderingContext2D, x: number, y: number, k: number) {
+  const c = ['#E8473B', '#F2B705', '#2E86DE', '#2E7D5B'][k % 4]
+  ctx.fillStyle = '#8B6B4A'; ctx.fillRect(x - 16, y - 14, 32, 10)
+  ctx.fillStyle = ['#E59A3A', '#D94B3B', '#7DBA4A'][k % 3]; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(x - 12 + i * 6, y - 15, 3, 0, 7); ctx.fill() }
+  ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x - 22, y - 30); ctx.lineTo(x + 22, y - 30); ctx.lineTo(x + 18, y - 22); ctx.lineTo(x - 18, y - 22); ctx.fill()
+  ctx.fillStyle = '#555'; ctx.fillRect(x - 19, y - 24, 2, 18); ctx.fillRect(x + 17, y - 24, 2, 18)
 }
 function drawPole (ctx: CanvasRenderingContext2D, name: string, x: number, y: number, hTiles: number) {
   const im = sprite(`kit/px/${name}.webp`); if (!im) return
