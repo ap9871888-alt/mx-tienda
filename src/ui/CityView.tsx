@@ -175,8 +175,8 @@ export function CityView () {
 
   const myColor = game.profile?.color ?? '#D63B2F'; const myIcon = game.profile?.icon ?? 'carrito'
   // eventos del día en el mapa: tianguis y partido los domingos, marcha en Reforma algunos días entre semana
-  const today = E.dayOf(game.minute); const wd = E.dateOfDay(today).getUTCDay()
-  const cityEv = useMemo(() => cityEvents(today, wd), [today, wd])
+  const today = E.dayOf(game.minute)
+  const cityEv = useMemo(() => E.cityEvents(today), [today])
   const myShops = useMemo(() => (modItems?.items ?? []).filter(l => l.mine).map(l => { const st = game.stores.find(s => s.id === (l as { storeId?: number }).storeId); return { x: l.x / 100 * W, y: (l.bottom ?? l.y) / 100 * H, rate: Math.min(1, (st?.today.tickets ?? 20) / 150) } }), [modItems, E.dayOf(game.minute), Math.floor(game.minute / 60)]) // eslint-disable-line react-hooks/exhaustive-deps
   // solo se montan los edificios cerca de la pantalla: el iPhone no aguanta cientos de imágenes grandes a la vez
   const vw0 = box.current?.clientWidth ?? innerWidth; const vh0 = box.current?.clientHeight ?? innerHeight; const cc = cam.current
@@ -255,9 +255,6 @@ function placeIn (r: { x: number; y: number; w: number; bottom: number }, ed?: s
   const wpx = ed ? Math.min(maxW, (HEIGHTS.find(([re]) => re.test(ed))?.[1] ?? 170) * aspectOf(ed)) : maxW * 0.8
   const f = Math.max(0.35, wpx / (r.w * MW / 100))
   return { ...r, w: wpx / MW * 100, bottom: r.y + (r.bottom - r.y) * Math.min(1, f) }
-}
-export function cityEvents (day: number, wd: number) {
-  return { tianguis: wd === 0, partido: wd === 0 || wd === 6 && day % 2 === 0, marcha: wd >= 1 && wd <= 5 && (day * 7) % 11 === 3 }
 }
 // manzana compuesta que le toca a cada colonia
 const COMPOSITE: Record<string, string> = { polanco: 'manzana_polanco_lujo', santafe: 'manzana_polanco_lujo', centro: 'manzana_centro_historico', roma: 'manzana_roma_condesa', coyoacan: 'manzana_coyoacan_colonial', iztapalapa: 'manzana_iztapalapa_densa' }
@@ -465,7 +462,10 @@ function ColonySheet ({ cityId, colonyId, onClose }: { cityId: string; colonyId:
           {([['Peatones/h', traffic.toLocaleString('es-MX')], ['Poder adq.', `×${wealth.toFixed(2)}`], ['Competencia', `${Math.round(comp * 100)} %`], ['Renta', `×${col.rentMult.toFixed(2)}`]] as const).map(([k, v]) => (
             <div key={k} className='bg-white rounded-xl border border-borde py-2'><b className='block num'>{v}</b><span className='text-[10px] text-tenue'>{k}</span></div>))}
         </div>
-        <p className='text-sm bg-white rounded-xl border border-borde p-2.5'>👥 {who}.</p>
+        <p className='text-sm bg-white rounded-xl border border-borde p-2.5 flex gap-2 items-center'><img src={assetUrl('ui/ic-personal.webp')} alt='' className='w-7 h-7 inline object-contain' />{who}.</p>
+        {(() => { const k = E.eventTraffic(game, colonyId); const ev = E.cityEvents(E.dayOf(game.minute)); if (k === 1) return null
+          const why = k < 1 ? 'marcha en Reforma' : ev.partido && ['coyoacan', 'delvalle'].includes(colonyId) ? 'partido en el Azteca' : 'tianguis'
+          return <p className={`text-sm rounded-xl p-2.5 font-semibold ${k > 1 ? 'bg-ahorro/15 text-ahorro' : 'bg-rojo/10 text-rojo'}`}>Hoy: {why} → {k > 1 ? '+' : ''}{Math.round((k - 1) * 100)} % de gente</p> })()}
         <div className='bg-white rounded-xl border border-borde p-2.5'>
           <div className='flex justify-between text-sm font-semibold'><span>Locales usados</span><span className='num'>{used} / {col.slots}</span></div>
           <div className='h-2.5 bg-borde rounded-full mt-1 overflow-hidden'><div className={`h-full ${free <= 0 ? 'bg-rojo' : 'bg-ahorro'}`} style={{ width: `${Math.min(100, used / col.slots * 100)}%` }} /></div>

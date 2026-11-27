@@ -48,11 +48,25 @@ export function rivalStoresIn (g: GameState | null | undefined, colonyId: string
   if (!g?.market) return 0
   return g.market.rivals.reduce((a, x) => a + (x.stores[colonyId] || 0), 0)
 }
+// eventos de la ciudad que se ven en el mapa y mueven a la gente (CDMX)
+export function cityEvents (day: number) {
+  const wd = new Date(Date.UTC(2027, 0, 1 + day)).getUTCDay()
+  return { tianguis: wd === 0, partido: wd === 0 || (wd === 6 && day % 2 === 0), marcha: wd >= 1 && wd <= 5 && (day * 7) % 11 === 3 }
+}
+// cuánto cambia la gente en una colonia por los eventos del día
+export function eventTraffic (g: GameState | null | undefined, colonyId: string) {
+  if (!g) return 1
+  const e = cityEvents(Math.floor(g.minute / 1440)); let k = 1
+  if (e.marcha && ['centro', 'polanco', 'roma'].includes(colonyId)) k *= 0.85 // Reforma cerrada: menos gente llega
+  if (e.partido && ['coyoacan', 'delvalle'].includes(colonyId)) k *= 1.25 // aficionados rumbo al Azteca
+  if (e.tianguis && ['iztapalapa', 'roma'].includes(colonyId)) k *= 1.12 // el tianguis atrae compradores
+  return k
+}
 export function effectiveTraffic (g: GameState | null | undefined, cityId: string, colonyId: string) {
   const base = colonyById(colonyId).colony.traffic; void cityId
   const m = colonyMarket(g, colonyId)
-  if (!m) return base
-  return base * m.traffic * m.events.reduce((a, e) => a * (1 + e.traffic), 1)
+  if (!m) return base * eventTraffic(g, colonyId)
+  return base * m.traffic * m.events.reduce((a, e) => a * (1 + e.traffic), 1) * eventTraffic(g, colonyId)
 }
 export function effectiveWealth (g: GameState | null | undefined, cityId: string, colonyId: string) {
   const base = colonyById(colonyId).colony.wealth; void cityId

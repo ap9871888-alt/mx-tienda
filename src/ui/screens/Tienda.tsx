@@ -172,12 +172,12 @@ function Interior ({ st }: { st: Store }) {
   const things: [string, number][] = art ? [] : [['anaquel', f.food ? 2 : 4], ['caja', Math.max(1, st.cashiers.length)], ['autocobro', st.selfCheckouts], ['camara', st.security], ['limpieza', st.cleaning]]
   return (
     <Card title={`Interior · ${REMODEL[lvl].name}`}>
-      {art && <div className='relative'><img src={art} alt={`Interior ${REMODEL[lvl].name}`} className='w-full rounded-2xl bg-white' />{lvl >= 1 && <span className='absolute top-2 left-2 bg-oferta text-urbano text-[10px] font-black rounded-full px-2 py-0.5'>✨ {REMODEL[lvl].name.toUpperCase()}</span>}</div>}
+      {art && <div className='relative'><img src={art} alt={`Interior ${REMODEL[lvl].name}`} className='w-full rounded-2xl bg-white' />{lvl >= 1 && <span className='absolute top-2 left-2 bg-oferta text-urbano text-[10px] font-black rounded-full px-2 py-0.5'>{REMODEL[lvl].name.toUpperCase()}</span>}</div>}
       <div className={`relative rounded-2xl ${art ? 'p-1 grid grid-cols-6 gap-1.5' : 'border-4 border-urbano/80 p-3 grid grid-cols-4 gap-2 min-h-[170px]'}`} style={art ? undefined : { background: `repeating-linear-gradient(45deg, ${floor} 0 14px, ${lvl >= 2 ? '#E9E2D6' : '#DCD3C2'} 14px 28px)` }}>
         {things.flatMap(([n, k]) => Array.from({ length: k }, (_, j) => (
           <div key={n + j} className='bg-white/80 rounded-xl grid place-items-center p-1.5 shadow-sm'>{assetUrl(`ui/${n}.webp`) ? <img src={assetUrl(`ui/${n}.webp`)} alt={n} className='w-full aspect-square object-contain' /> : <span className='text-2xl'>📦</span>}</div>
         )))}
-        {lvl >= 1 && !art && <span className='absolute -top-3 left-3 bg-oferta text-urbano text-[10px] font-black rounded-full px-2'>✨ {REMODEL[lvl].name.toUpperCase()}</span>}
+        {lvl >= 1 && !art && <span className='absolute -top-3 left-3 bg-oferta text-urbano text-[10px] font-black rounded-full px-2'>{REMODEL[lvl].name.toUpperCase()}</span>}
       </div>
       <p className='text-xs text-tenue'>Cada remodelación atrae +8 % de clientes y sube la satisfacción. El equipo empuja las ventas de su línea.</p>
       <h3 className='font-bold text-sm'>Equipo</h3>
@@ -190,7 +190,7 @@ function Interior ({ st }: { st: Store }) {
           </div>) })}
       </div>
       {st.works ? <div className='rounded-xl bg-oferta/25 border border-oferta p-3 flex flex-col gap-1.5'>
-        <b className='text-sm'>🚧 En obra: «{REMODEL[st.works.to].name}»</b>
+        <b className='text-sm flex items-center gap-1.5'><img src={assetUrl('kit/vida/trabajador_obra_0.webp')} alt='' className='h-6' />En obra: «{REMODEL[st.works.to].name}»</b>
         <div className='flex gap-1'>{['Demolición', 'Construcción', 'Acabados'].map((n, k) => { const prog = (E.dayOf(game.minute) - st.works!.start) / (st.works!.end - st.works!.start); return <span key={n} className={`flex-1 text-[10px] text-center font-bold rounded py-0.5 ${prog >= k / 3 ? 'bg-oferta' : 'bg-borde text-tenue'}`}>{n}</span> })}</div>
         <span className='text-xs text-tenue'>Reinauguración en {Math.max(0, st.works.end - E.dayOf(game.minute))} días. Mientras tanto entra 40 % menos gente.</span>
       </div> : next ? <div className='rounded-xl border border-dashed border-borde p-3 flex items-center gap-3'>
@@ -222,9 +222,9 @@ function Gerente ({ st, go }: { st: Store; go: (s: 'precios' | 'personal' | 'int
         </div>
       </div>
       <div className='grid grid-cols-3 gap-2'>
-        <Btn small kind={noStaff || queue ? 'primary' : 'ghost'} onClick={() => go('personal')}>👥 Personal</Btn>
+        <Btn small kind={noStaff || queue ? 'primary' : 'ghost'} onClick={() => go('personal')}><img src={assetUrl('ui/ic-personal.webp')} alt='' className='w-5 h-5 inline object-contain' /> Personal</Btn>
         <Btn small kind={low ? 'primary' : 'ghost'} disabled={game.cash < 1000} onClick={() => useApp.getState().run(g => E.placeOrder(g, st.id))}>📦 Pedir</Btn>
-        <Btn small kind='ghost' onClick={() => go('precios')}>🏷️ Precios</Btn>
+        <Btn small kind='ghost' onClick={() => go('precios')}><img src={assetUrl('ui/ic-precios.webp')} alt='' className='w-5 h-5 inline object-contain' /> Precios</Btn>
       </div>
     </Card>
   )

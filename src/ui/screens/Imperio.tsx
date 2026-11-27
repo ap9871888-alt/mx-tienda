@@ -168,7 +168,7 @@ export function Bolsa () {
   return (
     <div className='flex flex-col gap-3'>
       <div className='grid grid-cols-3 bg-white border border-borde rounded-full p-1'>
-        {([['mercado', '📈 Mercado'], ['empresa', '🔔 Tu empresa'], ['grupo', '🏢 Conglomerado']] as const).map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`min-h-[40px] rounded-full text-[13px] font-bold ${tab === k ? 'bg-corp text-white' : 'text-tenue'}`}>{l}</button>)}
+        {([['mercado', 'Mercado'], ['empresa', 'Tu empresa'], ['grupo', 'Conglomerado']] as const).map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`min-h-[40px] rounded-full text-[13px] font-bold ${tab === k ? 'bg-corp text-white' : 'text-tenue'}`}>{l}</button>)}
       </div>
       {tab === 'mercado' ? <Mercado /> : tab === 'empresa' ? <TuEmpresa /> : <Conglomerado />}
     </div>
@@ -252,7 +252,7 @@ function TuEmpresa () {
         <p className='text-sm'>Vende el {Math.round(IPO.float * 100)} % de {game.company} al público y recibe dinero fresco para crecer. Tu empresa tendrá precio de acción todos los días.</p>
         <div className='grid grid-cols-2 gap-2'><Kpi label='Valor estimado' value={fmtK(val)} /><Kpi label='Recaudarías' value={fmtK(val * IPO.float * (1 - IPO.fee))} tone='good' /></div>
         {reasons.length ? <div className='flex flex-col gap-1'>{reasons.map(r => <span key={r} className='text-sm'>⬜ {r}</span>)}</div> : <p className='text-sm font-semibold text-ahorro'>✅ Cumples todos los requisitos</p>}
-        <Btn disabled={reasons.length > 0} onClick={() => { const r = run(g => E.goPublic(g, E.netWorth(g))); if (r?.ok) sfx.bell() }}>🔔 Tocar la campana</Btn>
+        <Btn disabled={reasons.length > 0} onClick={() => { const r = run(g => E.goPublic(g, E.netWorth(g))); if (r?.ok) sfx.bell() }}><img src={assetUrl('ui/pi-campana_notificacion.webp')} alt='' className='w-5 h-5 inline object-contain' /> Tocar la campana</Btn>
       </Card>
     )
   }
@@ -392,7 +392,7 @@ export function MilestoneModal () {
       <div className='w-full max-w-[400px] rounded-3xl overflow-hidden bg-gradient-to-b from-oferta to-[#E0A100] text-urbano shadow-2xl text-center'>
         <div className='p-5 flex flex-col items-center gap-2'>
           <img src={assetUrl('ui/ic-dinero.webp')} alt='' className='w-28 h-28 object-contain animate-[bounce_1.6s_ease-in-out_infinite]' />
-          <span className='text-[11px] font-black tracking-widest'>🎉 META ALCANZADA 🎉</span>
+          <span className='text-[11px] font-black tracking-widest'>META ALCANZADA</span>
           <h2 className='font-display text-3xl uppercase leading-tight'>{m.title}</h2>
           <p className='bg-white/80 rounded-2xl px-3 py-2 text-[15px] font-semibold'>{m.unlock}</p>
           <div className='flex gap-2 w-full mt-1'>
