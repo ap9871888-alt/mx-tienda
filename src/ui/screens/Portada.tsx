@@ -326,6 +326,9 @@ function Logros ({ onClose }: { onClose: () => void }) {
 }
 export function Ajustes ({ onClose }: { onClose: () => void }) {
   const pr = usePrefs()
+  // ¿ya está todo guardado para jugar sin internet?
+  const [off, setOff] = useState<string>('Revisando…')
+  useEffect(() => { (async () => { try { const ks = await caches.keys(); let n = 0; for (const k of ks) if (k.startsWith('tienda-mx-')) n += (await (await caches.open(k)).keys()).length; setOff(n > 300 ? 'Listo: puedes jugar sin internet' : 'Ábrelo una vez con internet para guardarlo') } catch { setOff('Ábrelo desde Safari o Chrome para guardarlo') } })() }, [])
   const [s, setS] = useState(sfxVolume())
   const [vol, setVol] = useState(musicVolume())
   return (
@@ -359,6 +362,11 @@ export function Ajustes ({ onClose }: { onClose: () => void }) {
         <input type='checkbox' checked={pr.petals} onChange={e => setPrefs({ petals: e.target.checked })} className='w-6 h-6 accent-rojo' />
       </label>
       <Btn kind='ghost' onClick={() => { useApp.getState().run(g => { g.tutorial = 0; return { ok: true, msg: 'La guía empieza de nuevo' } }) }}>Reiniciar guía</Btn>
+      <div className='bg-white border border-borde rounded-xl px-3 py-2'>
+        <b className='block'>Jugar sin internet</b>
+        <span className={`text-sm font-semibold ${off.startsWith('Listo') ? 'text-ahorro' : 'text-tenue'}`}>{off}</span>
+        <span className='block text-[11px] text-tenue mt-0.5'>Tip: en Safari toca Compartir → «Agregar a inicio» para abrirlo como app, aun en modo avión.</span>
+      </div>
       <p className='text-xs text-tenue'>Espacio = pausa · los datos se guardan en este dispositivo.</p>
     </Modal>
   )
