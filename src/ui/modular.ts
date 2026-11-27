@@ -22,13 +22,15 @@ export const toTile = (x: number, y: number) => { const a = (x - OX) / (TW / 2);
 export const REFORMA_TX = 20; export const INSURGENTES_TY = 28
 export const REFORMA = INSURGENTES_TY; export const INSURGENTES = REFORMA_TX // nombres viejos usados en el dibujo
 export const isRoad = (tx: number, ty: number) => tx % P === 0 || ty % P === 0
-export const isAvenue = (tx: number, ty: number) => tx === REFORMA_TX || ty === INSURGENTES_TY
+export const isAvenue = (tx: number, ty: number) => EXTRAS && (tx === REFORMA_TX || ty === INSURGENTES_TY)
 
 export type BlockUse = { kind: 'mon'; sprite: string } | { kind: 'civic'; id: string } | { kind: 'park' } | { kind: 'lot'; colony: string } | { kind: 'curve'; sprite: string; colony: string } | { kind: 'area'; id: string }
 export interface CityKit {
   id: string
   blocks: (bx: number, by: number) => BlockUse
   decor: Record<string, string[]> // sprites de relleno por colonia
+  areas?: Area[] // lugares grandes de varias manzanas
+  extras?: boolean // Reforma, Periférico, Canal y Metrobús (solo CDMX)
 }
 
 const MX = (s: string) => `kit/mx/${s}.webp`; const X = (s: string) => `kit/px/${s}.webp`; const C = (s: string) => `kit/comun/${s}.webp`; const K = (s: string) => `kit/cdmx/${s}.webp`; const K2 = (s: string) => `kit/cdmx2/${s}.webp`; const KP = (s: string) => `kit/polanco/${s}.webp`
@@ -73,17 +75,22 @@ const AREAS0: Area[] = [
   { id: 'azteca', bx: 9, by: 12, w: 2, h: 2, ground: 'plaza', items: [[MX('estadio_azteca'), 4.8, 4.8, 5.4], ...ring(2, 2, TREE, 2.6)] },
   { id: 'cu', bx: 6, by: 13, w: 2, h: 2, ground: 'park', items: [[X('04_rectoria_cu'), 2.6, 2.6, 2.4], [MX('biblioteca_central_cu'), 5.8, 5.6, 2.2], ...[[5.6, 1.4], [1.4, 5.6], [3.6, 6.4], [6.4, 3.4]].map(([x, y]) => [TREE, x, y, 0.62] as [string, number, number, number])] }
 ]
-export const AREAS: Area[] = [
+const CDMX_AREAS: Area[] = [
   ...AREAS0.map(a => ({ ...a, bx: a.bx + OFF, by: a.by + OFF })),
   // orilla poniente y sur: corredor verde del Periférico (sin edificios)
   { id: 'periferico_pte', bx: 0, by: 0, w: 1, h: NBY, ground: 'park', items: [] },
   { id: 'periferico_sur', bx: 1, by: NBY - 1, w: NBX - 1, h: 1, ground: 'park', items: [] }
 ]
-const AREA_AT = new Map<string, Area>(); for (const a of AREAS) for (let i = 0; i < a.w; i++) for (let j = 0; j < a.h; j++) AREA_AT.set(`${a.bx + i},${a.by + j}`, a)
+// la ciudad activa: al cambiar de ciudad se cambian sus áreas y sus vialidades especiales
+export let AREAS: Area[] = CDMX_AREAS
+export let EXTRAS = true
+const areaMap = (list: Area[]) => { const m = new Map<string, Area>(); for (const a of list) for (let i = 0; i < a.w; i++) for (let j = 0; j < a.h; j++) m.set(`${a.bx + i},${a.by + j}`, a); return m }
+const AREA_AT = areaMap(CDMX_AREAS)
+export function activateKit (k: CityKit) { AREAS = k.areas ?? []; EXTRAS = !!k.extras }
 // ¿esta calle (mosaico) quedó dentro de un área grande? Los coches no entran ahí
 // Canal Nacional: canal con andador verde que corre por el sur-oriente sobre una calle (los coches no pasan)
 export const CANAL_TX = 10 * P; export const CANAL_TY0 = 9 * P
-const inCanal = (tx: number, ty: number) => tx >= CANAL_TX && tx < CANAL_TX + 1 && ty >= CANAL_TY0 && ty < NY - P
+const inCanal = (tx: number, ty: number) => EXTRAS && tx >= CANAL_TX && tx < CANAL_TX + 1 && ty >= CANAL_TY0 && ty < NY - P
 export const blocked = (tx: number, ty: number) => inCanal(tx, ty) || AREAS.some(a => tx >= a.bx * P + 1 && tx < (a.bx + a.w) * P && ty >= a.by * P + 1 && ty < (a.by + a.h) * P)
 const PARKS = new Set<string>()
 export const WATER: Record<string, 'lago' | 'canal'> = {}
@@ -115,7 +122,7 @@ const CURVES: Record<string, string> = (() => {
 })()
 export const CURVE_SPRITES = [...new Set(Object.values(CURVES))]
 export const CDMX_KIT: CityKit = {
-  id: 'cdmx',
+  id: 'cdmx', areas: CDMX_AREAS, extras: true,
   blocks: (bx, by) => {
     const k = `${bx},${by}`
     if (MON[k]) return { kind: 'mon', sprite: MON[k] }
@@ -138,6 +145,49 @@ export const CDMX_KIT: CityKit = {
   }
 }
 export const KITS: Record<string, CityKit> = { cdmx: CDMX_KIT }
+
+// ---------- cualquier otra ciudad: mismo sistema, plano genérico ----------
+// Centro con plaza mayor (kiosco), su catedral o iglesia, mercado, y las colonias alrededor según su nivel:
+// las de más poder adquisitivo con edificios modernos, las populares con casas de block y tienditas.
+const POOL = {
+  alto: [KP('polanco_residencia_lujo'), KP('polanco_boutique_lujo'), KP('polanco_cafe_bistro'), C('03_departamentos_4_pisos'), C('19_gimnasio_barrio'), C('16_consultorio_medico'), X('02_torre_helipuerto'), K2('hotel_torre_jardin_alberca')],
+  medio: [C('01_casa_2_pisos_zaguan'), C('03_departamentos_4_pisos'), C('09_lavanderia'), C('12_estetica'), X('14_panaderia'), X('13_farmacia_cruz_verde'), X('09_casa_del_valle_2p'), K2('casa_moderna_concreto_madera'), C('07_papeleria'), X('18_escuela_primaria')],
+  popular: [C('02_casa_3_pisos_tinaco'), C('08_tortilleria'), C('13_carniceria'), C('15_vulcanizadora'), C('06_casa_local_comercial'), X('11_casa_block_iztapalapa'), X('12_tiendita_esquina'), K2('bloque_3_casitas_adosadas'), X('15_taqueria_trompo'), C('05_unidad_habitacional_5_pisos')],
+  centro: [X('03_edificio_porfiriano'), X('04_colonial_tezontle'), X('05_vecindad_patio'), K2('hotel_boutique_colonial'), C('11_cocina_economica'), C('06_casa_local_comercial'), X('16_mercado_techado'), C('14_cerrajeria')]
+}
+// monumentos propios de cada ciudad (se agregan cuando haya su paquete de arte)
+const CITY_MON: Record<string, Record<string, string>> = {
+  mer: { '5,4': 'city/mer/mon-catedral.webp', '8,9': 'city/mer/mon-patria.webp', '7,4': 'city/mer/mon-mercado.webp' }
+}
+const generic = new Map<string, CityKit>()
+export function kitFor (city: { id: string; colonies: Colony[] }): CityKit {
+  if (KITS[city.id]) return KITS[city.id]
+  let k = generic.get(city.id); if (k) return k
+  const cx = Math.floor(NBX / 2); const cy = Math.floor(NBY / 2) - 2
+  const areas: Area[] = [{ id: 'plaza', bx: cx, by: cy, w: 2, h: 2, ground: 'plaza', items: [[K('deco_kiosco_jardin'), 4.6, 4.6, 1.6], ...ring(2, 2, JAC, 2.4)] },
+    { id: 'parque', bx: cx - 4, by: cy + 4, w: 2, h: 2, ground: 'park', items: Array.from({ length: 18 }, (_, i) => [i % 3 ? TREE : JAC, 0.8 + (i * 3.1) % 6.4, 0.8 + (i * 1.9) % 6.4, 0.6] as [string, number, number, number]) }]
+  const at0 = areaMap(areas)
+  const mon: Record<string, string> = { [`${cx - 1},${cy}`]: X('17_iglesia_barrio'), [`${cx + 2},${cy + 1}`]: X('16_mercado_techado'), ...(CITY_MON[city.id] ?? {}) }
+  const civ: Record<string, string> = { [`${cx},${cy - 1}`]: 'banco', [`${cx + 1},${cy - 1}`]: 'bolsa', [`${cx - 1},${cy + 1}`]: 'inversion', [`${cx + 2},${cy}`]: 'corporativo', [`${cx - 2},${cy + 2}`]: 'estilo', [`${NBX - 2},${cy + 3}`]: 'logistica', [`${NBX - 2},1`]: 'aeropuerto', [`${cx + 3},${cy - 2}`]: 'central' }
+  // colonias repartidas en anillo alrededor del centro (la más rica al poniente, las populares al oriente)
+  const cols = [...city.colonies].sort((a, b) => b.wealth - a.wealth)
+  const spots = cols.map((_, i) => { const a = Math.PI * (0.75 + 1.5 * i / Math.max(1, cols.length - 1)); return [cx + Math.cos(a) * 4.5, cy + 2 + Math.sin(a) * 5.5] as [number, number] })
+  const near = (bx: number, by: number) => { let b = 0; let bd = Infinity; spots.forEach(([x, y], i) => { const d = (x - bx) ** 2 + (y - by) ** 2; if (d < bd) { bd = d; b = i } }); return Math.hypot(bx - cx, by - cy) < 2.2 ? '__centro' : cols[b].id }
+  const decor: Record<string, string[]> = {}
+  for (const c of cols) decor[c.id] = c.wealth > 1.2 ? POOL.alto : c.wealth < 0.9 ? POOL.popular : POOL.medio
+  decor.__centro = POOL.centro
+  k = {
+    id: city.id, areas, extras: false, decor,
+    blocks: (bx, by) => {
+      const key = `${bx},${by}`
+      if (mon[key]) return { kind: 'mon', sprite: mon[key] }
+      if (civ[key]) return { kind: 'civic', id: civ[key] }
+      if (at0.has(key)) return { kind: 'area', id: at0.get(key)!.id }
+      const c = near(bx, by); return { kind: 'lot', colony: c === '__centro' ? cols[0].id : c }
+    }
+  }
+  generic.set(city.id, k); return k
+}
 
 // posición de una cuadra en % del mundo: centro, punta de abajo y ancho del rombo
 export function blockRect (bx: number, by: number) {
@@ -164,14 +214,14 @@ export const quarters = (bx: number, by: number) => [[0, 0], [1, 0], [0, 1], [1,
 // adornos de la ciudad: palmeras en los camellones y cerros alrededor del valle
 export function scenery () {
   const out: { r: ReturnType<typeof at>; ed: string }[] = []
-  for (let j = 1; j < NY; j++) {
+  if (EXTRAS) for (let j = 1; j < NY; j++) {
     if (j % P === 0 || blocked(REFORMA_TX + 0.5, j + 0.5)) continue
     if (j % 2 === 0) out.push({ r: at(REFORMA_TX + 0.55, j + 0.5, 0.5), ed: K2('veg_palmera_reforma') })
     // Reforma morada: jacarandas en las dos banquetas
     out.push({ r: at(REFORMA_TX - 0.12, j + 0.5, 0.55), ed: MX('jacaranda') }); out.push({ r: at(REFORMA_TX + 1.12, j + 0.5, 0.55), ed: MX('jacaranda') })
   }
   // árboles a lo largo del Canal Nacional
-  for (let j = CANAL_TY0 + 1; j < NY - P; j += 2) out.push({ r: at(CANAL_TX + 0.5, j + 0.5, 0.5), ed: MX(j % 4 ? 'ahuehuete' : 'jacaranda') })
+  if (EXTRAS) for (let j = CANAL_TY0 + 1; j < NY - P; j += 2) out.push({ r: at(CANAL_TX + 0.5, j + 0.5, 0.5), ed: MX(j % 4 ? 'ahuehuete' : 'jacaranda') })
   return out
 }
 
@@ -236,8 +286,8 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
   ctx.fillStyle = 'rgba(233,226,210,.18)'; ctx.fillRect(0, 0, W, H) // bruma ligera: lo lejano se ve más tenue
   rect(0, 0, NX, NY, '#4A4D55')
   // camellones de las avenidas
-  rect(INSURGENTES + 0.44, 0, INSURGENTES + 0.56, NY, '#6FA04A')
-  rect(0, REFORMA + 0.44, NX, REFORMA + 0.56, '#6FA04A')
+  if (EXTRAS) rect(INSURGENTES + 0.44, 0, INSURGENTES + 0.56, NY, '#6FA04A')
+  if (EXTRAS) rect(0, REFORMA + 0.44, NX, REFORMA + 0.56, '#6FA04A')
   // líneas de carril (amarillas al centro) en las calles normales
   for (let i = 0; i < NX; i += P) if (i !== INSURGENTES) line([i + 0.5, 0], [i + 0.5, NY], '#E8C547', 2, [18, 14])
   for (let j = 0; j < NY; j += P) if (j !== REFORMA) line([0, j + 0.5], [NX, j + 0.5], '#E8C547', 2, [18, 14])
@@ -267,7 +317,7 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     ctx.fillStyle = '#2E3036'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 6, 3, 0, 0, 7); ctx.fill(); ctx.strokeStyle = '#6A6D74'; ctx.lineWidth = 1; ctx.stroke()
   }
   // glorietas en fila sobre Reforma, como en la foto satelital
-  for (let j = 0; j < NY; j += P) {
+  if (EXTRAS) for (let j = 0; j < NY; j += P) {
     const g = toScreen(REFORMA_TX + 0.5, j + 0.5); const big = j === INSURGENTES_TY
     ctx.beginPath(); ctx.ellipse(g.x, g.y, TW * (big ? 0.46 : 0.34), TH * (big ? 0.46 : 0.34), 0, 0, 7); ctx.fillStyle = '#6FA04A'; ctx.fill(); ctx.strokeStyle = '#E9E2D2'; ctx.lineWidth = 6; ctx.stroke()
   }
@@ -310,16 +360,16 @@ export function drawGround (ctx: CanvasRenderingContext2D, kit: CityKit, _img: (
     if (a.ground === 'water') for (let k = 0; k < 3; k++) { rect(x0 + 0.4, y0 + 1.1 + k * 2.6, x1 - 0.4, y0 + 1.6 + k * 2.6, '#4FB3C8'); rect(x0 + 1.1 + k * 2.6, y0 + 0.4, x0 + 1.6 + k * 2.6, y1 - 0.4, '#4FB3C8') }
   }
   // Periférico: columnas, calzada de abajo y segundo piso elevado
-  const path = (lift: number) => { ctx.beginPath(); PERIFERICO.forEach(([x, y], i) => { const p = toScreen(x, y); if (i) ctx.lineTo(p.x, p.y - lift); else ctx.moveTo(p.x, p.y - lift) }) }
+  const path = (lift: number) => { ctx.beginPath(); if (!EXTRAS) return; PERIFERICO.forEach(([x, y], i) => { const p = toScreen(x, y); if (i) ctx.lineTo(p.x, p.y - lift); else ctx.moveTo(p.x, p.y - lift) }) }
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'
   path(0); ctx.strokeStyle = '#3E4148'; ctx.lineWidth = 64; ctx.stroke()
   path(0); ctx.strokeStyle = '#E8C547'; ctx.lineWidth = 2; ctx.setLineDash([16, 14]); ctx.stroke(); ctx.setLineDash([])
-  PERIFERICO.forEach(([x, y], i) => { if (i % 5) return; const p = toScreen(x, y); ctx.fillStyle = '#9A958B'; ctx.fillRect(p.x - 5, p.y - DECK, 10, DECK); ctx.fillStyle = '#7E796F'; ctx.fillRect(p.x + 1, p.y - DECK, 4, DECK) })
+  if (EXTRAS) PERIFERICO.forEach(([x, y], i) => { if (i % 5) return; const p = toScreen(x, y); ctx.fillStyle = '#9A958B'; ctx.fillRect(p.x - 5, p.y - DECK, 10, DECK); ctx.fillStyle = '#7E796F'; ctx.fillRect(p.x + 1, p.y - DECK, 4, DECK) })
   path(DECK - 6); ctx.strokeStyle = '#8D877C'; ctx.lineWidth = 50; ctx.stroke() // canto del puente
   path(DECK); ctx.strokeStyle = '#53565D'; ctx.lineWidth = 46; ctx.stroke()
   path(DECK); ctx.strokeStyle = '#EDEDED'; ctx.lineWidth = 2; ctx.setLineDash([14, 12]); ctx.stroke(); ctx.setLineDash([])
   // Canal Nacional: agua con orillas verdes encima de la calle
-  rect(CANAL_TX - 0.05, CANAL_TY0, CANAL_TX + 1.05, NY - P, '#7DB35A'); rect(CANAL_TX + 0.22, CANAL_TY0, CANAL_TX + 0.78, NY - P, '#4FB3C8')
+  if (EXTRAS) rect(CANAL_TX - 0.05, CANAL_TY0, CANAL_TX + 1.05, NY - P, '#7DB35A'); if (EXTRAS) rect(CANAL_TX + 0.22, CANAL_TY0, CANAL_TX + 0.78, NY - P, '#4FB3C8')
   if (night) { // noche: tinte índigo multiplicado (oscurece sin lavar los colores)
     ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(118,128,182)'; ctx.fillRect(0, 0, W, H); ctx.restore()
   }

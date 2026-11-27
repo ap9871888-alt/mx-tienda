@@ -2,7 +2,7 @@
 // y la gente camina por las banquetas. Cada coche usa la vista correcta según su dirección.
 import { useEffect, useRef } from 'react'
 import { sprite } from '../renderer/assets'
-import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, REFORMA_TX, POTHOLES, alongPeriferico, DECK, blocked, AREAS } from './modular'
+import { RES, W, H, P, NX, NY, TW, toScreen, INSURGENTES_TY, REFORMA_TX, POTHOLES, alongPeriferico, DECK, blocked, AREAS, EXTRAS } from './modular'
 
 const SKINS = ['px:microbus', 'px:camion_rtp', 'px:microbus', 'px:pipa_gas', 'px:camion_basura', 'px:ambulancia', 'px:trolebus', 'px:taxi_rosa', 'px:vocho_verde', 'px:vocho_verde', 'px:taxi_rosa', 'sedan-rojo', 'sedan-azul', 'px:camion_reparto', 'pickup', 'px:patrulla', 'px:taxi_rosa', 'sedan-azul']
 // láminas pixel: el nombre del archivo no coincide con hacia dónde mira; esta tabla dice cuál usar
@@ -56,12 +56,12 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true,
     const cars: Car[] = Array.from({ length: Math.round(45 * density * rush) }, car)
     for (let i = 0; i < riders; i++) { const c = car(); c.skin = 'px:moto_repartidor'; c.v = 3; cars.push(c) }
     // Metrobús: corre sobre Insurgentes en los dos sentidos
-    for (let i = 0; i < 4; i++) cars.push({ axis: 'x', line: INSURGENTES_TY, pos: i * NX / 4, dir: i % 2 ? 1 : -1, v: 1.3, skin: 'px:metrobus_rojo' })
+    if (EXTRAS) for (let i = 0; i < 4; i++) cars.push({ axis: 'x', line: INSURGENTES_TY, pos: i * NX / 4, dir: i % 2 ? 1 : -1, v: 1.3, skin: 'px:metrobus_rojo' })
     const walkers: Walker[] = Array.from({ length: Math.round(40 * density) }, () => {
       const axis = rnd() < 0.5 ? 'x' : 'y'; const line = (axis === 'x' ? xs : ys)[Math.floor(rnd() * (axis === 'x' ? xs : ys).length)]
       return { axis, line, pos: rnd() * (axis === 'x' ? NX : NY), dir: rnd() < 0.5 ? 1 : -1, v: 0.3 + rnd() * 0.25, who: PEOPLE[Math.floor(rnd() * PEOPLE.length)], side: rnd() < 0.5 ? -0.13 : 1.13 }
     })
-    const peri = Array.from({ length: Math.round(16 * density) }, (_, i) => ({ t: i / (16 * density), dir: i % 2 ? 1 : -1, v: 0.9 + rnd() * 0.5, skin: ['taxi_rosa', 'vocho_verde', 'camion_reparto', 'patrulla', 'taxi_rosa'][i % 5] }))
+    const peri = Array.from({ length: EXTRAS ? Math.round(16 * density) : 0 }, (_, i) => ({ t: i / (16 * density), dir: i % 2 ? 1 : -1, v: 0.9 + rnd() * 0.5, skin: ['taxi_rosa', 'vocho_verde', 'camion_reparto', 'patrulla', 'taxi_rosa'][i % 5] }))
     // personajes fijos repartidos en banquetas y esquinas (siempre los mismos lugares)
     const still = Array.from({ length: Math.round(26 * density) }, (_, i) => {
       const ax = (i * 7) % 2 === 0; const line = ((i * 5) % Math.floor((ax ? NY : NX) / P)) * P
@@ -102,7 +102,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true,
         if (POTHOLES.some(h => h.axis === c.axis && h.line === c.line && (h.pos - c.pos) * c.dir > -0.2 && (h.pos - c.pos) * c.dir < 0.5)) want *= 0.3
         for (const o of lanes.get(c.axis + c.line + c.dir)!) if (o !== c) { const d = (o.pos - c.pos) * c.dir; if (d > 0 && d < 0.75) want = Math.min(want, (o.cur ?? 0) * (d < 0.5 ? 0.5 : 1)) }
         // marcha sobre Reforma: los coches no entran, se dan la vuelta
-        if (evRef.current?.marcha && c.axis === 'y' && c.line === REFORMA_TX && c.skin !== 'px:metrobus_rojo') { c.dir = (c.dir > 0 ? -1 : 1); c.axis = 'x'; c.line = Math.floor(c.pos / P) * P }
+        if (EXTRAS && evRef.current?.marcha && c.axis === 'y' && c.line === REFORMA_TX && c.skin !== 'px:metrobus_rojo') { c.dir = (c.dir > 0 ? -1 : 1); c.axis = 'x'; c.line = Math.floor(c.pos / P) * P }
         if (c.wait && c.wait > 0) { c.wait -= dt; want = 0 } else if (c.skin === 'px:taxi_rosa' && Math.random() < dt * 0.02) c.wait = 2 + Math.random() * 3
         if (red && gap > 0 && gap < 0.5) want = 0
         c.cur = (c.cur ?? want) + (want - (c.cur ?? want)) * Math.min(1, dt * 3)
@@ -144,7 +144,7 @@ export function ModularTraffic ({ night, density = 1, riders = 0, active = true,
       }
       const ev = evRef.current
       // marcha: contingente caminando por Reforma con mantas
-      if (ev?.marcha) for (let k = 0; k < 60; k++) {
+      if (ev?.marcha && EXTRAS) for (let k = 0; k < 60; k++) {
         const t = ((now / 9000 + k / 60) % 1) * (NY - 2) + 1; const p = toScreen(REFORMA_TX + 0.25 + (k % 3) * 0.25, t)
         if (seen(p.x, p.y)) list.push({ y: p.y, draw: () => drawVida(ctx, ['senora_mandado', 'ninos_uniforme', 'franelero', 'mariachi'][k % 4], Math.floor(now / 200 + k) % 4, p.x, p.y, false) })
       }

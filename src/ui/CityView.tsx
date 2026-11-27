@@ -12,7 +12,7 @@ import { ColonyTraffic } from './ColonyTraffic'
 import { ModularTraffic } from './ModularTraffic'
 import { usePrefs } from './settings'
 import ASPECT from '../data/sprite-aspect.json'
-import { toTile, TW as MTW, TH as MTH, NX as MNX, NY as MNY, RES, CURVE_SPRITES, WATER, AREAS, KITS, W as MW, H as MH, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
+import { toTile, TW as MTW, TH as MTH, NX as MNX, NY as MNY, RES, CURVE_SPRITES, WATER, AREAS, kitFor, activateKit, W as MW, H as MH, NBX, NBY, blockRect, quarters, scenery, at, colonyCenters, drawGround, type CityKit } from './modular'
 import { sprite } from '../renderer/assets'
 import type { Colony } from '../data/cities'
 import type { GameState } from '../engine/types'
@@ -63,7 +63,7 @@ export function CityView () {
   const tiles = Array.from({ length: cols * rows }, (_, k) => city.colonies[k] ?? null)
   const prefs = usePrefs()
   const [sheet, setSheet] = useState<string | null>(null)
-  const kit = KITS[city.id]
+  const kit = kitFor(city); activateKit(kit)
   const full = kit ? undefined : MAPS[`${city.id}-full`]
   const W = kit ? MW : full ? full.w! : cols * TW; const H = kit ? MH : full ? full.h! : rows * TH
   // edificios cívicos: se reparten en las primeras zonas
@@ -190,7 +190,7 @@ export function CityView () {
         {kit && modItems && (
           <div className='absolute inset-0 isolate'>
             <ModularGround kit={kit} night={night} />
-            <ModularTraffic active={useApp.getState().tab === 'calle'} density={prefs.traffic} night={night} hour={(game.minute % 1440) / 60} events={cityEv} shops={myShops} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
+            <ModularTraffic key={city.id} active={useApp.getState().tab === 'calle'} density={prefs.traffic} night={night} hour={(game.minute % 1440) / 60} events={cityEv} shops={myShops} riders={game.stores.filter(s => s.cityId === city.id).reduce((a, s) => a + (s.riders ?? 0), 0)} />
             {prefs.labels && modItems.labels.map(l => <button key={l.id} onClick={() => setSheet(l.id)} className='absolute z-[2000] -translate-x-1/2 bg-urbano/85 text-white text-[15px] font-bold rounded-full px-3 py-1 shadow-lg whitespace-nowrap active:scale-95' style={{ left: `${l.x}%`, top: `${l.y}%` }}>{l.name} · {E.usedSpace(game, l.id)}/{city.colonies.find(c => c.id === l.id)?.slots} ⓘ</button>)}
             {modItems.items.map((l, j) => near(l) && <LotButton key={j} l={l} width='9%' big='9.6%' myColor={myColor} myIcon={myIcon} dy={0} ps={1.4} night={night} />)}
           </div>
@@ -432,7 +432,7 @@ function modularLayout (g: GameState, colonies: Colony[], kit: CityKit, civic: C
         const qs = quarters(bx, by)
         qs.forEach((q, n) => {
           const build = v % 2 ? (n === 0 || n === 3) : (n === 1 || n === 2)
-          if (build) { const ed = decor[(j * 3 + n * 5 + col.id.length) % Math.max(1, decor.length)]; items.push({ ...placeIn(q, ed), ed }) } else { const ed = n % 2 ? 'kit/mx/jacaranda.webp' : (bx + n) % 3 ? 'kit/mx/ahuehuete.webp' : 'kit/cdmx2/veg_jardinera_bugambilias.webp'; items.push({ ...placeIn(q, ed), ed }) }
+          if (build) { const ed = decor[(bx * 7 + by * 13 + n * 5 + ((bx * by) % 3)) % Math.max(1, decor.length)]; items.push({ ...placeIn(q, ed), ed }) } else { const ed = n % 2 ? 'kit/mx/jacaranda.webp' : (bx + n) % 3 ? 'kit/mx/ahuehuete.webp' : 'kit/cdmx2/veg_jardinera_bugambilias.webp'; items.push({ ...placeIn(q, ed), ed }) }
         })
       }
     })
