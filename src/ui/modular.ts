@@ -50,12 +50,12 @@ const MON: Record<string, string> = shift({
   '5,3': MX('torre_latinoamericana'), '4,3': MX('palacio_bellas_artes'), '3,5': X('13_hemiciclo_juarez'),
   '5,5': X('15_mercado_artesanias'), '6,6': X('20_arena_lucha_libre'),
   // Reforma, de la Alameda a Chapultepec
-  '2,5': MX('monumento_revolucion'), '4,5': X('12_senado_moderno'), '4,6': MX('angel_independencia_dia'),
+  '2,5': MX('monumento_revolucion'), '4,5': X('12_senado_moderno'),
   '3,7': MX('torre_reforma'), '3,8': X('11_torre_mayor'), '4,8': K('monumento_estela_luz'),
   // Polanco y museos junto al bosque
   '2,8': MX('museo_antropologia_paraguas'), '1,8': X('17_auditorio_nacional'), '0,6': MX('museo_soumaya'), '1,6': KP('polanco_estanque_lincoln'),
   // sur
-  '5,7': MX('diana_cazadora'), '5,2': MX('casa_azulejos'), '3,2': MX('kiosco_morisco'), '5,11': MX('torre_wtc'), '10,8': MX('cablebus_estacion'),
+  '5,2': MX('casa_azulejos'), '3,2': MX('kiosco_morisco'), '5,11': MX('torre_wtc'), '10,8': MX('cablebus_estacion'),
   '7,8': X('18_hospital_grande'), '6,11': X('16_plaza_toros'), '8,12': X('03_casa_azul_frida')
 })
 const CIVIC: Record<string, string> = shift({
@@ -72,7 +72,7 @@ const AREAS0: Area[] = [
   { id: 'chapultepec', bx: 1, by: 9, w: 3, h: 3, ground: 'park', items: [[MX('castillo_chapultepec'), 8.6, 2.8, 2.6], ...Array.from({ length: 48 }, (_, i) => [i % 5 ? TREE : JAC, 0.7 + (i * 4.7) % 10, 0.7 + (i * 2.3 + Math.floor(i / 5) * 1.1) % 10.4, 0.58] as [string, number, number, number]).filter(([, x, y]) => !(x > 6.5 && y < 5) && !((x - 4.5) ** 2 + (y - 7) ** 2 < 4))] },
   { id: 'parque_mexico', bx: 5, by: 9, w: 1, h: 1, ground: 'park', items: ring(1, 1, JAC, 1.2) },
   { id: 'xochimilco', bx: 9, by: 10, w: 2, h: 2, ground: 'water', items: [[X('07_embarcadero_xochimilco'), 2.4, 2.6, 2.2], [X('09_chinampa_cultivos'), 5.6, 2.2, 1.6], [X('09_chinampa_cultivos'), 2.3, 5.8, 1.6], [X('09_chinampa_cultivos'), 5.8, 5.8, 1.6], [X('08_trajinera_navegando'), 4.0, 4.2, 0.9], [X('08_trajinera_navegando'), 4.1, 1.2, 0.9]] },
-  { id: 'azteca', bx: 9, by: 12, w: 2, h: 2, ground: 'plaza', items: [[MX('estadio_azteca'), 4.8, 4.8, 5.4], ...ring(2, 2, TREE, 2.6)] },
+  { id: 'azteca', bx: 9, by: 12, w: 2, h: 2, ground: 'plaza', items: [[MX('estadio_azteca'), 4.8, 4.9, 4.4], ...ring(2, 2, TREE, 2.6)] },
   { id: 'cu', bx: 6, by: 13, w: 2, h: 2, ground: 'park', items: [[X('04_rectoria_cu'), 2.6, 2.6, 2.4], [MX('biblioteca_central_cu'), 5.8, 5.6, 2.2], ...[[5.6, 1.4], [1.4, 5.6], [3.6, 6.4], [6.4, 3.4]].map(([x, y]) => [TREE, x, y, 0.62] as [string, number, number, number])] }
 ]
 const CDMX_AREAS: Area[] = [
@@ -214,6 +214,8 @@ export const quarters = (bx: number, by: number) => [[0, 0], [1, 0], [0, 1], [1,
 // adornos de la ciudad: palmeras en los camellones y cerros alrededor del valle
 export function scenery () {
   const out: { r: ReturnType<typeof at>; ed: string }[] = []
+  // monumentos de glorieta sobre Reforma: el Ángel (cruce con Insurgentes) y la Diana (hacia Chapultepec)
+  if (EXTRAS) { out.push({ r: at(REFORMA_TX + 0.5, INSURGENTES_TY + 0.62, 0.95), ed: MX('angel_independencia_dia') }); out.push({ r: at(REFORMA_TX + 0.5, INSURGENTES_TY + P + 0.62, 0.95), ed: MX('diana_cazadora') }) }
   if (EXTRAS) for (let j = 1; j < NY; j++) {
     if (j % P === 0 || blocked(REFORMA_TX + 0.5, j + 0.5)) continue
     if (j % 2 === 0) out.push({ r: at(REFORMA_TX + 0.55, j + 0.5, 0.5), ed: K2('veg_palmera_reforma') })
