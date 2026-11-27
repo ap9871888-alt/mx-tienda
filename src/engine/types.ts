@@ -50,6 +50,10 @@ export interface Store {
   reputation: number // 0–5 estrellas
   today: DayStats
   history: DayReport[]
+  dirt?: number // 0–100: suciedad
+  wear?: number // 0–100: desgaste de pintura y fachada
+  permits?: Partial<Record<'licencia' | 'proteccion' | 'salud', number>> // día en que queda listo cada trámite
+  sealedUntil?: number // clausurada hasta este día
 }
 
 export interface LogEntry { minute: number; text: string; kind: 'info' | 'good' | 'bad' }

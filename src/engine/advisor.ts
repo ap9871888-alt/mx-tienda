@@ -5,6 +5,7 @@ import { dateOfDay, dayOf } from './time'
 import { shelfCapacity } from './pricing'
 import { upcomingEvents } from './empire'
 import { storeShort } from './game'
+import { isSealed, missingPermits } from './upkeep'
 import type { GameState } from './types'
 
 export interface Todo { prio: number; icon: string; text: string; tab: string; storeId?: number }
@@ -17,6 +18,10 @@ export function whatToDo (s: GameState): Todo[] {
     if (!st.cashiers.length && !f.ownerSells) out.push({ prio: 95, icon: 'ic-personal', text: `${storeShort(st)} no tiene cajero: nadie puede pagar.`, tab: 'tienda', storeId: st.id })
     if (last && last.abandoned > Math.max(4, last.tickets * 0.08)) out.push({ prio: 80, icon: 'ic-personal', text: `En ${storeShort(st)} se fueron ${last.abandoned} clientes por la fila. Contrata o pon autocobro.`, tab: 'tienda', storeId: st.id })
     if (PRODUCT_CATEGORIES.some(c => st.inventory[c.id] < shelfCapacity(st) * 0.12) && !st.orders.length) out.push({ prio: 75, icon: 'ic-logistica', text: `A ${storeShort(st)} se le acaba la mercancía.`, tab: 'tienda', storeId: st.id })
+    if (isSealed(s, st)) out.push({ prio: 97, icon: 'px-candado', text: `${storeShort(st)} está clausurada. Tramita sus permisos para que no vuelva a pasar.`, tab: 'tienda', storeId: st.id })
+    else if (!f.ownerSells && missingPermits(s, st).some(p => st.permits?.[p.id] == null)) out.push({ prio: 78, icon: 'pi-libreta_tareas', text: `${storeShort(st)} no tiene todos sus permisos: un inspector podría clausurarla.`, tab: 'tienda', storeId: st.id })
+    if ((st.dirt ?? 0) > 55) out.push({ prio: 65, icon: 'px-brillos_nuevo', text: `${storeShort(st)} está sucia y los clientes lo notan: mándala limpiar.`, tab: 'tienda', storeId: st.id })
+    if ((st.wear ?? 0) > 70) out.push({ prio: 40, icon: 'px-cono_obra', text: `La fachada de ${storeShort(st)} se ve vieja: píntala.`, tab: 'tienda', storeId: st.id })
     const week = st.history.slice(-7).reduce((a, h) => a + h.profit, 0)
     if (st.history.length >= 7 && week < 0) out.push({ prio: 60, icon: 'ic-precios', text: `${storeShort(st)} perdió dinero esta semana: revisa precios o equipo.`, tab: 'tienda', storeId: st.id })
   }

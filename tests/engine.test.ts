@@ -414,3 +414,23 @@ describe('Laboratorio y reparto', () => {
     expect(st.deliveries).toBeGreaterThan(0)
   })
 })
+
+describe('Mantenimiento y permisos', () => {
+  it('la tienda se ensucia, se limpia, se pinta y sin permisos la pueden clausurar', () => {
+    const { s, st } = withStore()
+    E.advance(s, 1440 * 5)
+    expect(st.dirt ?? 0).toBeGreaterThan(0)
+    s.cash += 1e6
+    expect(E.deepClean(s, st.id).ok).toBe(true); expect(st.dirt).toBe(0)
+    expect(E.paintStore(s, st.id).ok).toBe(true); expect(st.wear).toBe(0)
+    // sin permisos, en dos meses es casi seguro que llegue el inspector
+    let sealed = false
+    for (let i = 0; i < 120 && !sealed; i++) { E.advance(s, 1440); sealed = st.sealedUntil != null }
+    expect(sealed).toBe(true)
+    // con permisos tramitados ya no la clausuran
+    const { s: s2, st: st2 } = withStore()
+    for (const p of E.PERMITS) expect(E.requestPermit(s2, st2.id, p.id).ok).toBe(true)
+    E.advance(s2, 1440 * 60)
+    expect(st2.sealedUntil).toBeUndefined()
+  })
+})

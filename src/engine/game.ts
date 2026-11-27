@@ -6,6 +6,7 @@ import { ECONOMY } from '../data/economy'
 import { FIRST_NAMES, LAST_NAMES } from '../data/names'
 import { CEDIS, PRIVATE_LABELS, VOLUME_DISCOUNT, type LabelId } from '../data/logistics'
 import { nextRandom, pick, poisson, randInt } from './rng'
+import { upkeepDaily } from './upkeep'
 import { generateMarket, dailyMarket, weeklyMarketAI, fundValue, effectiveWealth, effectiveTraffic, effectiveCompetition } from './market'
 import { dayOf, hourOf, MIN_PER_DAY, dayMultiplier, dateLabel, setEpoch, dateOfDay } from './time'
 import { PRODUCTS, QUALITY, EQUIPMENT } from '../data/products'
@@ -611,6 +612,7 @@ function endOfDay (s: GameState, events: GameEvent[]) {
     log(s, st.remodel ? `✨ ¡Reinauguración! ${storeShort(st)} quedó como nueva` : `🎊 ¡Gran inauguración de ${storeShort(st)}! Abre sus puertas`, 'good', events)
     events.push({ type: 'opening', storeId: st.id })
   }
+  upkeepDaily(s, (t, k) => log(s, t, k, events))
   runDirectors(s, events)
   checkMilestones(s, netWorth(s))
   company.satisfaction = s.stores.length ? s.stores.reduce((a, x) => a + x.satisfaction, 0) / s.stores.length : 0

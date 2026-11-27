@@ -77,6 +77,26 @@ export function Tienda () {
 
       {sub === 'interior' && <Interior st={st} />}
       {sub === 'reparto' && <Reparto storeId={st.id} />}
+      {sub === 'interior' && <Card title='Mantenimiento'>
+        {E.isSealed(game, st) && <div className='bg-rojo text-white rounded-xl p-2.5 text-sm font-bold flex items-center gap-2'><img src={assetUrl('ui/px-candado.webp')} alt='' className='w-6 h-6' />Clausurada por el inspector hasta el día {st.sealedUntil}. Tramita los permisos que faltan.</div>}
+        {([['Limpieza', st.dirt ?? 0, 'px-brillos_nuevo', 'Limpiar a fondo', E.cleanCost(st), () => run(g => E.deepClean(g, st.id)), 'Sube con cada cliente; baja con tu nivel de limpieza diaria.'], ['Pintura y fachada', st.wear ?? 0, 'px-cono_obra', 'Pintar', E.paintCost(st), () => run(g => E.paintStore(g, st.id)), 'Se desgasta con el tiempo. Una fachada vieja aleja clientes.']] as const).map(([n, v, ic, b, c, go, d]) => (
+          <div key={n} className='flex items-center gap-3 py-1.5'>
+            <img src={assetUrl(`ui/${ic}.webp`)} alt='' className='w-9 h-9 object-contain' />
+            <div className='flex-1 min-w-0'><div className='flex justify-between text-sm font-semibold'><span>{n}</span><span className={v > 60 ? 'text-rojo' : v > 35 ? 'text-oferta' : 'text-ahorro'}>{v > 60 ? 'Mal' : v > 35 ? 'Regular' : 'Bien'}</span></div>
+              <div className='h-2 bg-borde rounded-full mt-1 overflow-hidden'><div className={`h-full ${v > 60 ? 'bg-rojo' : v > 35 ? 'bg-oferta' : 'bg-ahorro'}`} style={{ width: `${100 - v}%` }} /></div>
+              <span className='text-[11px] text-tenue'>{d}</span></div>
+            <Btn small kind={v > 50 ? 'primary' : 'ghost'} disabled={game.cash < c} onClick={go}>{b} {fmtK(c)}</Btn>
+          </div>))}
+      </Card>}
+      {sub === 'interior' && !f.ownerSells && <Card title='Permisos'>
+        {E.PERMITS.map(p => { const v = st.permits?.[p.id]; const done = E.permitDone(game, st, p.id); const day = E.dayOf(game.minute)
+          return <div key={p.id} className='flex items-center gap-3 py-1.5 border-t border-borde first:border-t-0'>
+            <img src={assetUrl(done ? 'ui/pi-libreta_tareas.webp' : 'ui/px-candado.webp')} alt='' className={`w-8 h-8 object-contain ${done ? '' : 'opacity-70'}`} />
+            <div className='flex-1 min-w-0'><b className='text-sm block'>{p.name}</b><span className='text-[11px] text-tenue'>{p.desc}</span></div>
+            {done ? <Pill tone='good'>Listo</Pill> : v != null ? <Pill>En trámite · {v - day} d</Pill> : <Btn small disabled={game.cash < E.permitCost(st, p.id)} onClick={() => run(g => E.requestPermit(g, st.id, p.id))}>Tramitar {fmtK(E.permitCost(st, p.id))}</Btn>}
+          </div> })}
+        <p className='text-[11px] text-tenue'>Una semana después de abrir pueden llegar inspectores. Si falta algún permiso ponen sellos de clausura: multa y 3 días cerrada.</p>
+      </Card>}
       {sub === 'interior' && <Card title='Mejoras de operación'>
         <Upgrade icon={<ScanLine size={18} />} name={`Caja de autocobro (${st.selfCheckouts}/${f.selfCheckoutSlots})`} desc={`+${ECONOMY.selfCheckoutRate} clientes/h sin sueldo`}
           action={<Btn small kind='blue' disabled={st.selfCheckouts >= f.selfCheckoutSlots || game.cash < ECONOMY.selfCheckoutCost} onClick={() => run(g => E.buySelfCheckout(g, st.id))}>{st.selfCheckouts >= f.selfCheckoutSlots ? 'Lleno' : fmtK(ECONOMY.selfCheckoutCost)}</Btn>} />
